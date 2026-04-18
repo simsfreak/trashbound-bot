@@ -1,11 +1,11 @@
 import os
 import logging
+import random
 import discord
 from discord.ext import commands
 from discord import app_commands
 
 logging.basicConfig(level=logging.INFO)
-logging.info("BOT VERSION: manual add_command test v2")
 
 TOKEN = os.getenv("DISCORD_TOKEN")
 GUILD_ID = os.getenv("GUILD_ID")
@@ -19,26 +19,49 @@ if not GUILD_ID:
 TEST_GUILD = discord.Object(id=int(GUILD_ID))
 intents = discord.Intents.default()
 
+
 class TrashboundBot(commands.Bot):
     def __init__(self):
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
-        logging.info("SETUP_HOOK IS RUNNING")
-        logging.info(f"PING OBJECT: {ping}")
         self.tree.clear_commands(guild=TEST_GUILD)
         self.tree.add_command(ping, guild=TEST_GUILD)
+        self.tree.add_command(dive, guild=TEST_GUILD)
         synced = await self.tree.sync(guild=TEST_GUILD)
         logging.info(f"Synced {len(synced)} commands to guild")
 
+
 bot = TrashboundBot()
+
 
 @bot.event
 async def on_ready():
     logging.info(f"Logged in as {bot.user}")
 
+
 @app_commands.command(name="ping", description="Check if the bot is alive")
 async def ping(interaction: discord.Interaction):
     await interaction.response.send_message("pong 🗑️")
+
+
+loot_table = [
+    ("Old Shoe", 5),
+    ("Scrap Metal", 10),
+    ("Broken Phone", 25),
+    ("Mystery Box", 50),
+    ("Legendary Trash Crown 👑", 200),
+]
+
+
+@app_commands.command(name="dive", description="Search a dumpster for loot")
+async def dive(interaction: discord.Interaction):
+    item, value = random.choice(loot_table)
+
+    await interaction.response.send_message(
+        f"🗑️ You dive into the dumpster...\n\n"
+        f"You found: **{item}** (+{value} coins)"
+    )
+
 
 bot.run(TOKEN)
