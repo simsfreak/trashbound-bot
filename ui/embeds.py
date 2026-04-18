@@ -65,3 +65,31 @@ def dive_result_embed(player: dict, item_id: str, leveled_up: bool) -> discord.E
     embed.add_field(name="📍 Zone", value=zone_name, inline=True)
 
     return embed
+
+
+def inventory_embed(username: str, lines: list[str], page: int, total_pages: int) -> discord.Embed:
+    embed = discord.Embed(
+        title=f"🎒 {username}'s Inventory",
+        description="\n".join(lines) if lines else "Your inventory is empty.",
+        color=0x5865F2,
+    )
+    embed.set_footer(text=f"Page {page + 1} / {total_pages}")
+    return embed
+
+
+def zones_embed(player: dict, zone_lines: list[str]) -> discord.Embed:
+    embed = discord.Embed(
+        title="🗺️ Dumpster Zones",
+        description="\n".join(zone_lines) if zone_lines else "No zones found.",
+        color=0x57F287,
+    )
+    embed.set_footer(text=f"Current zone: {ZONES[player['current_zone_id']]['name']}")
+    return embed
+
+
+def mix_result_embed(result_text: str) -> discord.Embed:
+    return discord.Embed(
+        title="🧪 Mixing Bench",
+        description=result_text,
+        color=0x9B59B6,
+    )
