@@ -17,7 +17,10 @@ class TrashboundBot(commands.Bot):
     async def setup_hook(self):
         if GUILD_ID:
             guild = discord.Object(id=int(GUILD_ID))
+
+            # 🔥 THIS LINE IS THE FIX
             self.tree.copy_global_to(guild=guild)
+
             synced = await self.tree.sync(guild=guild)
             logging.info(f"Synced {len(synced)} commands to guild")
         else:
