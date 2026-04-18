@@ -1,6 +1,8 @@
 import os
 import logging
 import random
+import time
+
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -12,7 +14,6 @@ GUILD_ID = os.getenv("GUILD_ID")
 
 if not TOKEN:
     raise RuntimeError("Missing DISCORD_TOKEN")
-
 if not GUILD_ID:
     raise RuntimeError("Missing GUILD_ID")
 
@@ -22,12 +23,19 @@ intents = discord.Intents.default()
 user_data = {}
 
 loot_table = [
-    ("Old Shoe", 5),
-    ("Scrap Metal", 10),
-    ("Broken Phone", 25),
-    ("Mystery Box", 50),
-    ("Legendary Trash Crown 👑", 200),
+    ("Old Shoe", 5, "Common"),
+    ("Scrap Metal", 10, "Common"),
+    ("Broken Phone", 25, "Rare"),
+    ("Mystery Box", 50, "Epic"),
+    ("Legendary Trash Crown 👑", 200, "Legendary"),
 ]
+
+colors = {
+    "Common": 0x95A5A6,
+    "Rare": 0x3498DB,
+    "Epic": 0x9B59B6,
+    "Legendary": 0xF1C40F,
+}
 
 
 def get_player(user: discord.abc.User) -> dict:
@@ -39,12 +47,23 @@ def get_player(user: discord.abc.User) -> dict:
             "level": 1,
             "zone": "Back Alley",
             "title": "Trash Rookie",
+            "last_dive": 0,
         }
     return user_data[user_id]
 
 
+def update_title(data: dict) -> None:
+    if data["coins"] > 500:
+        data["title"] = "Dumpster Diver 👑"
+    elif data["coins"] > 100:
+        data["title"] = "Trash Hunter"
+    else:
+        data["title"] = "Trash Rookie"
+
+
 def build_profile_embed(user: discord.abc.User) -> discord.Embed:
     data = get_player(user)
+    update_title(data)
 
     embed = discord.Embed(
         title=f"{user.display_name} — {data['title']}",
@@ -81,18 +100,34 @@ class ProfileView(discord.ui.View):
     @discord.ui.button(label="Dive", emoji="🗑️", style=discord.ButtonStyle.primary)
     async def dive_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         data = get_player(interaction.user)
-        item, value = random.choice(loot_table)
 
+        if time.time() - data["last_dive"] < 5:
+            await interaction.response.send_message(
+                "⏳ You need to catch your breath before diving again...",
+                ephemeral=True,
+            )
+            return
+
+        data["last_dive"] = time.time()
+
+        item, value, rarity = random.choice(loot_table)
         data["coins"] += value
         data["inventory"].append(item)
+        update_title(data)
 
         embed = build_profile_embed(interaction.user)
+        embed.color = colors.get(rarity, 0xFFFFFF)
         embed.description = (
-            f"🗑️ You dive into the dumpster...\n\n"
-            f"You found **{item}** (+{value} coins)"
+            f"🗑️ You dig through the trash...\n"
+            f"🪤 Something smells terrible...\n\n"
+            f"✨ You found **{item}** ({rarity})!\n"
+            f"💰 +{value} coins"
         )
 
-        await interaction.response.edit_message(embed=embed, view=ProfileView(interaction.user.id))
+        await interaction.response.edit_message(
+            embed=embed,
+            view=ProfileView(interaction.user.id),
+        )
 
     @discord.ui.button(label="Inventory", emoji="🎒", style=discord.ButtonStyle.secondary)
     async def inventory_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -110,25 +145,35 @@ class ProfileView(discord.ui.View):
         embed.add_field(name="Total Items", value=str(len(data["inventory"])))
         embed.add_field(name="Coins", value=str(data["coins"]))
 
-        await interaction.response.edit_message(embed=embed, view=ProfileView(interaction.user.id))
+        await interaction.response.edit_message(
+            embed=embed,
+            view=ProfileView(interaction.user.id),
+        )
 
     @discord.ui.button(label="Sell", emoji="💰", style=discord.ButtonStyle.success)
     async def sell_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         data = get_player(interaction.user)
 
         if not data["inventory"]:
-            await interaction.response.send_message("You have nothing to sell.", ephemeral=True)
+            await interaction.response.send_message(
+                "You have nothing to sell.",
+                ephemeral=True,
+            )
             return
 
         sold_count = len(data["inventory"])
         sell_value = sold_count * 3
         data["coins"] += sell_value
         data["inventory"].clear()
+        update_title(data)
 
         embed = build_profile_embed(interaction.user)
         embed.description = f"💰 You sold {sold_count} item(s) for {sell_value} coins."
 
-        await interaction.response.edit_message(embed=embed, view=ProfileView(interaction.user.id))
+        await interaction.response.edit_message(
+            embed=embed,
+            view=ProfileView(interaction.user.id),
+        )
 
     @discord.ui.button(label="Travel", emoji="🧭", style=discord.ButtonStyle.secondary)
     async def travel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -142,12 +187,18 @@ class ProfileView(discord.ui.View):
         embed = build_profile_embed(interaction.user)
         embed.description = f"🧭 You traveled to **{data['zone']}**."
 
-        await interaction.response.edit_message(embed=embed, view=ProfileView(interaction.user.id))
+        await interaction.response.edit_message(
+            embed=embed,
+            view=ProfileView(interaction.user.id),
+        )
 
     @discord.ui.button(label="Refresh", emoji="🪪", style=discord.ButtonStyle.secondary)
     async def refresh_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = build_profile_embed(interaction.user)
-        await interaction.response.edit_message(embed=embed, view=ProfileView(interaction.user.id))
+        await interaction.response.edit_message(
+            embed=embed,
+            view=ProfileView(interaction.user.id),
+        )
 
 
 class TrashboundBot(commands.Bot):
@@ -190,16 +241,33 @@ async def profile(interaction: discord.Interaction):
 @app_commands.command(name="dive", description="Search a dumpster for loot")
 async def dive(interaction: discord.Interaction):
     data = get_player(interaction.user)
-    item, value = random.choice(loot_table)
 
+    if time.time() - data["last_dive"] < 5:
+        await interaction.response.send_message(
+            "⏳ You need to catch your breath before diving again...",
+            ephemeral=True,
+        )
+        return
+
+    data["last_dive"] = time.time()
+
+    item, value, rarity = random.choice(loot_table)
     data["coins"] += value
     data["inventory"].append(item)
+    update_title(data)
 
-    await interaction.response.send_message(
-        f"🗑️ You dive into the dumpster...\n\n"
-        f"You found: **{item}** (+{value} coins)\n"
-        f"💰 Total coins: {data['coins']}"
+    embed = discord.Embed(
+        description=(
+            f"🗑️ You dig through the trash...\n"
+            f"🪤 Something smells terrible...\n\n"
+            f"✨ You found **{item}** ({rarity})!\n"
+            f"💰 +{value} coins\n"
+            f"💰 Total coins: {data['coins']}"
+        ),
+        color=colors.get(rarity, 0xFFFFFF),
     )
+
+    await interaction.response.send_message(embed=embed)
 
 
 bot.run(TOKEN)
