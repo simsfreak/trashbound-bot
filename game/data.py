@@ -2,25 +2,25 @@ ZONES = {
     "back_alley": {
         "name": "Back Alley",
         "unlock_level": 1,
-        "description": "Your first grimy treasure spot.",
+        "description": "Soggy boxes, lost sneakers, and low-tier treasure.",
         "image": "assets/zones/back_alley.png",
     },
     "apartment_bins": {
         "name": "Apartment Bins",
         "unlock_level": 3,
-        "description": "Household leftovers and hidden valuables.",
+        "description": "Household leftovers, mystery decor, and weird little jackpots.",
         "image": "assets/zones/apartment_bins.png",
     },
     "restaurant_dumpster": {
         "name": "Restaurant Dumpster",
         "unlock_level": 5,
-        "description": "Greasy loot, weird food relics, and chaos.",
+        "description": "Greasy chaos, cursed leftovers, and surprisingly good loot.",
         "image": "assets/zones/restaurant_dumpster.png",
     },
     "mall_rear_lot": {
         "name": "Mall Rear Lot",
         "unlock_level": 8,
-        "description": "Store returns, fashion junk, and jackpot finds.",
+        "description": "Discarded fashion, promo junk, and elite trash energy.",
         "image": "assets/zones/mall_rear_lot.png",
     },
 }
@@ -33,6 +33,8 @@ ITEMS = {
         "xp": 5,
         "zone_ids": ["back_alley"],
         "image": "assets/items/old_shoe.png",
+        "emoji": "👟",
+        "flavor": "Still has main character energy somehow.",
     },
     "scrap_metal": {
         "name": "Scrap Metal",
@@ -41,6 +43,8 @@ ITEMS = {
         "xp": 7,
         "zone_ids": ["back_alley", "apartment_bins"],
         "image": "https://raw.githubusercontent.com/simsfreak/trashbound-bot/main/assets/items/scrap_metal.png",
+        "emoji": "🔩",
+        "flavor": "Rusty, crunchy, and weirdly valuable.",
     },
     "broken_phone": {
         "name": "Broken Phone",
@@ -49,6 +53,8 @@ ITEMS = {
         "xp": 20,
         "zone_ids": ["apartment_bins"],
         "image": "assets/items/broken_phone.png",
+        "emoji": "📱",
+        "flavor": "Screen destroyed. Aura intact.",
     },
     "mystery_box": {
         "name": "Mystery Box",
@@ -57,13 +63,17 @@ ITEMS = {
         "xp": 35,
         "zone_ids": ["restaurant_dumpster", "mall_rear_lot"],
         "image": "assets/items/mystery_box.png",
+        "emoji": "🎁",
+        "flavor": "Suspicious. Glorious. Probably unstable.",
     },
     "trash_crown": {
-        "name": "Legendary Trash Crown 👑",
+        "name": "Trash Crown",
         "rarity": "Legendary",
         "coins": 200,
         "xp": 60,
         "zone_ids": ["mall_rear_lot"],
         "image": "assets/items/trash_crown.png",
+        "emoji": "👑",
+        "flavor": "Proof that garbage can, in fact, be royalty.",
     },
 }
