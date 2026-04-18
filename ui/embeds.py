@@ -14,11 +14,14 @@ def profile_embed(player: dict) -> discord.Embed:
         color=0x2C2F33,
     )
     embed.add_field(name="💰 Coins", value=str(player["coins"]), inline=True)
-    embed.add_field(name="⭐ Level", value=str(player["level"]), inline=True)
-    embed.add_field(name="📍 Zone", value=current_zone, inline=True)
-    embed.add_field(name="✨ XP", value=f"{player['xp']} / {xp_needed}", inline=False)
-    embed.add_field(name="🗑️ Total Dives", value=str(player["total_dives"]), inline=False)
-    return embed
+embed.add_field(name="⭐ Level", value=str(player["level"]), inline=True)
+embed.add_field(name="📍 Zone", value=current_zone, inline=True)
+
+embed.add_field(name="\u200b", value="\u200b", inline=False)
+
+embed.add_field(name="✨ XP", value=f"{player['xp']} / {xp_needed}", inline=True)
+embed.add_field(name="🗑️ Total Dives", value=str(player["total_dives"]), inline=True)
+embed.add_field(name="🎒 Inventory", value=str(inventory_count), inline=True)
 
 
 def dive_result_embed(player: dict, item_id: str, leveled_up: bool) -> discord.Embed:
@@ -27,12 +30,14 @@ def dive_result_embed(player: dict, item_id: str, leveled_up: bool) -> discord.E
     rarity = item["rarity"]
 
     desc = (
-        f"🗑️ You searched **{zone_name}**.\n\n"
-        f"✨ You found **{item['name']}**\n"
-        f"🎖️ Rarity: **{rarity}**\n"
-        f"💰 +{item['coins']} coins\n"
-        f"⭐ +{item['xp']} XP"
-    )
+    f"🗑️ You searched **{zone_name}**.\n"
+    f"\n"
+    f"✨ You found **{item['name']}**\n"
+    f"🎖️ Rarity: **{rarity}**\n"
+    f"💰 +{item['coins']} coins\n"
+    f"⭐ +{item['xp']} XP"
+    f"\n\n"
+)
 
     if leveled_up:
         desc += f"\n\n⬆️ You leveled up to **Level {player['level']}**!"
