@@ -3,7 +3,13 @@ import discord
 
 from db import queries
 from game.data import ZONES, ITEMS
-from game.helpers import roll_item_for_zone, get_recent_finds_from_inventory_rows, can_mix_inventory, perform_mix
+from game.helpers import (
+    roll_item_for_zone,
+    get_recent_finds_from_inventory_rows,
+    can_mix_inventory,
+    perform_mix,
+    get_random_dive_reaction,
+)
 from game.leveling import apply_xp
 from ui.embeds import (
     profile_embed,
@@ -100,33 +106,34 @@ class ProfileView(discord.ui.View):
         return True
 
     @discord.ui.button(label="🗑️ Dive", style=discord.ButtonStyle.primary, row=0)
-    async def dive_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        player = queries.get_player(interaction.user.id)
-        item_id, item = roll_item_for_zone(player["current_zone_id"])
+async def dive_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    player = queries.get_player(interaction.user.id)
+    item_id, item = roll_item_for_zone(player["current_zone_id"])
 
-        new_xp, new_level, leveled_up = apply_xp(player["xp"], player["level"], item["xp"])
-        new_title = determine_title(new_level)
-        new_coins = player["coins"] + item["coins"]
-        new_dives = player["total_dives"] + 1
+    new_xp, new_level, leveled_up = apply_xp(player["xp"], player["level"], item["xp"])
+    new_title = determine_title(new_level)
+    new_coins = player["coins"] + item["coins"]
+    new_dives = player["total_dives"] + 1
 
-        queries.add_item_to_inventory(interaction.user.id, item_id, 1)
-        queries.update_player_progress(
-            user_id=interaction.user.id,
-            coins=new_coins,
-            xp=new_xp,
-            level=new_level,
-            current_title=new_title,
-            total_dives=new_dives,
-        )
-        queries.unlock_zones_for_level(interaction.user.id, new_level)
+    queries.add_item_to_inventory(interaction.user.id, item_id, 1)
+    queries.update_player_progress(
+        user_id=interaction.user.id,
+        coins=new_coins,
+        xp=new_xp,
+        level=new_level,
+        current_title=new_title,
+        total_dives=new_dives,
+    )
+    queries.unlock_zones_for_level(interaction.user.id, new_level)
 
-        updated_player = queries.get_player(interaction.user.id)
-        embed = dive_result_embed(updated_player, item_id, leveled_up)
+    updated_player = queries.get_player(interaction.user.id)
+    reaction_text = get_random_dive_reaction()
+    embed = dive_result_embed(updated_player, item_id, leveled_up, reaction_text=reaction_text)
 
-        await interaction.response.edit_message(
-            embed=embed,
-            view=ProfileView(self.owner_id, self.is_admin)
-        )
+    await interaction.response.edit_message(
+        embed=embed,
+        view=ProfileView(self.owner_id, self.is_admin)
+    )
 
     @discord.ui.button(label="🎒 Loot", style=discord.ButtonStyle.secondary, row=0)
     async def inventory_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -170,10 +177,13 @@ class ProfileView(discord.ui.View):
         for zone_id, zone in ZONES.items():
             marker = "✅" if zone_id in unlocked else "🔒"
             current = " (Current)" if zone_id == player["current_zone_id"] else ""
-            lines.append(f"{marker} **{zone['name']}** — unlock level {zone['unlock_level']}{current}")
+            lines.append(
+                f"{marker} **{zone['name']}** — unlock level {zone['unlock_level']}{current}\n"
+                f"*{zone['description']}*"
+        )
 
-        embed = zones_embed(player, lines)
-        await interaction.response.edit_message(embed=embed, view=ProfileView(self.owner_id, self.is_admin))
+    embed = zones_embed(player, lines)
+    await interaction.response.edit_message(embed=embed, view=ProfileView(self.owner_id, self.is_admin))
 
     @discord.ui.button(label="✨ Events", style=discord.ButtonStyle.danger, row=1)
     async def events_button(self, interaction: discord.Interaction, button: discord.ui.Button):
