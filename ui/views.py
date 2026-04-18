@@ -147,15 +147,18 @@ async def dive_button(self, interaction: discord.Interaction, button: discord.ui
         inventory = queries.get_inventory(interaction.user.id)
 
         if not can_mix_inventory(inventory):
-            embed = mix_result_embed("You need at least **2 Common items** to mix something together.")
+            embed = mix_result_embed("You need at least **2 Common items** to smash together into something silly.")
             await interaction.response.edit_message(embed=embed, view=ProfileView(self.owner_id, self.is_admin))
             return
 
         result = perform_mix(inventory)
         if result is None:
-            embed = mix_result_embed("Mixing failed. Try collecting more junk.")
-            await interaction.response.edit_message(embed=embed, view=ProfileView(self.owner_id, self.is_admin))
-            return
+            embed = mix_result_embed(
+                f"You slammed some suspicious junk together and got...\n\n"
+                f"{item.get('emoji', '✨')} **{item['name']}** x{qty}\n"
+                f"🎖️ Rarity: **{item['rarity']}**\n"
+                f"*{item.get('flavor', 'A very strange creation.')}*"
+)
 
         result_item_id, qty = result
         queries.add_item_to_inventory(interaction.user.id, result_item_id, qty)
@@ -188,26 +191,28 @@ async def dive_button(self, interaction: discord.Interaction, button: discord.ui
     @discord.ui.button(label="✨ Events", style=discord.ButtonStyle.danger, row=1)
     async def events_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = discord.Embed(
-            title="🎉 Events",
-            description="No live events yet.\nSoon this page will show active event progress and rewards.",
+            title="✨ Events",
+            description="The dumpster spirits are quiet right now.\nLive events will show up here soon.",
             color=0xEB459E,
+)
         )
         await interaction.response.edit_message(embed=embed, view=ProfileView(self.owner_id, self.is_admin))
 
     @discord.ui.button(label="❓ Help", style=discord.ButtonStyle.secondary, row=1)
     async def instructions_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = discord.Embed(
-            title="📖 How to Play",
-            description=(
-                "• Use **Dive** to search your current zone.\n"
-                "• Gain **coins** and **XP** from items.\n"
-                "• Level up to unlock **new zones**.\n"
-                "• Open **Inventory** to view your loot.\n"
-                "• Use **Mix** to combine common junk.\n"
-                "• Check **Events** for special content."
-            ),
-            color=0xFAA61A,
-        )
+    title="❓ How to Play",
+    description=(
+        "• Use **Dive** to search your current zone.\n"
+        "• Find junk, treasure, and weird little prizes.\n"
+        "• Earn **coins** and **XP** from your finds.\n"
+        "• Level up to unlock **new zones**.\n"
+        "• Open **Loot** to admire your growing pile.\n"
+        "• Use **Mix** to combine common junk into surprises."
+    ),
+    color=0xFAA61A,
+)
+      
         await interaction.response.edit_message(embed=embed, view=ProfileView(self.owner_id, self.is_admin))
 
     @discord.ui.button(label="💌 Contact Admin", style=discord.ButtonStyle.secondary, row=2)
