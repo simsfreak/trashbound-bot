@@ -1,6 +1,15 @@
 import random
 from game.data import ITEMS, ZONES
 
+DIVE_REACTIONS = [
+    "The pile coughed up something decent.",
+    "Certified gremlin success.",
+    "A messy win is still a win.",
+    "You rummaged with style.",
+    "Trash luck is kinda cracked today.",
+    "A tiny victory for the dumpster elite.",
+    "The alley provided. Barely, but still.",
+]
 
 def get_zone_name(zone_id: str) -> str:
     return ZONES.get(zone_id, {}).get("name", zone_id)
