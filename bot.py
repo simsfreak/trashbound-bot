@@ -1,21 +1,37 @@
-import os
+import logging
+import discord
+from discord.ext import commands
 
-DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-GUILD_ID = os.getenv("GUILD_ID")
-DATABASE_URL = os.getenv("DATABASE_URL")
+from config import DISCORD_TOKEN, GUILD_ID
+from db.database import run_schema
 
-ADMIN_USER_IDS = {
-    257973526286434305,  # replace with your real Discord user ID
-}
+logging.basicConfig(level=logging.INFO)
 
-if not DISCORD_TOKEN:
-    raise RuntimeError("Missing DISCORD_TOKEN")
+TEST_GUILD = discord.Object(id=int(GUILD_ID))
+intents = discord.Intents.default()
 
-if not GUILD_ID:
-    raise RuntimeError("Missing GUILD_ID")
+INITIAL_EXTENSIONS = [
+    "cogs.profile",
+]
 
-if not DATABASE_URL:
-    raise RuntimeError("Missing DATABASE_URL")
+class TrashboundBot(commands.Bot):
+    def __init__(self):
+        super().__init__(command_prefix="!", intents=intents)
+
+    async def setup_hook(self):
+        run_schema()
+
+        for ext in INITIAL_EXTENSIONS:
+            await self.load_extension(ext)
+
+        synced = await self.tree.sync(guild=TEST_GUILD)
+        logging.info(f"Synced {len(synced)} commands to guild")
+
+    async def on_ready(self):
+        logging.info(f"Logged in as {self.user}")
+
+bot = TrashboundBot()
+bot.run(DISCORD_TOKEN)
 
 TEST_GUILD = discord.Object(id=int(GUILD_ID))
 intents = discord.Intents.default()
