@@ -11,6 +11,7 @@ DIVE_REACTIONS = [
     "The alley provided. Barely, but still.",
 ]
 
+
 def get_zone_name(zone_id: str) -> str:
     return ZONES.get(zone_id, {}).get("name", zone_id)
 
@@ -35,7 +36,7 @@ def get_recent_finds_from_inventory_rows(inventory_rows: list[tuple[str, int]]) 
     for item_id, qty in inventory_rows[:3]:
         item = ITEMS.get(item_id)
         if item:
-            names.append(item["name"])
+            names.append(f"{item.get('emoji', '✨')} {item['name']}")
     return names
 
 
@@ -64,3 +65,7 @@ def perform_mix(inventory_rows: list[tuple[str, int]]) -> tuple[str, int] | None
         ("scrap_metal", 2),
     ]
     return random.choice(crafted_options)
+
+
+def get_random_dive_reaction() -> str:
+    return random.choice(DIVE_REACTIONS)
