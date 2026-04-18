@@ -1,21 +1,21 @@
 import os
-import logging
-import random
-import time
 
-import discord
-from discord.ext import commands
-from discord import app_commands
-
-logging.basicConfig(level=logging.INFO)
-
-TOKEN = os.getenv("DISCORD_TOKEN")
+DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 GUILD_ID = os.getenv("GUILD_ID")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-if not TOKEN:
+ADMIN_USER_IDS = {
+    257973526286434305,  # replace with your real Discord user ID
+}
+
+if not DISCORD_TOKEN:
     raise RuntimeError("Missing DISCORD_TOKEN")
+
 if not GUILD_ID:
     raise RuntimeError("Missing GUILD_ID")
+
+if not DATABASE_URL:
+    raise RuntimeError("Missing DATABASE_URL")
 
 TEST_GUILD = discord.Object(id=int(GUILD_ID))
 intents = discord.Intents.default()
