@@ -58,14 +58,14 @@ class InventoryView(discord.ui.View):
     def total_pages(self) -> int:
         return max(1, math.ceil(len(self.items) / self.page_size))
 
-    @discord.ui.button(label="◀ Back", style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(label="⬅️ Back", style=discord.ButtonStyle.secondary, row=0)
     async def prev_page(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.page > 0:
             self.page -= 1
         embed = inventory_embed(interaction.user.display_name, self.page_lines(), self.page, self.total_pages)
         await interaction.response.edit_message(embed=embed, view=self)
 
-    @discord.ui.button(label="▶ Next", style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(label="➡️ Next", style=discord.ButtonStyle.secondary, row=0)
     async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.page < self.total_pages - 1:
             self.page += 1
@@ -99,7 +99,7 @@ class ProfileView(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(label="Dive", emoji="🗑️", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="🗑️ Dive", style=discord.ButtonStyle.primary, row=0)
     async def dive_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         player = queries.get_player(interaction.user.id)
         item_id, item = roll_item_for_zone(player["current_zone_id"])
@@ -128,14 +128,14 @@ class ProfileView(discord.ui.View):
             view=ProfileView(self.owner_id, self.is_admin)
         )
 
-    @discord.ui.button(label="Inventory", emoji="🎒", style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(label="🎒 Loot", style=discord.ButtonStyle.secondary, row=0)
     async def inventory_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         inventory = queries.get_inventory(interaction.user.id)
         view = InventoryView(self.owner_id, self.is_admin, inventory, page=0)
         embed = inventory_embed(interaction.user.display_name, view.page_lines(), view.page, view.total_pages)
         await interaction.response.edit_message(embed=embed, view=view)
 
-    @discord.ui.button(label="Mix", emoji="🧪", style=discord.ButtonStyle.success, row=0)
+    @discord.ui.button(label="🧪 Mix", style=discord.ButtonStyle.success, row=0)
     async def mix_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         inventory = queries.get_inventory(interaction.user.id)
 
@@ -161,7 +161,7 @@ class ProfileView(discord.ui.View):
         )
         await interaction.response.edit_message(embed=embed, view=ProfileView(self.owner_id, self.is_admin))
 
-    @discord.ui.button(label="Zones", emoji="🗺️", style=discord.ButtonStyle.success, row=1)
+    @discord.ui.button(label="🗺️ Zones", style=discord.ButtonStyle.success, row=1)
     async def zones_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         unlocked = set(queries.get_unlocked_zone_ids(interaction.user.id))
         player = queries.get_player(interaction.user.id)
@@ -175,7 +175,7 @@ class ProfileView(discord.ui.View):
         embed = zones_embed(player, lines)
         await interaction.response.edit_message(embed=embed, view=ProfileView(self.owner_id, self.is_admin))
 
-    @discord.ui.button(label="Events", emoji="🎉", style=discord.ButtonStyle.danger, row=1)
+    @discord.ui.button(label="✨ Events", style=discord.ButtonStyle.danger, row=1)
     async def events_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = discord.Embed(
             title="🎉 Events",
@@ -184,7 +184,7 @@ class ProfileView(discord.ui.View):
         )
         await interaction.response.edit_message(embed=embed, view=ProfileView(self.owner_id, self.is_admin))
 
-    @discord.ui.button(label="Instructions", emoji="📖", style=discord.ButtonStyle.secondary, row=1)
+    @discord.ui.button(label="❓ Help", style=discord.ButtonStyle.secondary, row=1)
     async def instructions_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = discord.Embed(
             title="📖 How to Play",
@@ -200,11 +200,11 @@ class ProfileView(discord.ui.View):
         )
         await interaction.response.edit_message(embed=embed, view=ProfileView(self.owner_id, self.is_admin))
 
-    @discord.ui.button(label="Contact Admin", emoji="📨", style=discord.ButtonStyle.secondary, row=2)
+    @discord.ui.button(label="💌 Contact Admin", style=discord.ButtonStyle.secondary, row=2)
     async def contact_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(ContactAdminModal())
 
-    @discord.ui.button(label="Refresh", emoji="🔄", style=discord.ButtonStyle.secondary, row=2)
+    @discord.ui.button(label="🔄 Refresh", style=discord.ButtonStyle.secondary, row=2)
     async def refresh_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         player = queries.get_player(interaction.user.id)
         inventory = queries.get_inventory(interaction.user.id)
