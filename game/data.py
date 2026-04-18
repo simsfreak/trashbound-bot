@@ -40,7 +40,7 @@ ITEMS = {
         "coins": 10,
         "xp": 7,
         "zone_ids": ["back_alley", "apartment_bins"],
-        "image": "assets/items/scrap_metal.png",
+        "image": "https://raw.githubusercontent.com/simsfreak/trashbound-bot/main/assets/items/scrap_metal.png",
     },
     "broken_phone": {
         "name": "Broken Phone",
