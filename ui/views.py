@@ -551,17 +551,6 @@ class ProfileView(discord.ui.View):
             view=PawnChatChoiceView(self.owner_id, self.is_admin, story),
         )
 
-Dive      -> primary
-Loot      -> secondary
-Exchange  -> success
-Zones     -> success
-Events    -> danger
-Museum    -> secondary
-Help      -> secondary
-Chat      -> primary or secondary
-Refresh   -> secondary
-Contact   -> secondary
-Admin     -> danger
 
 class AdminButton(discord.ui.Button):
     def __init__(self, row: int = 2):
