@@ -105,8 +105,10 @@ def get_conn():
         conn.commit()
     finally:
         conn.close()
-
-
+        
+cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS dirty_tickets INTEGER NOT NULL DEFAULT 0")
+cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS pawn_relationship INTEGER NOT NULL DEFAULT 0")
+cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_pawn_chat_date DATE")
 
 def run_schema() -> None:
     with get_conn() as conn:
@@ -115,7 +117,4 @@ def run_schema() -> None:
                 cur.execute(statement)
 
 
-cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS dirty_tickets INTEGER NOT NULL DEFAULT 0")
-cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS pawn_relationship INTEGER NOT NULL DEFAULT 0")
-cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_pawn_chat_date DATE")
 
