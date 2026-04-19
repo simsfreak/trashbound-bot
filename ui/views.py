@@ -335,19 +335,6 @@ class ProfileView(discord.ui.View):
                 embed=embed,
                 view=ProfileView(self.owner_id, self.is_admin),
          
-    if avatar_url:
-        embed.set_author(name=player["username"], icon_url=avatar_url)
-
-    if attachment_filename:
-        embed.set_thumbnail(url=f"attachment://{attachment_filename}")
-    elif isinstance(item.get("image"), str) and item["image"].startswith("http"):
-        embed.set_thumbnail(url=item["image"])
-
-    embed.add_field(name="💰 Coins", value=str(player["coins"]), inline=True)
-    embed.add_field(name="⭐ Level", value=str(player["level"]), inline=True)
-    embed.add_field(name="🗑️ Total Dives", value=str(player["total_dives"]), inline=True)
-    embed.add_field(name="✨ XP", value=build_xp_bar(player["xp"], player["level"]), inline=False)
-    return embed
 
     @discord.ui.button(label="🎒 Loot", style=discord.ButtonStyle.secondary, row=0)
     async def inventory_button(self, interaction: discord.Interaction, button: discord.ui.Button):
