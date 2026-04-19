@@ -324,6 +324,37 @@ def get_equipment(user_id: int) -> list[dict]:
                 """,
                 (user_id,),
             )
+
+
+            def mark_item_discovered(user_id: int, item_id: str) -> None:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO museum_discoveries (user_id, item_id)
+                VALUES (%s, %s)
+                ON CONFLICT DO NOTHING
+                """,
+                (user_id, item_id),
+            )
+
+
+def get_discovered_item_ids(user_id: int) -> set[str]:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT item_id
+                FROM museum_discoveries
+                WHERE user_id = %s
+                ORDER BY discovered_at ASC
+                """,
+                (user_id,),
+            )
+            return {row[0] for row in cur.fetchall()}
+
+             )
+                      
             return [
                 {"slot": row[0], "item_id": row[1], "equipped_at": row[2]}
                 for row in cur.fetchall()
