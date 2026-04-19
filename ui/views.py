@@ -311,13 +311,14 @@ class ProfileView(discord.ui.View):
 
         if isinstance(image_path, str) and image_path:
             if image_path.startswith("http"):
-                # URL image (use as embed image later)
+                # URL image: let embeds.py use the URL directly
                 attachment_name = None
                 attachment_file = None
-        else:
-            if os.path.exists(image_path):
-              attachment_name = os.path.basename(image_path)
-              attachment_file = discord.File(image_path, filename=attachment_name)  
+            else:
+                # Local file: attach it so Discord can show the thumbnail
+                if os.path.exists(image_path):
+                    attachment_name = os.path.basename(image_path)
+                    attachment_file = discord.File(image_path, filename=attachment_name)  
                 
 
         embed = dive_result_embed(
