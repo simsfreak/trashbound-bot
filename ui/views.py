@@ -341,6 +341,7 @@ class MixLabView(discord.ui.View):
     async def back_to_profile(self, interaction: discord.Interaction, button: discord.ui.Button):
         await show_profile(interaction, self.owner_id, self.is_admin)
 
+
 class DiveResultView(discord.ui.View):
     def __init__(self, owner_id: int, is_admin: bool):
         super().__init__(timeout=300)
@@ -349,20 +350,18 @@ class DiveResultView(discord.ui.View):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("Not your loot.", ephemeral=True)
+            await interaction.response.send_message("Not your loot. Get your own grime.", ephemeral=True)
             return False
         return True
 
-    @discord.ui.button(label="🗑️ Dive Again", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="🗑️ Dive Again", style=discord.ButtonStyle.primary, row=0)
     async def dive_again(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # simulate pressing Dive again
-        view = ProfileView(self.owner_id, self.is_admin)
-        await view.dive_button(interaction, button)
+        await ProfileView.run_dive_flow(interaction, self.owner_id, self.is_admin)
 
-    @discord.ui.button(label="🏠 Back to Profile", style=discord.ButtonStyle.secondary)
-    async def back(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(label="🏠 Back to Profile", style=discord.ButtonStyle.secondary, row=0)
+    async def back_to_profile(self, interaction: discord.Interaction, button: discord.ui.Button):
         await show_profile(interaction, self.owner_id, self.is_admin)
-        
+
 
 class ProfileView(discord.ui.View):
     def __init__(self, owner_id: int, is_admin: bool):
@@ -378,8 +377,8 @@ class ProfileView(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(label="🗑️ Dive", style=discord.ButtonStyle.primary, row=0)
-    async def dive_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @staticmethod
+    async def run_dive_flow(interaction: discord.Interaction, owner_id: int, is_admin: bool):
         player = queries.get_player(interaction.user.id)
         rare_bonus = 0.0
         coin_multiplier = 1.0
@@ -410,9 +409,23 @@ class ProfileView(discord.ui.View):
         xp_multiplier *= xp_effect
 
         zone_name = ZONES[player["current_zone_id"]]["name"]
-        await interaction.response.edit_message(embed=dive_processing_embed(zone_name, get_random_dive_starter()), view=None)
+
+        if not interaction.response.is_done():
+            await interaction.response.edit_message(
+                embed=dive_processing_embed(zone_name, get_random_dive_starter()),
+                view=None,
+            )
+        else:
+            await interaction.edit_original_response(
+                embed=dive_processing_embed(zone_name, get_random_dive_starter()),
+                view=None,
+            )
+
         await asyncio.sleep(1.0)
-        await interaction.edit_original_response(embed=dive_processing_embed(zone_name, get_random_dive_midpoint()), view=None)
+        await interaction.edit_original_response(
+            embed=dive_processing_embed(zone_name, get_random_dive_midpoint()),
+            view=None,
+        )
         await asyncio.sleep(1.0)
 
         item_id, item = roll_item_for_zone(player["current_zone_id"], rare_bonus=rare_bonus)
@@ -460,24 +473,31 @@ class ProfileView(discord.ui.View):
         item = dict(item)
         item["coins"] = gained_coins
         item["xp"] = gained_xp
-        # use temporary override for embed numbers
+
         original_item = ITEMS[item_id]
         ITEMS[item_id] = item
-        embed = dive_result_embed(
-            updated_player,
-            item_id,
-            leveled_up,
-            reaction_text=reaction_text,
-            event_text=event_text,
-            bonus_text=bonus_text,
-            unlocked_zone_names=unlocked_zone_names,
-            avatar_url=interaction.user.display_avatar.url,
-        )
-        ITEMS[item_id] = original_item
+        try:
+            embed = dive_result_embed(
+                updated_player,
+                item_id,
+                leveled_up,
+                reaction_text=reaction_text,
+                event_text=event_text,
+                bonus_text=bonus_text,
+                unlocked_zone_names=unlocked_zone_names,
+                avatar_url=interaction.user.display_avatar.url,
+            )
+        finally:
+            ITEMS[item_id] = original_item
+
         await interaction.edit_original_response(
-    embed=embed,
-    view=DiveResultView(self.owner_id, self.is_admin)
-)
+            embed=embed,
+            view=DiveResultView(owner_id, is_admin),
+        )
+
+    @discord.ui.button(label="🗑️ Dive", style=discord.ButtonStyle.primary, row=0)
+    async def dive_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.run_dive_flow(interaction, self.owner_id, self.is_admin)
 
     @discord.ui.button(label="🎒 Loot", style=discord.ButtonStyle.secondary, row=0)
     async def inventory_button(self, interaction: discord.Interaction, button: discord.ui.Button):
