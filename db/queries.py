@@ -70,6 +70,9 @@ def add_item_to_inventory(user_id: int, item_id: str, quantity: int = 1) -> None
                 """,
                 (user_id, item_id, quantity),
             )
+    mark_item_discovered(user_id, item_id)
+    
+            )
 
 
 
