@@ -350,13 +350,13 @@ class DiveResultView(discord.ui.View):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("Not your loot. Get your own grime.", ephemeral=True)
+            await interaction.response.send_message("That loot isn't yours.", ephemeral=True)
             return False
         return True
 
     @discord.ui.button(label="🗑️ Dive Again", style=discord.ButtonStyle.primary, row=0)
     async def dive_again(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await ProfileView.run_dive_flow(interaction, self.owner_id, self.is_admin)
+        await run_dive_sequence(interaction, self.owner_id, self.is_admin)
 
     @discord.ui.button(label="🏠 Back to Profile", style=discord.ButtonStyle.secondary, row=0)
     async def back_to_profile(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -377,127 +377,9 @@ class ProfileView(discord.ui.View):
             return False
         return True
 
-    @staticmethod
-    async def run_dive_flow(interaction: discord.Interaction, owner_id: int, is_admin: bool):
-        player = queries.get_player(interaction.user.id)
-        rare_bonus = 0.0
-        coin_multiplier = 1.0
-        xp_multiplier = 1.0
-        extra_item_chance = 0.0
-        event_text_parts: list[str] = []
-
-        for event in get_live_events():
-            rare_bonus += float(event.get("rare_bonus", 0.0))
-            coin_multiplier *= float(event.get("coin_multiplier", 1.0))
-            xp_multiplier *= float(event.get("xp_multiplier", 1.0))
-            extra_item_chance += float(event.get("extra_item_chance", 0.0))
-            event_text_parts.append(f"{event['emoji']} **{event['name']}** is live")
-
-        equipped = queries.get_equipment(interaction.user.id)
-        for entry in equipped:
-            item = ITEMS.get(entry["item_id"], {})
-            if item.get("equip_slot") == "hands":
-                coin_multiplier *= 1.10
-            if item.get("equip_slot") == "feet":
-                xp_multiplier += 5 / max(1, ITEMS.get("scrap_metal", {}).get("xp", 1))
-            if item.get("equip_slot") == "trinket":
-                rare_bonus += 0.08
-            if item.get("equip_slot") == "charm":
-                extra_item_chance += 0.12
-
-        xp_effect = queries.get_effect_multiplier(interaction.user.id, "xp_boost")
-        xp_multiplier *= xp_effect
-
-        zone_name = ZONES[player["current_zone_id"]]["name"]
-
-        if not interaction.response.is_done():
-            await interaction.response.edit_message(
-                embed=dive_processing_embed(zone_name, get_random_dive_starter()),
-                view=None,
-            )
-        else:
-            await interaction.edit_original_response(
-                embed=dive_processing_embed(zone_name, get_random_dive_starter()),
-                view=None,
-            )
-
-        await asyncio.sleep(1.0)
-        await interaction.edit_original_response(
-            embed=dive_processing_embed(zone_name, get_random_dive_midpoint()),
-            view=None,
-        )
-        await asyncio.sleep(1.0)
-
-        item_id, item = roll_item_for_zone(player["current_zone_id"], rare_bonus=rare_bonus)
-        gained_coins = max(1, int(round(item["coins"] * coin_multiplier)))
-        gained_xp = max(1, int(round(item["xp"] * xp_multiplier)))
-
-        bonus_event = maybe_roll_dive_event()
-        bonus_text = None
-        if bonus_event:
-            gained_coins += bonus_event["bonus_coins"]
-            gained_xp += bonus_event["bonus_xp"]
-            bonus_text = bonus_event["text"]
-
-        new_xp, new_level, leveled_up = apply_xp(player["xp"], player["level"], gained_xp)
-        new_title = determine_title(new_level)
-        new_coins = player["coins"] + gained_coins
-        new_dives = player["total_dives"] + 1
-
-        queries.add_item_to_inventory(interaction.user.id, item_id, 1)
-        queries.update_player_progress(
-            user_id=interaction.user.id,
-            coins=new_coins,
-            xp=new_xp,
-            level=new_level,
-            current_title=new_title,
-            total_dives=new_dives,
-        )
-        unlocked_zone_ids = queries.unlock_zones_for_level(interaction.user.id, new_level)
-        unlocked_zone_names = [ZONES[zone_id]["name"] for zone_id in unlocked_zone_ids]
-
-        if extra_item_chance > 0 and random.random() <= extra_item_chance:
-            extra_item_id, _extra_item = roll_item_for_zone(player["current_zone_id"], rare_bonus=rare_bonus)
-            queries.add_item_to_inventory(interaction.user.id, extra_item_id, 1)
-            bonus_text = (bonus_text + "\n" if bonus_text else "") + f"🎁 Bonus drop: {ITEMS[extra_item_id]['emoji']} **{ITEMS[extra_item_id]['name']}**"
-
-        for event in get_live_events():
-            event_item_id = event.get("event_item_id")
-            if event_item_id and random.random() <= 0.12:
-                queries.add_item_to_inventory(interaction.user.id, event_item_id, 1)
-                bonus_text = (bonus_text + "\n" if bonus_text else "") + f"{ITEMS[event_item_id]['emoji']} Event drop: **{ITEMS[event_item_id]['name']}**"
-
-        updated_player = queries.get_player(interaction.user.id)
-        reaction_text = get_random_dive_reaction()
-        event_text = " • ".join(event_text_parts) if event_text_parts else None
-        item = dict(item)
-        item["coins"] = gained_coins
-        item["xp"] = gained_xp
-
-        original_item = ITEMS[item_id]
-        ITEMS[item_id] = item
-        try:
-            embed = dive_result_embed(
-                updated_player,
-                item_id,
-                leveled_up,
-                reaction_text=reaction_text,
-                event_text=event_text,
-                bonus_text=bonus_text,
-                unlocked_zone_names=unlocked_zone_names,
-                avatar_url=interaction.user.display_avatar.url,
-            )
-        finally:
-            ITEMS[item_id] = original_item
-
-        await interaction.edit_original_response(
-            embed=embed,
-            view=DiveResultView(owner_id, is_admin),
-        )
-
     @discord.ui.button(label="🗑️ Dive", style=discord.ButtonStyle.primary, row=0)
     async def dive_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.run_dive_flow(interaction, self.owner_id, self.is_admin)
+        await run_dive_sequence(interaction, self.owner_id, self.is_admin)
 
     @discord.ui.button(label="🎒 Loot", style=discord.ButtonStyle.secondary, row=0)
     async def inventory_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -548,6 +430,115 @@ class AdminButton(discord.ui.Button):
         )
         await interaction.response.edit_message(embed=embed, view=self.view)
 
+
+async def run_dive_sequence(interaction: discord.Interaction, owner_id: int, is_admin: bool) -> None:
+    player = queries.get_player(interaction.user.id)
+    rare_bonus = 0.0
+    coin_multiplier = 1.0
+    xp_multiplier = 1.0
+    extra_item_chance = 0.0
+    event_text_parts: list[str] = []
+
+    for event in get_live_events():
+        rare_bonus += float(event.get("rare_bonus", 0.0))
+        coin_multiplier *= float(event.get("coin_multiplier", 1.0))
+        xp_multiplier *= float(event.get("xp_multiplier", 1.0))
+        extra_item_chance += float(event.get("extra_item_chance", 0.0))
+        event_text_parts.append(f"{event['emoji']} **{event['name']}** is live")
+
+    equipped = queries.get_equipment(interaction.user.id)
+    for entry in equipped:
+        item = ITEMS.get(entry["item_id"], {})
+        if item.get("equip_slot") == "hands":
+            coin_multiplier *= 1.10
+        if item.get("equip_slot") == "feet":
+            xp_multiplier += 5 / max(1, ITEMS.get("scrap_metal", {}).get("xp", 1))
+        if item.get("equip_slot") == "trinket":
+            rare_bonus += 0.08
+        if item.get("equip_slot") == "charm":
+            extra_item_chance += 0.12
+
+    xp_effect = queries.get_effect_multiplier(interaction.user.id, "xp_boost")
+    xp_multiplier *= xp_effect
+
+    zone_name = ZONES[player["current_zone_id"]]["name"]
+
+    if interaction.response.is_done():
+        await interaction.edit_original_response(embed=dive_processing_embed(zone_name, get_random_dive_starter()), view=None)
+    else:
+        await interaction.response.edit_message(embed=dive_processing_embed(zone_name, get_random_dive_starter()), view=None)
+
+    await asyncio.sleep(1.0)
+    await interaction.edit_original_response(embed=dive_processing_embed(zone_name, get_random_dive_midpoint()), view=None)
+    await asyncio.sleep(1.0)
+
+    item_id, item = roll_item_for_zone(player["current_zone_id"], rare_bonus=rare_bonus)
+    gained_coins = max(1, int(round(item["coins"] * coin_multiplier)))
+    gained_xp = max(1, int(round(item["xp"] * xp_multiplier)))
+
+    bonus_event = maybe_roll_dive_event()
+    bonus_text = None
+    if bonus_event:
+        gained_coins += bonus_event["bonus_coins"]
+        gained_xp += bonus_event["bonus_xp"]
+        bonus_text = bonus_event["text"]
+
+    new_xp, new_level, leveled_up = apply_xp(player["xp"], player["level"], gained_xp)
+    new_title = determine_title(new_level)
+    new_coins = player["coins"] + gained_coins
+    new_dives = player["total_dives"] + 1
+
+    queries.add_item_to_inventory(interaction.user.id, item_id, 1)
+    queries.update_player_progress(
+        user_id=interaction.user.id,
+        coins=new_coins,
+        xp=new_xp,
+        level=new_level,
+        current_title=new_title,
+        total_dives=new_dives,
+    )
+    unlocked_zone_ids = queries.unlock_zones_for_level(interaction.user.id, new_level)
+    unlocked_zone_names = [ZONES[zone_id]["name"] for zone_id in unlocked_zone_ids]
+
+    if extra_item_chance > 0 and random.random() <= extra_item_chance:
+        extra_item_id, _extra_item = roll_item_for_zone(player["current_zone_id"], rare_bonus=rare_bonus)
+        queries.add_item_to_inventory(interaction.user.id, extra_item_id, 1)
+        bonus_text = (bonus_text + "\n" if bonus_text else "") + f"🎁 Bonus drop: {ITEMS[extra_item_id]['emoji']} **{ITEMS[extra_item_id]['name']}**"
+
+    for event in get_live_events():
+        event_item_id = event.get("event_item_id")
+        if event_item_id and random.random() <= 0.12:
+            queries.add_item_to_inventory(interaction.user.id, event_item_id, 1)
+            bonus_text = (bonus_text + "\n" if bonus_text else "") + f"{ITEMS[event_item_id]['emoji']} Event drop: **{ITEMS[event_item_id]['name']}**"
+
+    updated_player = queries.get_player(interaction.user.id)
+    reaction_text = get_random_dive_reaction()
+    event_text = " • ".join(event_text_parts) if event_text_parts else None
+
+    original_item = ITEMS[item_id]
+    temporary_item = dict(original_item)
+    temporary_item["coins"] = gained_coins
+    temporary_item["xp"] = gained_xp
+    ITEMS[item_id] = temporary_item
+
+    try:
+        embed = dive_result_embed(
+            updated_player,
+            item_id,
+            leveled_up,
+            reaction_text=reaction_text,
+            event_text=event_text,
+            bonus_text=bonus_text,
+            unlocked_zone_names=unlocked_zone_names,
+            avatar_url=interaction.user.display_avatar.url,
+        )
+    finally:
+        ITEMS[item_id] = original_item
+
+    await interaction.edit_original_response(
+        embed=embed,
+        view=DiveResultView(owner_id, is_admin),
+    )
 
 
 def _split_live_events() -> tuple[str | None, str | None]:
@@ -609,4 +600,7 @@ def build_profile_embed_for_user(user: discord.abc.User | discord.Member) -> dis
 
 async def show_profile(interaction: discord.Interaction, owner_id: int, is_admin: bool) -> None:
     embed = build_profile_embed_for_user(interaction.user)
-    await interaction.response.edit_message(embed=embed, view=ProfileView(owner_id, is_admin))
+    if interaction.response.is_done():
+        await interaction.edit_original_response(embed=embed, view=ProfileView(owner_id, is_admin))
+    else:
+        await interaction.response.edit_message(embed=embed, view=ProfileView(owner_id, is_admin))
