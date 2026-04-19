@@ -334,7 +334,7 @@ class ProfileView(discord.ui.View):
             await interaction.edit_original_response(
                 embed=embed,
                 view=ProfileView(self.owner_id, self.is_admin),
-         
+            )
 
     @discord.ui.button(label="🎒 Loot", style=discord.ButtonStyle.secondary, row=0)
     async def inventory_button(self, interaction: discord.Interaction, button: discord.ui.Button):
