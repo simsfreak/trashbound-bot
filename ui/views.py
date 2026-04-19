@@ -723,7 +723,160 @@ def build_profile_embed_for_user(user: discord.abc.User | discord.Member) -> dis
 def build_museum_home_embed_for_user(user: discord.abc.User | discord.Member) -> discord.Embed:
     discovered = queries.get_discovered_item_ids(user.id)
     return museum_home_embed(user.display_name, discovered)
+class MuseumCollectionSelect(discord.ui.Select):
+    def __init__(self, owner_id: int, is_admin: bool):
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+        options = [
+            discord.SelectOption(
+                label=collection["name"][:100],
+                value=collection_id,
+                description=collection["description"][:100],
+                emoji=collection.get("emoji", "🏛️"),
+            )
+            for collection_id, collection in MUSEUM_COLLECTIONS.items()
+        ]
+        super().__init__(
+            placeholder="Choose a museum collection",
+            min_values=1,
+            max_values=1,
+            options=options,
+            row=0,
+        )
 
+    async def callback(self, interaction: discord.Interaction):
+        collection_id = self.values[0]
+        view = MuseumCollectionView(self.owner_id, self.is_admin, collection_id=collection_id, page=0)
+        embed = view.build_embed(interaction.user)
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
+class MuseumArtifactSelect(discord.ui.Select):
+    def __init__(self, parent_view: "MuseumCollectionView"):
+        self.parent_view = parent_view
+        options: list[discord.SelectOption] = []
+
+        for item_id in parent_view.current_page_item_ids():
+            item = ITEMS.get(item_id, {"name": item_id, "emoji": "✨"})
+            discovered = item_id in parent_view.discovered_item_ids
+            options.append(
+                discord.SelectOption(
+                    label=(item["name"] if discovered else "Unknown Artifact")[:100],
+                    value=item_id,
+                    description=("View archived artifact card" if discovered else "Undiscovered artifact entry")[:100],
+                    emoji=item.get("emoji", "❔") if discovered else "❔",
+                )
+            )
+
+        super().__init__(
+            placeholder="Inspect an artifact card",
+            min_values=1,
+            max_values=1,
+            options=options,
+            row=2,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        item_id = self.values[0]
+        view = MuseumArtifactView(
+            self.parent_view.owner_id,
+            self.parent_view.is_admin,
+            self.parent_view.collection_id,
+            item_id,
+            self.parent_view.page,
+        )
+        embed = view.build_embed(interaction.user)
+        await interaction.response.edit_message(embed=embed, view=view)
+
+
+class MuseumHomeView(discord.ui.View):
+    def __init__(self, owner_id: int, is_admin: bool):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+        self.add_item(MuseumCollectionSelect(owner_id, is_admin))
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This museum ledger isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="🏠 Back to Profile", style=discord.ButtonStyle.primary, row=1)
+    async def back_to_profile(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await show_profile(interaction, self.owner_id, self.is_admin)
+
+
+class MuseumCollectionView(discord.ui.View):
+    def __init__(self, owner_id: int, is_admin: bool, collection_id: str, page: int = 0):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+        self.collection_id = collection_id
+        self.page = page
+        self.discovered_item_ids: set[str] = set()
+        self.add_item(MuseumArtifactSelect(self))
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This collection isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    @property
+    def total_pages(self) -> int:
+        item_count = len(MUSEUM_COLLECTIONS[self.collection_id]["item_ids"])
+        return max(1, math.ceil(item_count / 6))
+
+    def current_page_item_ids(self) -> list[str]:
+        item_ids = MUSEUM_COLLECTIONS[self.collection_id]["item_ids"]
+        start = self.page * 6
+        end = start + 6
+        return item_ids[start:end]
+
+    def build_embed(self, user: discord.abc.User | discord.Member) -> discord.Embed:
+        self.discovered_item_ids = queries.get_discovered_item_ids(user.id)
+        return museum_collection_embed(
+            user.display_name,
+            self.collection_id,
+            self.discovered_item_ids,
+            self.page,
+            self.total_pages,
+        )
+
+    @discord.ui.button(label="⬅️ Back", style=discord.ButtonStyle.secondary, row=0)
+    async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.page > 0:
+            self.page -= 1
+        self.clear_items()
+        self.add_item(MuseumArtifactSelect(self))
+        embed = self.build_embed(interaction.user)
+        self._rebuild_buttons()
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(label="➡️ Next", style=discord.ButtonStyle.secondary, row=0)
+    async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.page < self.total_pages - 1:
+            self.page += 1
+        self.clear_items()
+        self.add_item(MuseumArtifactSelect(self))
+        embed = self.build_embed(interaction.user)
+        self._rebuild_buttons()
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    def _rebuild_buttons(self):
+        # preserve nav/buttons after select refresh
+        if not any(isinstance(child, discord.ui.Button) and child.label == "⬅️ Back" for child in self.children):
+            pass  # buttons are class-defined and persist automatically
+
+    @discord.ui.button(label="🏛️ Collections", style=discord.ButtonStyle.primary, row=1)
+    async def back_to_museum_home(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await show_museum_home(interaction, self.owner_id, self.is_admin)
+
+    @discord.ui.button(label="🏠 Profile", style=discord.ButtonStyle.secondary, row=1)
+    async def back_to_profile(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await show_profile(interaction, self.owner_id, self.is_admin)
+        
 
 async def show_museum_home(interaction: discord.Interaction, owner_id: int, is_admin: bool) -> None:
     embed = build_museum_home_embed_for_user(interaction.user)
