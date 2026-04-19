@@ -187,7 +187,7 @@ class InventoryActionSelect(discord.ui.Select):
             await interaction.response.send_message(
                 f"{item['emoji']} **{item['name']}** activated — {item['use_text']}",
                 ephemeral=True,
-            )
+         
         elif kind == "equipment":
             slot = item.get("equip_slot", "misc")
             queries.equip_item(interaction.user.id, slot, item_id)
