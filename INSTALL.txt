@@ -1,0 +1,4 @@
+How to install:
+1. Delete old bot.py, config.py, cogs/, db/, game/, ui/ from your app.
+2. Upload the files/folders from this zip directly into /app so bot.py sits at /app/bot.py.
+3. Keep your environment variables: DISCORD_TOKEN, GUILD_ID, DATABASE_URL.
