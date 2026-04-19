@@ -236,21 +236,31 @@ class ProfileView(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(label="🗑️ Dive", style=discord.ButtonStyle.primary, row=0)
+        @discord.ui.button(label="🗑️ Dive", style=discord.ButtonStyle.primary, row=0)
     async def dive_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        import os
+
         player = queries.get_player(interaction.user.id)
         zone_name = ZONES[player["current_zone_id"]]["name"]
 
         starter = get_random_dive_starter()
         midpoint = get_random_dive_midpoint()
 
+        # Stage 1
         await interaction.response.edit_message(
+            embed=dive_processing_embed(zone_name, starter),
+            view=None,
+        )
+        await asyncio.sleep(1.0)
+
+        # Stage 2
+        await interaction.edit_original_response(
             embed=dive_processing_embed(zone_name, f"{starter}\n\n{midpoint}"),
             view=None,
         )
+        await asyncio.sleep(1.0)
 
-        await asyncio.sleep(1.2)
-
+        # Roll result
         item_id, item = roll_item_for_zone(player["current_zone_id"])
         event = maybe_roll_dive_event()
 
@@ -293,45 +303,38 @@ class ProfileView(discord.ui.View):
             if zid in ZONES and ZONES[zid]["unlock_level"] == new_level
         ]
 
-        def dive_result_embed(
-    player,
-    item_id,
-    leveled_up,
-    reaction_text=None,
-    event_text=None,
-    bonus_text=None,
-    unlocked_zone_names=None,
-    avatar_url=None,
-    attachment_filename=None,
-):
-    item = ITEMS[item_id]
-    rarity = item.get("rarity", "Common")
+        attachment_file = None
+        attachment_name = None
+        image_path = item.get("image")
 
-    lines = [
-        f"{item.get('emoji', '✨')} **{item['name']}**",
-        f"{rarity}",
-    ]
+        if isinstance(image_path, str) and image_path and not image_path.startswith("http"):
+            if os.path.exists(image_path):
+                attachment_name = os.path.basename(image_path)
+                attachment_file = discord.File(image_path, filename=attachment_name)
 
-    if item.get("flavor"):
-        lines.append(f"*{item['flavor']}*")
+        embed = dive_result_embed(
+            player=updated_player,
+            item_id=item_id,
+            leveled_up=leveled_up,
+            reaction_text=get_random_dive_reaction(),
+            event_text=event_text,
+            bonus_text=(f"🎉 Bonus: +{bonus_coins} coins, +{bonus_xp} XP" if (bonus_coins or bonus_xp) else None),
+            unlocked_zone_names=unlocked_zone_names or None,
+            avatar_url=_avatar_url(interaction.user),
+            attachment_filename=attachment_name,
+        )
 
-    if event_text:
-        lines.append(event_text)
-    if bonus_text:
-        lines.append(bonus_text)
-    if reaction_text:
-        lines.append(f"_{reaction_text}_")
-    if leveled_up:
-        lines.append(f"⬆️ You leveled up to **Level {player['level']}**!")
-    if unlocked_zone_names:
-        lines.append(f"🔓 New zones unlocked: **{', '.join(unlocked_zone_names)}**")
-
-    embed = discord.Embed(
-        title="✨ Loot Found!",
-        description="\n\n".join(lines),
-        color=RARITY_COLORS.get(rarity, 0x57F287),
-    )
-
+        if attachment_file:
+            await interaction.edit_original_response(
+                embed=embed,
+                attachments=[attachment_file],
+                view=ProfileView(self.owner_id, self.is_admin),
+            )
+        else:
+            await interaction.edit_original_response(
+                embed=embed,
+                view=ProfileView(self.owner_id, self.is_admin),
+         
     if avatar_url:
         embed.set_author(name=player["username"], icon_url=avatar_url)
 
