@@ -16,6 +16,10 @@ SCHEMA_STATEMENTS = [
         current_zone_id TEXT NOT NULL DEFAULT 'back_alley',
         current_title TEXT NOT NULL DEFAULT 'Trash Rookie',
         total_dives INTEGER NOT NULL DEFAULT 0,
+        game_currency INTEGER NOT NULL DEFAULT 0,
+        dirty_tickets INTEGER NOT NULL DEFAULT 0,
+        pawn_relationship INTEGER NOT NULL DEFAULT 0,
+        last_pawn_chat_date DATE,
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
         last_dive_at TIMESTAMP
     )
