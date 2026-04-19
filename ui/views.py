@@ -32,7 +32,14 @@ def determine_title(level: int) -> str:
 
 
 class InventoryView(discord.ui.View):
-    def __init__(self, owner_id: int, is_admin: bool, items: list[tuple[str, int]], page: int = 0, page_size: int = 6):
+    def __init__(
+        self,
+        owner_id: int,
+        is_admin: bool,
+        items: list[tuple[str, int]],
+        page: int = 0,
+        page_size: int = 6,
+    ):
         super().__init__(timeout=300)
         self.owner_id = owner_id
         self.is_admin = is_admin
@@ -68,6 +75,7 @@ class InventoryView(discord.ui.View):
     async def prev_page(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.page > 0:
             self.page -= 1
+
         embed = inventory_embed(interaction.user.display_name, self.page_lines(), self.page, self.total_pages)
         await interaction.response.edit_message(embed=embed, view=self)
 
@@ -75,6 +83,7 @@ class InventoryView(discord.ui.View):
     async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.page < self.total_pages - 1:
             self.page += 1
+
         embed = inventory_embed(interaction.user.display_name, self.page_lines(), self.page, self.total_pages)
         await interaction.response.edit_message(embed=embed, view=self)
 
@@ -83,10 +92,14 @@ class InventoryView(discord.ui.View):
         player = queries.get_player(interaction.user.id)
         inventory = queries.get_inventory(interaction.user.id)
         recent_finds = get_recent_finds_from_inventory_rows(inventory)
-        embed = profile_embed(player, inventory_count=sum(q for _, q in inventory), recent_finds=recent_finds)
+        embed = profile_embed(
+            player,
+            inventory_count=sum(q for _, q in inventory),
+            recent_finds=recent_finds,
+        )
         await interaction.response.edit_message(
             embed=embed,
-            view=ProfileView(self.owner_id, self.is_admin)
+            view=ProfileView(self.owner_id, self.is_admin),
         )
 
 
@@ -101,39 +114,42 @@ class ProfileView(discord.ui.View):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("This menu isn't yours. Open your own with /profile.", ephemeral=True)
+            await interaction.response.send_message(
+                "This menu isn't yours. Open your own with /profile.",
+                ephemeral=True,
+            )
             return False
         return True
 
     @discord.ui.button(label="🗑️ Dive", style=discord.ButtonStyle.primary, row=0)
-async def dive_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-    player = queries.get_player(interaction.user.id)
-    item_id, item = roll_item_for_zone(player["current_zone_id"])
+    async def dive_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        player = queries.get_player(interaction.user.id)
+        item_id, item = roll_item_for_zone(player["current_zone_id"])
 
-    new_xp, new_level, leveled_up = apply_xp(player["xp"], player["level"], item["xp"])
-    new_title = determine_title(new_level)
-    new_coins = player["coins"] + item["coins"]
-    new_dives = player["total_dives"] + 1
+        new_xp, new_level, leveled_up = apply_xp(player["xp"], player["level"], item["xp"])
+        new_title = determine_title(new_level)
+        new_coins = player["coins"] + item["coins"]
+        new_dives = player["total_dives"] + 1
 
-    queries.add_item_to_inventory(interaction.user.id, item_id, 1)
-    queries.update_player_progress(
-        user_id=interaction.user.id,
-        coins=new_coins,
-        xp=new_xp,
-        level=new_level,
-        current_title=new_title,
-        total_dives=new_dives,
-    )
-    queries.unlock_zones_for_level(interaction.user.id, new_level)
+        queries.add_item_to_inventory(interaction.user.id, item_id, 1)
+        queries.update_player_progress(
+            user_id=interaction.user.id,
+            coins=new_coins,
+            xp=new_xp,
+            level=new_level,
+            current_title=new_title,
+            total_dives=new_dives,
+        )
+        queries.unlock_zones_for_level(interaction.user.id, new_level)
 
-    updated_player = queries.get_player(interaction.user.id)
-    reaction_text = get_random_dive_reaction()
-    embed = dive_result_embed(updated_player, item_id, leveled_up, reaction_text=reaction_text)
+        updated_player = queries.get_player(interaction.user.id)
+        reaction_text = get_random_dive_reaction()
+        embed = dive_result_embed(updated_player, item_id, leveled_up, reaction_text=reaction_text)
 
-    await interaction.response.edit_message(
-        embed=embed,
-        view=ProfileView(self.owner_id, self.is_admin)
-    )
+        await interaction.response.edit_message(
+            embed=embed,
+            view=ProfileView(self.owner_id, self.is_admin),
+        )
 
     @discord.ui.button(label="🎒 Loot", style=discord.ButtonStyle.secondary, row=0)
     async def inventory_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -153,12 +169,9 @@ async def dive_button(self, interaction: discord.Interaction, button: discord.ui
 
         result = perform_mix(inventory)
         if result is None:
-            embed = mix_result_embed(
-                f"You slammed some suspicious junk together and got...\n\n"
-                f"{item.get('emoji', '✨')} **{item['name']}** x{qty}\n"
-                f"🎖️ Rarity: **{item['rarity']}**\n"
-                f"*{item.get('flavor', 'A very strange creation.')}*"
-)
+            embed = mix_result_embed("The mix failed. Try again after getting more common junk.")
+            await interaction.response.edit_message(embed=embed, view=ProfileView(self.owner_id, self.is_admin))
+            return
 
         result_item_id, qty = result
         queries.add_item_to_inventory(interaction.user.id, result_item_id, qty)
@@ -166,8 +179,9 @@ async def dive_button(self, interaction: discord.Interaction, button: discord.ui
         item = ITEMS[result_item_id]
         embed = mix_result_embed(
             f"You mashed together some junk and created:\n\n"
-            f"✨ **{item['name']}** x{qty}\n"
-            f"🎖️ Rarity: **{item['rarity']}**"
+            f"{item.get('emoji', '✨')} **{item['name']}** x{qty}\n"
+            f"🎖️ Rarity: **{item['rarity']}**\n"
+            f"*{item.get('flavor', 'A very strange creation.')}*"
         )
         await interaction.response.edit_message(embed=embed, view=ProfileView(self.owner_id, self.is_admin))
 
@@ -183,10 +197,10 @@ async def dive_button(self, interaction: discord.Interaction, button: discord.ui
             lines.append(
                 f"{marker} **{zone['name']}** — unlock level {zone['unlock_level']}{current}\n"
                 f"*{zone['description']}*"
-        )
+            )
 
-    embed = zones_embed(player, lines)
-    await interaction.response.edit_message(embed=embed, view=ProfileView(self.owner_id, self.is_admin))
+        embed = zones_embed(player, lines)
+        await interaction.response.edit_message(embed=embed, view=ProfileView(self.owner_id, self.is_admin))
 
     @discord.ui.button(label="✨ Events", style=discord.ButtonStyle.danger, row=1)
     async def events_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -194,25 +208,23 @@ async def dive_button(self, interaction: discord.Interaction, button: discord.ui
             title="✨ Events",
             description="The dumpster spirits are quiet right now.\nLive events will show up here soon.",
             color=0xEB459E,
-)
         )
         await interaction.response.edit_message(embed=embed, view=ProfileView(self.owner_id, self.is_admin))
 
     @discord.ui.button(label="❓ Help", style=discord.ButtonStyle.secondary, row=1)
     async def instructions_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = discord.Embed(
-    title="❓ How to Play",
-    description=(
-        "• Use **Dive** to search your current zone.\n"
-        "• Find junk, treasure, and weird little prizes.\n"
-        "• Earn **coins** and **XP** from your finds.\n"
-        "• Level up to unlock **new zones**.\n"
-        "• Open **Loot** to admire your growing pile.\n"
-        "• Use **Mix** to combine common junk into surprises."
-    ),
-    color=0xFAA61A,
-)
-      
+            title="❓ How to Play",
+            description=(
+                "• Use **Dive** to search your current zone.\n"
+                "• Find junk, treasure, and weird little prizes.\n"
+                "• Earn **coins** and **XP** from your finds.\n"
+                "• Level up to unlock **new zones**.\n"
+                "• Open **Loot** to admire your growing pile.\n"
+                "• Use **Mix** to combine common junk into surprises."
+            ),
+            color=0xFAA61A,
+        )
         await interaction.response.edit_message(embed=embed, view=ProfileView(self.owner_id, self.is_admin))
 
     @discord.ui.button(label="💌 Contact Admin", style=discord.ButtonStyle.secondary, row=2)
