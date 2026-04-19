@@ -522,15 +522,28 @@ async def run_dive_sequence(interaction: discord.Interaction, owner_id: int, is_
     ITEMS[item_id] = temporary_item
 
     try:
-        embed = dive_result_embed(
-            updated_player,
-            item_id,
-            leveled_up,
-            reaction_text=reaction_text,
-            event_text=event_text,
-            bonus_text=bonus_text,
-            unlocked_zone_names=unlocked_zone_names,
-            avatar_url=interaction.user.display_avatar.url,
+            embed = dive_result_embed(
+        updated_player,
+        item_id,
+        leveled_up,
+        avatar_url=interaction.user.display_avatar.url,
+    )
+
+    image_path = ITEMS[item_id].get("image")
+
+    if image_path and not image_path.startswith("http"):
+        file = discord.File(image_path, filename="item.png")
+        embed.set_thumbnail(url="attachment://item.png")
+
+        await interaction.edit_original_response(
+            embed=embed,
+            attachments=[file],
+            view=DiveResultView(owner_id, is_admin),
+        )
+    else:
+        await interaction.edit_original_response(
+            embed=embed,
+            view=DiveResultView(owner_id, is_admin),
         )
     finally:
         ITEMS[item_id] = original_item
