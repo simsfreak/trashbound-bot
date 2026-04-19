@@ -236,7 +236,7 @@ class ProfileView(discord.ui.View):
             return False
         return True
 
-        @discord.ui.button(label="🗑️ Dive", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="🗑️ Dive", style=discord.ButtonStyle.primary, row=0)
     async def dive_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         import os
 
