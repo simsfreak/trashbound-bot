@@ -250,14 +250,16 @@ class ProfileView(discord.ui.View):
         await interaction.response.edit_message(
             embed=dive_processing_embed(zone_name, starter),
             view=None,
-        )
+            attachments=[],
+)
         await asyncio.sleep(1.0)
 
         # Stage 2
         await interaction.edit_original_response(
             embed=dive_processing_embed(zone_name, f"{starter}\n\n{midpoint}"),
             view=None,
-        )
+            attachments=[],
+)
         await asyncio.sleep(1.0)
 
         # Roll result
