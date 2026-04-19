@@ -249,6 +249,93 @@ class MuseumHomeView(discord.ui.View):
     async def back_to_profile(self, interaction: discord.Interaction, button: discord.ui.Button):
         await show_profile(interaction, self.owner_id, self.is_admin)
 
+class PawnChatChoiceView(discord.ui.View):
+    def __init__(self, owner_id: int, is_admin: bool, story: dict):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+        self.story = story
+
+        for idx, choice in enumerate(story["choices"]):
+            self.add_item(PawnChatChoiceButton(choice["label"], choice["liked"], row=0))
+
+        self.add_item(PawnChatBackButton(row=1))
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This conversation isn't yours.", ephemeral=True)
+            return False
+        return True
+
+class PawnChatChoiceButton(discord.ui.Button):
+    def __init__(self, label: str, liked: bool, row: int = 0):
+        style = discord.ButtonStyle.success if liked else discord.ButtonStyle.secondary
+        super().__init__(label=label, style=style, row=row)
+        self.liked = liked
+
+    async def callback(self, interaction: discord.Interaction):
+        if not isinstance(self.view, PawnChatChoiceView):
+            return
+
+        player = queries.get_player(interaction.user.id)
+        relationship = int(player.get("pawn_relationship", 0))
+
+        coins_reward, ticket_reward = roll_pawn_chat_reward(relationship, self.liked)
+
+        if self.liked:
+            owner_text = random.choice([
+                "Heh. You get how this town works.",
+                "Not bad. You might survive around here.",
+                "Now that's the kind of answer I respect.",
+            ])
+            relationship_delta = 1
+        else:
+            owner_text = random.choice([
+                "Nah. Soft answer.",
+                "You'd get eaten alive doing that.",
+                "Wrong instinct. Cute, though.",
+             ])
+             relationship_delta = 0
+             coins_reward = 0
+             ticket_reward = 0
+            
+        queries.update_pawn_chat(
+            interaction.user.id,
+            relationship_delta=relationship_delta,
+            coins_delta=coins_reward,
+            dirty_ticket_delta=ticket_reward,
+        )
+        reward_lines = [owner_text]
+        if coins_reward:
+            reward_lines.append(f"💰 Under the table: **+{coins_reward} coins**")
+        if ticket_reward:
+            reward_lines.append(f"🎟 Under the table: **+{ticket_reward} Dirty Ticket**")
+        if not coins_reward and not ticket_reward:
+            reward_lines.append("You got attitude. No bonus.")
+
+        updated_player = queries.get_player(interaction.user.id)
+        reward_lines.append(f"🤝 Pawn Relationship: **{updated_player.get('pawn_relationship', 0)}**")
+
+        embed = discord.Embed(
+            title="💬 Pawn Owner Chat",
+            description="\n\n".join(reward_lines),
+            color=0x8B5E3C,
+        )
+
+        await interaction.response.edit_message(
+            embed=embed,
+            view=ProfileView(self.view.owner_id, self.view.is_admin),
+        )
+
+
+class PawnChatBackButton(discord.ui.Button):
+    def __init__(self, row: int = 1):
+        super().__init__(label="🏠 Back to Profile", style=discord.ButtonStyle.primary, row=row)
+
+    async def callback(self, interaction: discord.Interaction):
+        if not isinstance(self.view, PawnChatChoiceView):
+            return
+        await show_profile(interaction, self.view.owner_id, self.view.is_admin)
 
 class ProfileView(discord.ui.View):
     def __init__(self, owner_id: int, is_admin: bool):
