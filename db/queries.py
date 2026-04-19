@@ -32,7 +32,7 @@ def get_player(user_id: int) -> dict | None:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT user_id, username, coins, xp, level, current_zone_id, current_title, total_dives, last_dive_at
+                SELECT user_id, username, coins, xp, level, current_zone_id, current_title, total_dives, last_dive_at, dirty_tickets, pawn_relationship, last_pawn_chat_date
                 FROM players
                 WHERE user_id = %s
                 """,
@@ -50,7 +50,9 @@ def get_player(user_id: int) -> dict | None:
                 "current_zone_id": row[5],
                 "current_title": row[6],
                 "total_dives": row[7],
-                "last_dive_at": row[8],
+                "dirty_tickets": row[9],
+                "pawn_relationship": row[10],
+                "last_pawn_chat_date": row[11],
             }
 
 
