@@ -34,6 +34,29 @@ PAWN_STORIES = [
     },
 ]
 
+def get_random_pawn_story():
+    return random.choice(PAWN_STORIES)
+
+
+def roll_pawn_chat_reward(relationship: int, liked: bool):
+    if not liked:
+        return 0, 0
+
+    ticket_chance = 0.05
+    if relationship >= 5:
+        ticket_chance = 0.10
+    if relationship >= 10:
+        ticket_chance = 0.15
+
+    if random.random() < ticket_chance:
+        return 0, 1
+
+    coins = random.randint(40, 120)
+    if relationship >= 5:
+        coins += 25
+
+    return coins, 0
+
 from db import queries
 from game.data import ITEMS, ZONES, MUSEUM_COLLECTIONS
 from game.helpers import (
