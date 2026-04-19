@@ -341,6 +341,28 @@ class MixLabView(discord.ui.View):
     async def back_to_profile(self, interaction: discord.Interaction, button: discord.ui.Button):
         await show_profile(interaction, self.owner_id, self.is_admin)
 
+class DiveResultView(discord.ui.View):
+    def __init__(self, owner_id: int, is_admin: bool):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("Not your loot.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="🗑️ Dive Again", style=discord.ButtonStyle.primary)
+    async def dive_again(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # simulate pressing Dive again
+        view = ProfileView(self.owner_id, self.is_admin)
+        await view.dive_button(interaction, button)
+
+    @discord.ui.button(label="🏠 Back to Profile", style=discord.ButtonStyle.secondary)
+    async def back(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await show_profile(interaction, self.owner_id, self.is_admin)
+        
 
 class ProfileView(discord.ui.View):
     def __init__(self, owner_id: int, is_admin: bool):
@@ -452,7 +474,10 @@ class ProfileView(discord.ui.View):
             avatar_url=interaction.user.display_avatar.url,
         )
         ITEMS[item_id] = original_item
-        await interaction.edit_original_response(embed=embed, view=ProfileView(self.owner_id, self.is_admin))
+        await interaction.edit_original_response(
+    embed=embed,
+    view=DiveResultView(self.owner_id, self.is_admin)
+)
 
     @discord.ui.button(label="🎒 Loot", style=discord.ButtonStyle.secondary, row=0)
     async def inventory_button(self, interaction: discord.Interaction, button: discord.ui.Button):
