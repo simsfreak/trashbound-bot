@@ -6,21 +6,24 @@ import random
 import discord
 
 from db import queries
-from game.data import ITEMS, MIX_RECIPES, ZONES, get_live_events
-from game.helpers import (
-    can_mix_inventory,
-    determine_title,
-    find_available_recipe,
-    get_effect_remaining_text,
-    get_item_card_line,
-    get_random_dive_midpoint,
-    get_random_dive_reaction,
-    get_random_dive_starter,
-    get_recent_finds_from_inventory_rows,
-    maybe_roll_dive_event,
-    perform_chaos_mix,
-    roll_item_for_zone,
+from game.data import ITEMS, MIX_RECIPES, REFINE_RECIPES, ZONES, get_live_events, MUSEUM_COLLECTIONS
+from ui.embeds import (
+    dive_processing_embed,
+    dive_result_embed,
+    events_embed,
+    help_embed,
+    inventory_embed,
+    mix_lab_embed,
+    mix_result_embed,
+    pawn_offer_result_embed,
+    pawn_shop_embed,
+    profile_embed,
+    zone_embed,
+    museum_home_embed,
+    museum_collection_embed,
+    museum_artifact_embed,
 )
+
 from game.leveling import apply_xp
 from ui.embeds import (
     dive_processing_embed,
@@ -717,7 +720,21 @@ def build_profile_embed_for_user(user: discord.abc.User | discord.Member) -> dis
         avatar_url=user.display_avatar.url,
     )
 
+def build_museum_home_embed_for_user(user: discord.abc.User | discord.Member) -> discord.Embed:
+    discovered = queries.get_discovered_item_ids(user.id)
+    return museum_home_embed(user.display_name, discovered)
 
+
+async def show_museum_home(interaction: discord.Interaction, owner_id: int, is_admin: bool) -> None:
+    embed = build_museum_home_embed_for_user(interaction.user)
+    view = MuseumHomeView(owner_id, is_admin)
+    if interaction.response.is_done():
+        await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+    else:
+        await interaction.response.edit_message(embed=embed, view=view, attachments=[])
+
+    )
+    
 async def show_profile(interaction: discord.Interaction, owner_id: int, is_admin: bool) -> None:
     embed = build_profile_embed_for_user(interaction.user)
     if interaction.response.is_done():
