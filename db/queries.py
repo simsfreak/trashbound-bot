@@ -327,9 +327,12 @@ def equip_item(user_id: int, slot: str, item_id: str) -> None:
             )
 def can_chat_with_pawn_owner(user_id: int) -> bool:
     player = get_player(user_id)
+    if not player:
+        return False
+
     last_chat = player.get("last_pawn_chat_date")
     return last_chat != date.today()
-
+    
 def update_pawn_chat(
     user_id: int,
     relationship_delta: int = 0,
