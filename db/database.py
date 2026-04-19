@@ -79,6 +79,15 @@ SCHEMA_STATEMENTS = [
         PRIMARY KEY (user_id, slot)
     )
     """,
+    """
+CREATE TABLE IF NOT EXISTS museum_discoveries (
+    user_id BIGINT NOT NULL REFERENCES players(user_id) ON DELETE CASCADE,
+    item_id TEXT NOT NULL,
+    discovered_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, item_id)
+    )
+    """,
+    """
 ]
 
 
