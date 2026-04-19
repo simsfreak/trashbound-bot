@@ -232,3 +232,111 @@ def pawn_offer_result_embed(title: str, description: str) -> discord.Embed:
         description=description,
         color=0xD4AF37,
     )
+
+def museum_home_embed(username: str, discovered_item_ids: set[str]) -> discord.Embed:
+    total_discovered = len(discovered_item_ids)
+    total_artifacts = sum(len(collection["item_ids"]) for collection in MUSEUM_COLLECTIONS.values())
+
+    embed = discord.Embed(
+        title="🏛️ Trash Museum",
+        description=(
+            "\"Most people see garbage. You preserve history.\"\n\n"
+            f"**Curator:** {username}\n"
+            f"**Discovery Progress:** {total_discovered}/{total_artifacts} artifacts"
+        ),
+        color=0xC27C2C,
+    )
+
+    for collection_id, collection in MUSEUM_COLLECTIONS.items():
+        item_ids = collection["item_ids"]
+        discovered = sum(1 for item_id in item_ids if item_id in discovered_item_ids)
+        embed.add_field(
+            name=f"{collection['emoji']} {collection['name']}",
+            value=(
+                f"{collection['description']}\n"
+                f"**Progress:** {discovered}/{len(item_ids)}"
+            ),
+            inline=False,
+        )
+
+    embed.set_footer(text="Choose a collection to browse its artifacts")
+    return embed
+
+
+def museum_collection_embed(
+    username: str,
+    collection_id: str,
+    discovered_item_ids: set[str],
+    page: int,
+    total_pages: int,
+):
+    collection = MUSEUM_COLLECTIONS[collection_id]
+    item_ids = collection["item_ids"]
+    per_page = 6
+    start = page * per_page
+    end = start + per_page
+    current_ids = item_ids[start:end]
+
+    lines = []
+    for item_id in current_ids:
+        item = ITEMS.get(item_id, {"name": item_id, "emoji": "✨", "rarity": "Unknown"})
+        discovered = item_id in discovered_item_ids
+        if discovered:
+            lines.append(
+                f"✅ {item.get('emoji', '✨')} **{item['name']}**\n"
+                f"{item.get('rarity', 'Unknown')} artifact recovered"
+            )
+        else:
+            lines.append(
+                "❔ **Unknown Artifact**\n"
+                "Undiscovered relic. Keep diving, mixing, and refining."
+            )
+
+    embed = discord.Embed(
+        title=f"{collection['emoji']} {collection['name']}",
+        description="\n\n".join(lines),
+        color=0x5865F2,
+    )
+    embed.add_field(
+        name="Collection Notes",
+        value=collection["description"],
+        inline=False,
+    )
+    embed.set_footer(text=f"{username} • Page {page + 1}/{total_pages}")
+    return embed
+
+
+def museum_artifact_embed(item_id: str, discovered: bool) -> discord.Embed:
+    item = ITEMS.get(item_id, {"name": item_id, "emoji": "✨", "rarity": "Unknown", "flavor": ""})
+    lore = MUSEUM_ARTIFACT_TEXT.get(item_id, {})
+
+    if discovered:
+        description = (
+            f"{item.get('emoji', '✨')} **{item['name']}**\n"
+            f"**Status:** Collected ✅\n"
+            f"**Rarity:** {item.get('rarity', 'Unknown')}\n\n"
+            f"*{lore.get('museum_text') or item.get('flavor', 'Recovered from the underground junk world.')}*"
+        )
+        origin_text = lore.get("origin", "Origin not yet archived.")
+        color = RARITY_COLORS.get(item.get("rarity", "Common"), 0x5865F2)
+    else:
+        description = (
+            "❔ **Unknown Artifact**\n"
+            "**Status:** Undiscovered\n\n"
+            "Its details are still obscured. Recover it in the field to archive it here."
+        )
+        origin_text = "Unknown origin"
+        color = 0x4E5D94
+
+    embed = discord.Embed(
+        title="🏛️ Artifact Card",
+        description=description,
+        color=color,
+    )
+    embed.add_field(name="Origin", value=origin_text, inline=False)
+
+    image_path = item.get("image")
+    if discovered and isinstance(image_path, str) and image_path.startswith("http"):
+        embed.set_thumbnail(url=image_path)
+
+    return embed
