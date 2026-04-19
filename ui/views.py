@@ -10,6 +10,7 @@ from game.helpers import (
     can_mix_inventory,
     determine_title,
     find_available_recipe,
+    get_effect_remaining_text,
     get_item_card_line,
     get_random_dive_midpoint,
     get_random_dive_reaction,
@@ -503,16 +504,64 @@ class AdminButton(discord.ui.Button):
         await interaction.response.edit_message(embed=embed, view=self.view)
 
 
-async def show_profile(interaction: discord.Interaction, owner_id: int, is_admin: bool) -> None:
-    player = queries.get_player(interaction.user.id)
-    inventory = queries.get_inventory(interaction.user.id)
+
+def _split_live_events() -> tuple[str | None, str | None]:
+    weekend_event = None
+    seasonal_event = None
+    for event in get_live_events():
+        if event.get("type") == "weekend" and weekend_event is None:
+            weekend_event = f"{event.get('emoji', '')} {event.get('name', 'Weekend Event')}".strip()
+        elif event.get("type") == "seasonal" and seasonal_event is None:
+            seasonal_event = f"{event.get('emoji', '')} {event.get('name', 'Seasonal Event')}".strip()
+    return weekend_event, seasonal_event
+
+
+def _format_active_effect_lines(active_effects: list[dict]) -> list[str]:
+    lines: list[str] = []
+    for effect in active_effects[:4]:
+        lines.append(f"{effect['label']} — {get_effect_remaining_text(effect['expires_at'])}")
+    return lines
+
+
+def _format_equipped_lines(equipment: list[dict]) -> list[str]:
+    lines: list[str] = []
+    for entry in equipment[:4]:
+        item = ITEMS.get(entry["item_id"], {"name": entry["item_id"], "emoji": "✨", "equip_bonus": ""})
+        bonus = item.get("equip_bonus", "No passive listed")
+        lines.append(f"{item.get('emoji', '✨')} {item['name']} — {bonus}")
+    return lines
+
+
+def build_profile_embed_for_user(user: discord.abc.User | discord.Member) -> discord.Embed:
+    player = queries.get_player(user.id)
+    inventory = queries.get_inventory(user.id)
     recent_finds = get_recent_finds_from_inventory_rows(inventory)
-    embed = profile_embed(
-        player=player,
-        inventory_count=sum(q for _, q in inventory),
-        recent_finds=recent_finds,
-        active_effects=queries.get_active_effects(interaction.user.id),
-        equipment=queries.get_equipment(interaction.user.id),
-        avatar_url=interaction.user.display_avatar.url,
-    )
+    active_effects = queries.get_active_effects(user.id)
+    equipment = queries.get_equipment(user.id)
+    weekend_event, seasonal_event = _split_live_events()
+
+    try:
+        return profile_embed(
+            player=player,
+            inventory_count=sum(q for _, q in inventory),
+            recent_finds=recent_finds,
+            active_effects=_format_active_effect_lines(active_effects),
+            equipped_lines=_format_equipped_lines(equipment),
+            weekend_event=weekend_event,
+            seasonal_event=seasonal_event,
+            avatar_url=user.display_avatar.url,
+        )
+    except TypeError:
+        return profile_embed(
+            player=player,
+            inventory_count=sum(q for _, q in inventory),
+            recent_finds=recent_finds,
+            active_effects=active_effects,
+            equipment=equipment,
+            avatar_url=user.display_avatar.url,
+        )
+
+
+async def show_profile(interaction: discord.Interaction, owner_id: int, is_admin: bool) -> None:
+    embed = build_profile_embed_for_user(interaction.user)
     await interaction.response.edit_message(embed=embed, view=ProfileView(owner_id, is_admin))
