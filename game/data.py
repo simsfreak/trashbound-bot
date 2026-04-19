@@ -371,3 +371,116 @@ def get_live_events(now: datetime | None = None) -> list[dict]:
     if seasonal:
         live.append(seasonal)
     return live
+
+MUSEUM_COLLECTIONS = {
+    "salvaged_basics": {
+        "name": "Salvaged Basics",
+        "emoji": "🧩",
+        "description": "The humble scraps that started every great alley career.",
+        "item_ids": [
+            "old_shoe",
+            "scrap_metal",
+            "compressed_scrap_cube",
+            "bent_nail_cluster",
+            "scuffed_plastic_shard",
+            "cracked_wire_bundle",
+            "dusty_gear_chunk",
+            "burnt_sludge",
+            "fused_trash_lump",
+        ],
+    },
+    "tech_relics": {
+        "name": "Tech Relics",
+        "emoji": "⚡",
+        "description": "Recovered circuitry, batteries, and buzzing weirdness.",
+        "item_ids": [
+            "broken_phone",
+            "static_coil",
+            "rustcore_plate",
+            "bent_circuit",
+            "melted_trinket",
+            "neon_relay",
+            "distorted_battery",
+            "balance_chip",
+            "foam_insulator",
+            "static_slag",
+        ],
+    },
+    "glitched_objects": {
+        "name": "Glitched Objects",
+        "emoji": "🧪",
+        "description": "Unstable artifacts produced when trash stops behaving correctly.",
+        "item_ids": [
+            "glitch_resin",
+            "neon_shard",
+            "stabilizer_gel",
+            "unstable_alloy",
+            "overclock_canister",
+            "echo_capsule",
+            "lucky_bolt",
+            "bonus_socket",
+            "volatile_battery",
+        ],
+    },
+    "rat_market": {
+        "name": "Rat Market Curios",
+        "emoji": "🐀",
+        "description": "Odd valuables whispered through the alley trade routes.",
+        "item_ids": [
+            "ratfang_token",
+            "greed_magnet",
+            "ratwax_seal",
+            "dumpster_core",
+        ],
+    },
+    "crafted_gear": {
+        "name": "Crafted Gear",
+        "emoji": "🧥",
+        "description": "Proof that enough junk and bad ideas can become equipment.",
+        "item_ids": [
+            "iron_gloves",
+            "shockstep_boots",
+            "magnet_gloves",
+            "glitch_charm",
+            "golden_potion",
+        ],
+    },
+    "crown_artifacts": {
+        "name": "Crown Artifacts",
+        "emoji": "👑",
+        "description": "Prestige relics revered by the filthiest elite.",
+        "item_ids": [
+            "mystery_box",
+            "trash_crown",
+            "rat_king_sigil",
+            "dumpster_idol",
+        ],
+    },
+}
+
+MUSEUM_ARTIFACT_TEXT = {
+    "old_shoe": {
+        "origin": "Usually recovered from beginner dives in the Back Alley.",
+        "museum_text": "A discarded classic. Every scrapper remembers their first one.",
+    },
+    "scrap_metal": {
+        "origin": "Commonly pulled from alleys and apartment bins.",
+        "museum_text": "The backbone of the junk economy.",
+    },
+    "broken_phone": {
+        "origin": "Recovered from household piles and unstable mixes.",
+        "museum_text": "Dead screen. Immortal aura.",
+    },
+    "mystery_box": {
+        "origin": "Found in advanced zones and premium transformations.",
+        "museum_text": "Nobody agrees on where these come from. Everyone wants one.",
+    },
+    "trash_crown": {
+        "origin": "Recovered from elite lots or reforged from crown fragments.",
+        "museum_text": "Proof that garbage can achieve royalty.",
+    },
+    "dumpster_idol": {
+        "origin": "Assembled through advanced refinement and prestige mixing.",
+        "museum_text": "A sacred monument to the underground trash age.",
+    },
+}
