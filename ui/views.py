@@ -3,7 +3,7 @@ import math
 import discord
 
 from db import queries
-from game.data import ITEMS, MIX_RECIPES, ZONES, MUSEUM_COLLECTIONS
+from game.data import ITEMS, ZONES, MUSEUM_COLLECTIONS
 from game.helpers import (
     determine_title,
     get_random_dive_midpoint,
