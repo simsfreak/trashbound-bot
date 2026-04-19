@@ -93,6 +93,9 @@ SCHEMA_STATEMENTS = [
     """,
 ]
 
+cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS dirty_tickets INTEGER NOT NULL DEFAULT 0")
+cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS pawn_relationship INTEGER NOT NULL DEFAULT 0")
+cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_pawn_chat_date DATE")
 
 @contextmanager
 def get_conn():
