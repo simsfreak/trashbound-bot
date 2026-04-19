@@ -426,7 +426,7 @@ async def run_dive_sequence(interaction: discord.Interaction, owner_id: int, is_
     image_path = original_item.get("image")
     if image_path and isinstance(image_path, str) and not image_path.startswith("http"):
         file = discord.File(image_path, filename="item.png")
-        embed.set_thumbnail(url="attachment://item.png")
+        embed.set_image(url=f"attachment://{safe_name}")
         await interaction.edit_original_response(embed=embed, attachments=[file], view=DiveResultView(owner_id, is_admin))
     else:
         await interaction.edit_original_response(embed=embed, view=DiveResultView(owner_id, is_admin))
