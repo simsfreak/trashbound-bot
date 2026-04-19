@@ -1,5 +1,6 @@
 import asyncio
 import math
+import os
 import random
 
 import discord
@@ -29,10 +30,114 @@ from ui.embeds import (
     inventory_embed,
     mix_lab_embed,
     mix_result_embed,
+    pawn_offer_result_embed,
+    pawn_shop_embed,
     profile_embed,
     zone_embed,
 )
 from ui.modals import ContactAdminModal
+
+
+PAWN_REWARD_WEIGHTS: list[tuple[str, int]] = [
+    ("scrap_metal", 30),
+    ("old_shoe", 20),
+    ("broken_phone", 16),
+    ("mystery_box", 12),
+    ("golden_potion", 8),
+    ("iron_gloves", 6),
+    ("glitch_charm", 4),
+    ("rat_king_sigil", 3),
+    ("trash_crown", 1),
+]
+
+
+def _weighted_reward_item_id() -> str:
+    item_ids = []
+    weights = []
+    for item_id, weight in PAWN_REWARD_WEIGHTS:
+        if item_id in ITEMS:
+            item_ids.append(item_id)
+            weights.append(weight)
+    if not item_ids:
+        return next(iter(ITEMS))
+    return random.choices(item_ids, weights=weights, k=1)[0]
+
+
+def _get_mixable_inventory_rows(user_id: int) -> list[tuple[str, int]]:
+    rows = queries.get_inventory(user_id)
+    mixable_rows: list[tuple[str, int]] = []
+    for item_id, qty in rows:
+        item = ITEMS.get(item_id, {})
+        if item.get("mixable", item.get("kind", "junk") == "junk"):
+            mixable_rows.append((item_id, qty))
+    return mixable_rows
+
+
+def _flatten_item_rows(rows: list[tuple[str, int]]) -> list[str]:
+    expanded: list[str] = []
+    for item_id, qty in rows:
+        expanded.extend([item_id] * qty)
+    return expanded
+
+
+def _choose_pawn_bundle(user_id: int, max_items: int = 3) -> list[str]:
+    inventory_rows = queries.get_inventory(user_id)
+    pool: list[str] = []
+    for item_id, qty in inventory_rows:
+        item = ITEMS.get(item_id, {})
+        kind = item.get("kind", "junk")
+        if kind in {"junk", "material"} or item.get("pawnable", True):
+            pool.extend([item_id] * qty)
+
+    if not pool:
+        return []
+
+    random.shuffle(pool)
+    return pool[: min(max_items, len(pool))]
+
+
+def _bundle_counts(item_ids: list[str]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item_id in item_ids:
+        counts[item_id] = counts.get(item_id, 0) + 1
+    return counts
+
+
+def _bundle_lines(item_ids: list[str]) -> list[str]:
+    counts = _bundle_counts(item_ids)
+    lines = []
+    for item_id, qty in counts.items():
+        item = ITEMS.get(item_id, {"name": item_id, "emoji": "✨", "coins": 0})
+        lines.append(f"{item.get('emoji', '✨')} **{item['name']}** x{qty}")
+    return lines
+
+
+def _bundle_coin_offer(item_ids: list[str]) -> int:
+    total = 0
+    for item_id in item_ids:
+        total += int(ITEMS.get(item_id, {}).get("coins", 0))
+    return max(1, int(round(total * 1.15)))
+
+
+def _remove_bundle_from_inventory(user_id: int, item_ids: list[str]) -> bool:
+    counts = _bundle_counts(item_ids)
+    for item_id, qty in counts.items():
+        ok = queries.remove_item_from_inventory(user_id, item_id, qty)
+        if not ok:
+            return False
+    return True
+
+
+def _apply_coin_gain(user_id: int, gained_coins: int) -> None:
+    player = queries.get_player(user_id)
+    queries.update_player_progress(
+        user_id=user_id,
+        coins=player["coins"] + gained_coins,
+        xp=player["xp"],
+        level=player["level"],
+        current_title=player["current_title"],
+        total_dives=player["total_dives"],
+    )
 
 
 class InventoryActionSelect(discord.ui.Select):
@@ -76,11 +181,17 @@ class InventoryActionSelect(discord.ui.Select):
                 multiplier=item["effect_multiplier"],
                 duration_minutes=item["duration_minutes"],
             )
-            await interaction.response.send_message(f"{item['emoji']} **{item['name']}** activated — {item['use_text']}", ephemeral=True)
+            await interaction.response.send_message(
+                f"{item['emoji']} **{item['name']}** activated — {item['use_text']}",
+                ephemeral=True,
+            )
         elif kind == "equipment":
             slot = item.get("equip_slot", "misc")
             queries.equip_item(interaction.user.id, slot, item_id)
-            await interaction.response.send_message(f"{item['emoji']} **{item['name']}** equipped in **{slot}**.", ephemeral=True)
+            await interaction.response.send_message(
+                f"{item['emoji']} **{item['name']}** equipped in **{slot}**. {item.get('equip_bonus', '')}",
+                ephemeral=True,
+            )
         else:
             await interaction.response.send_message(f"{get_item_card_line(item_id)}", ephemeral=True)
 
@@ -209,6 +320,88 @@ class ZoneSelectorView(discord.ui.View):
         await show_profile(interaction, self.owner_id, self.is_admin)
 
 
+class PawnShopView(discord.ui.View):
+    def __init__(self, owner_id: int, is_admin: bool, bundle_item_ids: list[str] | None = None):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+        self.bundle_item_ids = bundle_item_ids or []
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This sketchy deal isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    def ensure_bundle(self, user_id: int) -> None:
+        if not self.bundle_item_ids:
+            self.bundle_item_ids = _choose_pawn_bundle(user_id)
+
+    def build_embed(self, user_id: int) -> discord.Embed:
+        self.ensure_bundle(user_id)
+        return pawn_shop_embed(self.bundle_item_ids)
+
+    @discord.ui.button(label="🎁 Blind Box Deal", style=discord.ButtonStyle.primary, row=0)
+    async def blind_box(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.ensure_bundle(interaction.user.id)
+        if not self.bundle_item_ids:
+            await interaction.response.edit_message(
+                embed=pawn_offer_result_embed("🏚️ Sketchy Pawn Shop", "The owner squints at your empty hands. No junk, no deal."),
+                view=self,
+            )
+            return
+
+        if not _remove_bundle_from_inventory(interaction.user.id, self.bundle_item_ids):
+            await interaction.response.send_message("You don't have those exact rummages anymore.", ephemeral=True)
+            return
+
+        reward_item_id = _weighted_reward_item_id()
+        queries.add_item_to_inventory(interaction.user.id, reward_item_id, 1)
+        reward_item = ITEMS.get(reward_item_id, {"name": reward_item_id, "emoji": "✨", "rarity": "Unknown"})
+        result_text = (
+            "You take the risky box. The owner cackles.\n\n"
+            f"Disposed bundle:\n{chr(10).join(_bundle_lines(self.bundle_item_ids))}\n\n"
+            f"You received:\n{reward_item.get('emoji', '✨')} **{reward_item['name']}**\n"
+            f"{reward_item.get('rarity', 'Unknown')}\n"
+            f"*{reward_item.get('flavor', 'No refunds. No crying.')}*"
+        )
+        self.bundle_item_ids = _choose_pawn_bundle(interaction.user.id)
+        await interaction.response.edit_message(embed=pawn_offer_result_embed("🎁 Blind Box Deal", result_text), view=self)
+
+    @discord.ui.button(label="💰 Take Coins", style=discord.ButtonStyle.success, row=0)
+    async def take_coins(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.ensure_bundle(interaction.user.id)
+        if not self.bundle_item_ids:
+            await interaction.response.edit_message(
+                embed=pawn_offer_result_embed("🏚️ Sketchy Pawn Shop", "The owner shrugs. No rummage pile, no coins."),
+                view=self,
+            )
+            return
+
+        offer = _bundle_coin_offer(self.bundle_item_ids)
+        if not _remove_bundle_from_inventory(interaction.user.id, self.bundle_item_ids):
+            await interaction.response.send_message("You don't have those exact rummages anymore.", ephemeral=True)
+            return
+
+        _apply_coin_gain(interaction.user.id, offer)
+        result_text = (
+            f"You take the safer deal and pocket **{offer} coins**.\n\n"
+            f"Sold bundle:\n{chr(10).join(_bundle_lines(self.bundle_item_ids))}\n\n"
+            "The owner grins like he still got the better end."
+        )
+        self.bundle_item_ids = _choose_pawn_bundle(interaction.user.id)
+        await interaction.response.edit_message(embed=pawn_offer_result_embed("💰 Sketchy Cashout", result_text), view=self)
+
+    @discord.ui.button(label="🔄 New Offers", style=discord.ButtonStyle.secondary, row=1)
+    async def reroll_offers(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.bundle_item_ids = _choose_pawn_bundle(interaction.user.id)
+        await interaction.response.edit_message(embed=self.build_embed(interaction.user.id), view=self)
+
+    @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=1)
+    async def back_to_profile(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await show_profile(interaction, self.owner_id, self.is_admin)
+
+
 class MixLabView(discord.ui.View):
     def __init__(self, owner_id: int, is_admin: bool):
         super().__init__(timeout=300)
@@ -229,37 +422,71 @@ class MixLabView(discord.ui.View):
             available_lines.append(f"{'✅' if ready else '🔒'} {recipe['description']}")
         return mix_lab_embed(inventory_map, available_lines)
 
-    @discord.ui.button(label="🛠️ Fixed Recipe", style=discord.ButtonStyle.success, row=0)
-    async def fixed_recipe(self, interaction: discord.Interaction, button: discord.ui.Button):
+    @discord.ui.button(label="🎲 Start Mixing", style=discord.ButtonStyle.primary, row=0)
+    async def chaos_mix(self, interaction: discord.Interaction, button: discord.ui.Button):
+        inventory_rows = _get_mixable_inventory_rows(interaction.user.id)
+        mix_pool = _flatten_item_rows(inventory_rows)
+
+        if len(mix_pool) < 5:
+            embed = mix_result_embed(
+                "🎲 Mix Lobby",
+                "You need at least **5 mixable rummage items** before you can start the blender of bad decisions.",
+            )
+            await interaction.response.edit_message(embed=embed, view=self)
+            return
+
+        chosen_item_ids = random.sample(mix_pool, 5)
+        warning_lines = _bundle_lines(chosen_item_ids)
+
+        if random.random() < 0.55:
+            for item_id, qty in _bundle_counts(chosen_item_ids).items():
+                queries.remove_item_from_inventory(interaction.user.id, item_id, qty)
+
+            reward_count = 2 if random.random() < 0.25 else 1
+            reward_ids: list[str] = []
+            for _ in range(reward_count):
+                reward_id = _weighted_reward_item_id()
+                reward_ids.append(reward_id)
+                queries.add_item_to_inventory(interaction.user.id, reward_id, 1)
+
+            reward_lines = []
+            for reward_id in reward_ids:
+                reward_item = ITEMS.get(reward_id, {"name": reward_id, "emoji": "✨", "rarity": "Unknown"})
+                reward_lines.append(f"{reward_item.get('emoji', '✨')} **{reward_item['name']}** — {reward_item.get('rarity', 'Unknown')}")
+
+            embed = mix_result_embed(
+                "🧪 Mix Success",
+                "The goblin blender somehow worked.\n\n"
+                f"Consumed:\n{chr(10).join(warning_lines)}\n\n"
+                f"Gained:\n{chr(10).join(reward_lines)}",
+            )
+            await interaction.response.edit_message(embed=embed, view=self)
+            return
+
+        for item_id, qty in _bundle_counts(chosen_item_ids).items():
+            queries.remove_item_from_inventory(interaction.user.id, item_id, qty)
+
+        embed = mix_result_embed(
+            "💥 Mix Failure",
+            "You lost the mix.\n\n"
+            f"Disposed:\n{chr(10).join(warning_lines)}\n\n"
+            "The pile smoked, hissed, and gave you absolutely nothing back.",
+        )
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(label="🧃 Brew Potion", style=discord.ButtonStyle.secondary, row=1)
+    async def brew_potion(self, interaction: discord.Interaction, button: discord.ui.Button):
         inventory_map = queries.get_inventory_map(interaction.user.id)
-        recipe = find_available_recipe(inventory_map)
-        if recipe is None:
-            embed = mix_result_embed("🧪 Mix Failed", "No fixed recipe is ready yet. Keep collecting ingredients.")
+        recipe = next((r for r in MIX_RECIPES if r["result_item_id"] == "golden_potion"), None)
+        if recipe is None or not all(inventory_map.get(item_id, 0) >= qty for item_id, qty in recipe["ingredients"].items()):
+            embed = mix_result_embed("🧃 Brew Potion", "Need **Mystery Box x1 + Scrap Metal x2** to brew Golden Potion.")
             await interaction.response.edit_message(embed=embed, view=self)
             return
         for item_id, qty in recipe["ingredients"].items():
             queries.remove_item_from_inventory(interaction.user.id, item_id, qty)
-        queries.add_item_to_inventory(interaction.user.id, recipe["result_item_id"], recipe["result_qty"])
-        result_item = ITEMS[recipe["result_item_id"]]
-        embed = mix_result_embed("🛠️ Recipe Complete", f"You forged:\n\n{result_item['emoji']} **{result_item['name']}** x{recipe['result_qty']}")
-        await interaction.response.edit_message(embed=embed, view=self)
-
-    @discord.ui.button(label="🎲 Chaos Mix", style=discord.ButtonStyle.primary, row=0)
-    async def chaos_mix(self, interaction: discord.Interaction, button: discord.ui.Button):
-        inventory_rows = queries.get_inventory(interaction.user.id)
-        if not can_mix_inventory(inventory_rows):
-            embed = mix_result_embed("🎲 Chaos Mix", "You need at least **2 Common items** to chaos-mix something cursed.")
-            await interaction.response.edit_message(embed=embed, view=self)
-            return
-        result = perform_chaos_mix(inventory_rows, extra_rare_bonus=0)
-        if result is None:
-            embed = mix_result_embed("🎲 Chaos Mix", "The lab ate your hopes and gave nothing back.")
-            await interaction.response.edit_message(embed=embed, view=self)
-            return
-        result_item_id, qty = result
-        queries.add_item_to_inventory(interaction.user.id, result_item_id, qty)
-        item = ITEMS[result_item_id]
-        embed = mix_result_embed("🎲 Chaos Mix Result", f"{item['emoji']} **{item['name']}** x{qty}")
+        queries.add_item_to_inventory(interaction.user.id, "golden_potion", 1)
+        item = ITEMS["golden_potion"]
+        embed = mix_result_embed("🧃 Potion Brewed", f"{item['emoji']} **{item['name']}** x1\n{item['rarity']} • Consumable\n*{item['use_text']}*")
         await interaction.response.edit_message(embed=embed, view=self)
 
     @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.primary, row=2)
@@ -313,7 +540,12 @@ class ProfileView(discord.ui.View):
         embed = inventory_embed(interaction.user.display_name, view.page_lines(), view.page, view.total_pages)
         await interaction.response.edit_message(embed=embed, view=view)
 
-    @discord.ui.button(label="🧪 Mix", style=discord.ButtonStyle.success, row=0)
+    @discord.ui.button(label="🏚️ Pawn Shop", style=discord.ButtonStyle.success, row=0)
+    async def pawn_shop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        view = PawnShopView(self.owner_id, self.is_admin)
+        await interaction.response.edit_message(embed=view.build_embed(interaction.user.id), view=view)
+
+    @discord.ui.button(label="🧪 Mix", style=discord.ButtonStyle.secondary, row=1)
     async def mix_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         view = MixLabView(self.owner_id, self.is_admin)
         await interaction.response.edit_message(embed=view.build_embed(interaction.user.id), view=view)
@@ -330,7 +562,7 @@ class ProfileView(discord.ui.View):
     async def events_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(embed=events_embed(), view=ProfileView(self.owner_id, self.is_admin))
 
-    @discord.ui.button(label="❓ Help", style=discord.ButtonStyle.secondary, row=1)
+    @discord.ui.button(label="❓ Help", style=discord.ButtonStyle.secondary, row=2)
     async def instructions_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(embed=help_embed(), view=ProfileView(self.owner_id, self.is_admin))
 
@@ -348,7 +580,11 @@ class AdminButton(discord.ui.Button):
         super().__init__(label="Admin", emoji="🛠️", style=discord.ButtonStyle.danger, row=row)
 
     async def callback(self, interaction: discord.Interaction):
-        embed = discord.Embed(title="🛠️ Admin Panel", description="Admin tools are coming next.", color=0xED4245)
+        embed = discord.Embed(
+            title="🛠️ Admin Panel",
+            description="Admin tools are coming next:\n• View messages\n• Grant XP\n• Grant coins\n• Grant items\n• Trigger events",
+            color=0xED4245,
+        )
         await interaction.response.edit_message(embed=embed, view=self.view)
 
 
@@ -358,18 +594,39 @@ async def run_dive_sequence(interaction: discord.Interaction, owner_id: int, is_
     coin_multiplier = 1.0
     xp_multiplier = 1.0
     extra_item_chance = 0.0
+    event_text_parts: list[str] = []
 
     for event in get_live_events():
         rare_bonus += float(event.get("rare_bonus", 0.0))
         coin_multiplier *= float(event.get("coin_multiplier", 1.0))
         xp_multiplier *= float(event.get("xp_multiplier", 1.0))
         extra_item_chance += float(event.get("extra_item_chance", 0.0))
+        event_text_parts.append(f"{event['emoji']} **{event['name']}** is live")
+
+    equipped = queries.get_equipment(interaction.user.id)
+    for entry in equipped:
+        item = ITEMS.get(entry["item_id"], {})
+        if item.get("equip_slot") == "hands":
+            coin_multiplier *= 1.10
+        if item.get("equip_slot") == "feet":
+            xp_multiplier += 5 / max(1, ITEMS.get("scrap_metal", {}).get("xp", 1))
+        if item.get("equip_slot") == "trinket":
+            rare_bonus += 0.08
+        if item.get("equip_slot") == "charm":
+            extra_item_chance += 0.12
+
+    xp_effect = queries.get_effect_multiplier(interaction.user.id, "xp_boost")
+    xp_multiplier *= xp_effect
 
     zone_name = ZONES[player["current_zone_id"]]["name"]
 
-    await interaction.response.edit_message(embed=dive_processing_embed(zone_name, get_random_dive_starter()), view=None)
+    if interaction.response.is_done():
+        await interaction.edit_original_response(embed=dive_processing_embed(zone_name, get_random_dive_starter()), view=None, attachments=[])
+    else:
+        await interaction.response.edit_message(embed=dive_processing_embed(zone_name, get_random_dive_starter()), view=None, attachments=[])
+
     await asyncio.sleep(1.0)
-    await interaction.edit_original_response(embed=dive_processing_embed(zone_name, get_random_dive_midpoint()), view=None)
+    await interaction.edit_original_response(embed=dive_processing_embed(zone_name, get_random_dive_midpoint()), view=None, attachments=[])
     await asyncio.sleep(1.0)
 
     item_id, item = roll_item_for_zone(player["current_zone_id"], rare_bonus=rare_bonus)
@@ -377,10 +634,11 @@ async def run_dive_sequence(interaction: discord.Interaction, owner_id: int, is_
     gained_xp = max(1, int(round(item["xp"] * xp_multiplier)))
 
     bonus_event = maybe_roll_dive_event()
-    bonus_text = bonus_event["text"] if bonus_event else None
+    bonus_text = None
     if bonus_event:
         gained_coins += bonus_event["bonus_coins"]
         gained_xp += bonus_event["bonus_xp"]
+        bonus_text = bonus_event["text"]
 
     new_xp, new_level, leveled_up = apply_xp(player["xp"], player["level"], gained_xp)
     new_title = determine_title(new_level)
@@ -396,40 +654,51 @@ async def run_dive_sequence(interaction: discord.Interaction, owner_id: int, is_
         current_title=new_title,
         total_dives=new_dives,
     )
+    unlocked_zone_ids = queries.unlock_zones_for_level(interaction.user.id, new_level)
+    unlocked_zone_names = [ZONES[zone_id]["name"] for zone_id in unlocked_zone_ids]
 
     if extra_item_chance > 0 and random.random() <= extra_item_chance:
-        extra_item_id, _ = roll_item_for_zone(player["current_zone_id"], rare_bonus=rare_bonus)
+        extra_item_id, _extra_item = roll_item_for_zone(player["current_zone_id"], rare_bonus=rare_bonus)
         queries.add_item_to_inventory(interaction.user.id, extra_item_id, 1)
-        extra_name = ITEMS[extra_item_id]['name']
-        extra_emoji = ITEMS[extra_item_id].get('emoji', '✨')
-        bonus_text = ((bonus_text + "\n") if bonus_text else "") + f"🎁 Bonus drop: {extra_emoji} **{extra_name}**"
+        bonus_text = (bonus_text + "\n" if bonus_text else "") + f"🎁 Bonus drop: {ITEMS[extra_item_id]['emoji']} **{ITEMS[extra_item_id]['name']}**"
+
+    for event in get_live_events():
+        event_item_id = event.get("event_item_id")
+        if event_item_id and random.random() <= 0.12:
+            queries.add_item_to_inventory(interaction.user.id, event_item_id, 1)
+            bonus_text = (bonus_text + "\n" if bonus_text else "") + f"{ITEMS[event_item_id]['emoji']} Event drop: **{ITEMS[event_item_id]['name']}**"
 
     updated_player = queries.get_player(interaction.user.id)
     reaction_text = get_random_dive_reaction()
-    original_item = ITEMS[item_id]
-    temporary_item = dict(original_item)
-    temporary_item["coins"] = gained_coins
-    temporary_item["xp"] = gained_xp
-    ITEMS[item_id] = temporary_item
-    try:
-        embed = dive_result_embed(
-            updated_player,
-            item_id,
-            leveled_up,
-            reaction_text=reaction_text,
-            bonus_text=bonus_text,
-            avatar_url=interaction.user.display_avatar.url,
-        )
-    finally:
-        ITEMS[item_id] = original_item
+    event_text = " • ".join(event_text_parts) if event_text_parts else None
 
-    image_path = original_item.get("image")
-    if image_path and isinstance(image_path, str) and not image_path.startswith("http"):
-        file = discord.File(image_path, filename="item.png")
+    embed = dive_result_embed(
+        updated_player,
+        item_id,
+        leveled_up,
+        reaction_text=reaction_text,
+        event_text=event_text,
+        bonus_text=bonus_text,
+        unlocked_zone_names=unlocked_zone_names,
+        avatar_url=interaction.user.display_avatar.url,
+    )
+
+    image_path = ITEMS[item_id].get("image")
+    if image_path and not image_path.startswith("http") and os.path.exists(image_path):
+        safe_name = f"{item_id}_{random.randint(1000, 999999)}.png"
+        file = discord.File(image_path, filename=safe_name)
         embed.set_image(url=f"attachment://{safe_name}")
-        await interaction.edit_original_response(embed=embed, attachments=[file], view=DiveResultView(owner_id, is_admin))
+        await interaction.edit_original_response(
+            embed=embed,
+            attachments=[file],
+            view=DiveResultView(owner_id, is_admin),
+        )
     else:
-        await interaction.edit_original_response(embed=embed, view=DiveResultView(owner_id, is_admin))
+        await interaction.edit_original_response(
+            embed=embed,
+            attachments=[],
+            view=DiveResultView(owner_id, is_admin),
+        )
 
 
 def build_profile_embed_for_user(user: discord.abc.User | discord.Member) -> discord.Embed:
@@ -438,6 +707,7 @@ def build_profile_embed_for_user(user: discord.abc.User | discord.Member) -> dis
     recent_finds = get_recent_finds_from_inventory_rows(inventory)
     active_effects = queries.get_active_effects(user.id)
     equipment = queries.get_equipment(user.id)
+
     return profile_embed(
         player=player,
         inventory_count=sum(q for _, q in inventory),
@@ -451,6 +721,6 @@ def build_profile_embed_for_user(user: discord.abc.User | discord.Member) -> dis
 async def show_profile(interaction: discord.Interaction, owner_id: int, is_admin: bool) -> None:
     embed = build_profile_embed_for_user(interaction.user)
     if interaction.response.is_done():
-        await interaction.edit_original_response(embed=embed, view=ProfileView(owner_id, is_admin))
+        await interaction.edit_original_response(embed=embed, view=ProfileView(owner_id, is_admin), attachments=[])
     else:
-        await interaction.response.edit_message(embed=embed, view=ProfileView(owner_id, is_admin))
+        await interaction.response.edit_message(embed=embed, view=ProfileView(owner_id, is_admin), attachments=[])
