@@ -325,7 +325,31 @@ def equip_item(user_id: int, slot: str, item_id: str) -> None:
                 """,
                 (user_id, slot, item_id),
             )
+def can_chat_with_pawn_owner(user_id: int) -> bool:
+    player = get_player(user_id)
+    last_chat = player.get("last_pawn_chat_date")
+    return last_chat != date.today()
 
+def update_pawn_chat(
+    user_id: int,
+    relationship_delta: int = 0,
+    coins_delta: int = 0,
+    dirty_ticket_delta: int = 0,
+) -> None:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE players
+                SET pawn_relationship = pawn_relationship + %s,
+                    coins = coins + %s,
+                    dirty_tickets = dirty_tickets + %s,
+                    last_pawn_chat_date = CURRENT_DATE
+                WHERE user_id = %s
+                """,
+                (relationship_delta, coins_delta, dirty_ticket_delta, user_id),
+             )
+                
 
 def get_equipment(user_id: int) -> list[dict]:
     with get_conn() as conn:
