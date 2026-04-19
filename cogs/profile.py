@@ -1,13 +1,21 @@
 import discord
-from discord import app_commands
 from discord.ext import commands
 
-from config import ADMIN_USER_IDS
-from db import queries
-from game.helpers import get_effect_remaining_text, get_recent_finds_from_inventory_rows
-from game.data import ITEMS, get_live_events
-from ui.embeds import profile_embed
 from ui.views import ProfileView
+from ui.views import show_profile
+
+
+class Profile(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+
+    @discord.app_commands.command(name="profile")
+    async def profile(self, interaction: discord.Interaction):
+        await show_profile(interaction, interaction.user.id, False)
+
+
+async def setup(bot):
+    await bot.add_cog(Profile(bot))
 
 
 class ProfileCog(commands.Cog):
