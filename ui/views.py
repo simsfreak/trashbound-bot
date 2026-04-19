@@ -309,10 +309,16 @@ class ProfileView(discord.ui.View):
         attachment_name = None
         image_path = item.get("image")
 
-        if isinstance(image_path, str) and image_path and not image_path.startswith("http"):
+        if isinstance(image_path, str) and image_path:
+            if image_path.startswith("http"):
+                # URL image (use as embed image later)
+                attachment_name = None
+                attachment_file = None
+        else:
             if os.path.exists(image_path):
-                attachment_name = os.path.basename(image_path)
-                attachment_file = discord.File(image_path, filename=attachment_name)
+              attachment_name = os.path.basename(image_path)
+              attachment_file = discord.File(image_path, filename=attachment_name)  
+                
 
         embed = dive_result_embed(
             player=updated_player,
