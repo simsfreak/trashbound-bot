@@ -293,21 +293,58 @@ class ProfileView(discord.ui.View):
             if zid in ZONES and ZONES[zid]["unlock_level"] == new_level
         ]
 
-        embed = dive_result_embed(
-            player=updated_player,
-            item_id=item_id,
-            leveled_up=leveled_up,
-            reaction_text=get_random_dive_reaction(),
-            event_text=event_text,
-            bonus_text=(f"🎉 Bonus: +{bonus_coins} coins, +{bonus_xp} XP" if (bonus_coins or bonus_xp) else None),
-            unlocked_zone_names=unlocked_zone_names or None,
-            avatar_url=_avatar_url(interaction.user),
-        )
+        def dive_result_embed(
+    player,
+    item_id,
+    leveled_up,
+    reaction_text=None,
+    event_text=None,
+    bonus_text=None,
+    unlocked_zone_names=None,
+    avatar_url=None,
+    attachment_filename=None,
+):
+    item = ITEMS[item_id]
+    rarity = item.get("rarity", "Common")
 
-        await interaction.edit_original_response(
-            embed=embed,
-            view=ProfileView(self.owner_id, self.is_admin),
-        )
+    lines = [
+        f"{item.get('emoji', '✨')} **{item['name']}**",
+        f"{rarity}",
+    ]
+
+    if item.get("flavor"):
+        lines.append(f"*{item['flavor']}*")
+
+    if event_text:
+        lines.append(event_text)
+    if bonus_text:
+        lines.append(bonus_text)
+    if reaction_text:
+        lines.append(f"_{reaction_text}_")
+    if leveled_up:
+        lines.append(f"⬆️ You leveled up to **Level {player['level']}**!")
+    if unlocked_zone_names:
+        lines.append(f"🔓 New zones unlocked: **{', '.join(unlocked_zone_names)}**")
+
+    embed = discord.Embed(
+        title="✨ Loot Found!",
+        description="\n\n".join(lines),
+        color=RARITY_COLORS.get(rarity, 0x57F287),
+    )
+
+    if avatar_url:
+        embed.set_author(name=player["username"], icon_url=avatar_url)
+
+    if attachment_filename:
+        embed.set_thumbnail(url=f"attachment://{attachment_filename}")
+    elif isinstance(item.get("image"), str) and item["image"].startswith("http"):
+        embed.set_thumbnail(url=item["image"])
+
+    embed.add_field(name="💰 Coins", value=str(player["coins"]), inline=True)
+    embed.add_field(name="⭐ Level", value=str(player["level"]), inline=True)
+    embed.add_field(name="🗑️ Total Dives", value=str(player["total_dives"]), inline=True)
+    embed.add_field(name="✨ XP", value=build_xp_bar(player["xp"], player["level"]), inline=False)
+    return embed
 
     @discord.ui.button(label="🎒 Loot", style=discord.ButtonStyle.secondary, row=0)
     async def inventory_button(self, interaction: discord.Interaction, button: discord.ui.Button):
