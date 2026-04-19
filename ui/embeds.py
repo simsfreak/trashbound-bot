@@ -195,3 +195,40 @@ def events_embed() -> discord.Embed:
 
 def help_embed() -> discord.Embed:
     return discord.Embed(title="❓ How to Play", description="Dive, loot, mix, and survive the junk economy.", color=0xFAA61A)
+
+def pawn_shop_embed(bundle_item_ids: list[str]) -> discord.Embed:
+    from game.data import ITEMS
+
+    if not bundle_item_ids:
+        desc = "The pawn shop owner stares at you.\n\nYou have nothing worth trading."
+    else:
+        lines = []
+        counts = {}
+        for item_id in bundle_item_ids:
+            counts[item_id] = counts.get(item_id, 0) + 1
+
+        for item_id, qty in counts.items():
+            item = ITEMS.get(item_id, {"name": item_id, "emoji": "✨"})
+            lines.append(f"{item.get('emoji','✨')} **{item['name']}** x{qty}")
+
+        desc = (
+            "🏚️ *The pawn shop owner squints at your junk...*\n\n"
+            "**Your Offer Pile:**\n"
+            + "\n".join(lines)
+            + "\n\nChoose your deal carefully..."
+        )
+
+    embed = discord.Embed(
+        title="🏚️ Sketchy Pawn Shop",
+        description=desc,
+        color=0x8B5E3C,
+    )
+    return embed
+
+
+def pawn_offer_result_embed(title: str, description: str) -> discord.Embed:
+    return discord.Embed(
+        title=title,
+        description=description,
+        color=0xD4AF37,
+    )
