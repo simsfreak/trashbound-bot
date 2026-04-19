@@ -16,7 +16,6 @@ SCHEMA_STATEMENTS = [
         current_zone_id TEXT NOT NULL DEFAULT 'back_alley',
         current_title TEXT NOT NULL DEFAULT 'Trash Rookie',
         total_dives INTEGER NOT NULL DEFAULT 0,
-        game_currency INTEGER NOT NULL DEFAULT 0,
         dirty_tickets INTEGER NOT NULL DEFAULT 0,
         pawn_relationship INTEGER NOT NULL DEFAULT 0,
         last_pawn_chat_date DATE,
@@ -93,9 +92,6 @@ SCHEMA_STATEMENTS = [
     """,
 ]
 
-cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS dirty_tickets INTEGER NOT NULL DEFAULT 0")
-cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS pawn_relationship INTEGER NOT NULL DEFAULT 0")
-cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_pawn_chat_date DATE")
 
 @contextmanager
 def get_conn():
@@ -106,13 +102,19 @@ def get_conn():
     finally:
         conn.close()
 
+
 def run_schema() -> None:
     with get_conn() as conn:
         with conn.cursor() as cur:
             for statement in SCHEMA_STATEMENTS:
                 cur.execute(statement)
 
-            # ✅ ADD THIS PART HERE
-            cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS dirty_tickets INTEGER NOT NULL DEFAULT 0")
-            cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS pawn_relationship INTEGER NOT NULL DEFAULT 0")
-            cur.execute("ALTER TABLE players ADD COLUMN IF NOT EXISTS last_pawn_chat_date DATE")
+            cur.execute(
+                "ALTER TABLE players ADD COLUMN IF NOT EXISTS dirty_tickets INTEGER NOT NULL DEFAULT 0"
+            )
+            cur.execute(
+                "ALTER TABLE players ADD COLUMN IF NOT EXISTS pawn_relationship INTEGER NOT NULL DEFAULT 0"
+            )
+            cur.execute(
+                "ALTER TABLE players ADD COLUMN IF NOT EXISTS last_pawn_chat_date DATE"
+            )
