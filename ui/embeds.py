@@ -103,6 +103,7 @@ def dive_result_embed(
     bonus_text=None,
     unlocked_zone_names=None,
     avatar_url=None,
+    attachment_filename=None,
 ):
     item = ITEMS[item_id]
     rarity = item.get("rarity", "Common")
@@ -135,7 +136,9 @@ def dive_result_embed(
     if avatar_url:
         embed.set_author(name=player["username"], icon_url=avatar_url)
 
-    if isinstance(item.get("image"), str) and item["image"].startswith("http"):
+    if attachment_filename:
+        embed.set_thumbnail(url=f"attachment://{attachment_filename}")
+    elif isinstance(item.get("image"), str) and item["image"].startswith("http"):
         embed.set_thumbnail(url=item["image"])
 
     embed.add_field(name="💰 Coins", value=str(player["coins"]), inline=True)
