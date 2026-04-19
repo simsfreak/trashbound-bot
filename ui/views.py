@@ -527,6 +527,30 @@ class ProfileView(discord.ui.View):
             view=ProfileView(self.owner_id, self.is_admin),
         )
 
+    @discord.ui.button(label="💬 Chat", style=discord.ButtonStyle.secondary, row=1)
+    async def pawn_chat_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not queries.can_chat_with_pawn_owner(interaction.user.id):
+            await interaction.response.send_message(
+                "The pawn owner waves you off. Come back tomorrow.",
+                ephemeral=True,
+            )
+            return
+
+        story = get_random_pawn_story()
+        embed = discord.Embed(
+            title="💬 Pawn Owner",
+            description=(
+                f"**{interaction.user.display_name}**, listen up.\n\n"
+                f"{story['text']}"
+            ),
+            color=0x8B5E3C,
+        )
+        embed.set_footer(text="Choose your answer carefully.")
+        await interaction.response.edit_message(
+            embed=embed,
+            view=PawnChatChoiceView(self.owner_id, self.is_admin, story),
+        )
+
 
 class AdminButton(discord.ui.Button):
     def __init__(self, row: int = 2):
