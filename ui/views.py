@@ -294,10 +294,10 @@ class PawnChatChoiceButton(discord.ui.Button):
                 "Nah. Soft answer.",
                 "You'd get eaten alive doing that.",
                 "Wrong instinct. Cute, though.",
-             ])
-             relationship_delta = 0
-             coins_reward = 0
-             ticket_reward = 0
+            ])
+            relationship_delta = 0
+            coins_reward = 0
+            ticket_reward = 0
             
         queries.update_pawn_chat(
             interaction.user.id,
