@@ -366,29 +366,7 @@ class ProfileView(discord.ui.View):
                 ),
                 view=ProfileView(self.owner_id, self.is_admin),
             )
-            return
-
-        for ingredient_id, qty in matched_recipe["ingredients"].items():
-            queries.remove_item_from_inventory(interaction.user.id, ingredient_id, qty)
-
-        result_item_id = matched_recipe["result_item_id"]
-        result_qty = matched_recipe["result_qty"]
-        queries.add_item_to_inventory(interaction.user.id, result_item_id, result_qty)
-
-        result_item = ITEMS[result_item_id]
-        await interaction.response.edit_message(
-            embed=mix_result_embed(
-                "🧪 Mix Result",
-                (
-                    f"You mixed some suspicious junk together and made:\n\n"
-                    f"{result_item.get('emoji', '✨')} **{result_item['name']}** x{result_qty}\n"
-                    f"🎖️ {result_item['rarity']}\n"
-                    f"*{result_item.get('flavor', 'A strange creation.')}*"
-                ),
-            ),
-            view=ProfileView(self.owner_id, self.is_admin),
-        )
-
+    
     @discord.ui.button(label="🗺️ Zones", style=discord.ButtonStyle.success, row=1)
     async def zones_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         unlocked = queries.get_unlocked_zone_ids(interaction.user.id)
