@@ -1,35 +1,17 @@
-import logging
 import discord
-from discord.ext import commands
 
-from config import DISCORD_TOKEN, GUILD_ID
-from db.database import run_schema
+from db.queries import save_contact_message
 
-logging.basicConfig(level=logging.INFO)
 
-TEST_GUILD = discord.Object(id=int(GUILD_ID))
-intents = discord.Intents.default()
+class ContactAdminModal(discord.ui.Modal, title="Contact Admin"):
+    subject = discord.ui.TextInput(label="Subject", max_length=100)
+    message = discord.ui.TextInput(label="Message", style=discord.TextStyle.paragraph, max_length=1000)
 
-INITIAL_EXTENSIONS = [
-    "cogs.profile",
-]
-
-class TrashboundBot(commands.Bot):
-    def __init__(self):
-        super().__init__(command_prefix="!", intents=intents)
-
-    async def setup_hook(self):
-        run_schema()
-
-        for ext in INITIAL_EXTENSIONS:
-            await self.load_extension(ext)
-
-        self.tree.copy_global_to(guild=TEST_GUILD)
-        synced = await self.tree.sync(guild=TEST_GUILD)
-        logging.info(f"Synced {len(synced)} commands to guild")
-
-    async def on_ready(self):
-        logging.info(f"Logged in as {self.user}")
-
-bot = TrashboundBot()
-bot.run(DISCORD_TOKEN)
+    async def on_submit(self, interaction: discord.Interaction):
+        save_contact_message(
+            user_id=interaction.user.id,
+            username=interaction.user.name,
+            subject=str(self.subject),
+            message=str(self.message),
+        )
+        await interaction.response.send_message("Your message was sent to admin.", ephemeral=True)
