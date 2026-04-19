@@ -9,30 +9,30 @@ PAWN_STORIES = [
         "choices": [
             {"label": "Sell it anyway", "liked": True},
             {"label": "Throw it back outside", "liked": False},
-         ],
+        ],
     },
     {
-            "text": "Someone tried pawning me a boot with teeth. Your move?",
-            "choices": [
-                 {"label": "Ask if it bites", "liked": True}
-                 {"label": "Pretend I never saw it", "liked": False},
-          ],
-     }
-     {
-             "text": "A rat brought me a ring and demanded store credit. Thoughts?",
-             "choices": [
-                 {"label": "Respect the hustle", "liked": True},
-                 {"label": "Ban the rat", "liked": False},
-           ],
-     },
-     {
-            "text": "Guy swore this cracked radio predicts the future. What now?",
-            "choices": [
-                {"label": "Offer half price", "liked": True},
-                {"label": "Walk away slowly", "liked": False},
-            ],
-       },
-   ] 
+        "text": "Someone tried pawning me a boot with teeth. Your move?",
+        "choices": [
+            {"label": "Ask if it bites", "liked": True},
+            {"label": "Pretend I never saw it", "liked": False},
+        ],
+    },
+    {
+        "text": "A rat brought me a ring and demanded store credit. Thoughts?",
+        "choices": [
+            {"label": "Respect the hustle", "liked": True},
+            {"label": "Ban the rat", "liked": False},
+        ],
+    },
+    {
+        "text": "Guy swore this cracked radio predicts the future. What now?",
+        "choices": [
+            {"label": "Offer half price", "liked": True},
+            {"label": "Walk away slowly", "liked": False},
+        ],
+    },
+]
 
 from db import queries
 from game.data import ITEMS, ZONES, MUSEUM_COLLECTIONS
