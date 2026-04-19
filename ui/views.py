@@ -357,22 +357,12 @@ class ProfileView(discord.ui.View):
         )
         await interaction.response.edit_message(embed=embed, view=view)
 
-    @discord.ui.button(label="🧪 Mix", style=discord.ButtonStyle.success, row=0)
+    @discord.ui.button(label="🎟 Exchange", style=discord.ButtonStyle.success, row=0)
     async def mix_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        inventory_rows = queries.get_inventory(interaction.user.id)
-        inventory_map = {item_id: qty for item_id, qty in inventory_rows}
-
-        matched_recipe = None
-        for recipe in MIX_RECIPES:
-            if all(inventory_map.get(item_id, 0) >= qty for item_id, qty in recipe["ingredients"].items()):
-                matched_recipe = recipe
-                break
-
-        if not matched_recipe:
-            await interaction.response.edit_message(
-                embed=mix_result_embed(
-                    "🧪 Mix Result",
-                    "No valid recipe yet.\n\nCollect more junk and try again.",
+        await interaction.response.edit_message(
+            embed=mix_result_embed(
+                    "🎟 Exchange",
+                    "The pawn shop is being reworked...\n\nCome back soon 👀",
                 ),
                 view=ProfileView(self.owner_id, self.is_admin),
             )
