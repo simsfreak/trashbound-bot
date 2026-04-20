@@ -1,7 +1,7 @@
 import random
 from datetime import datetime, timedelta
 
-from game.data import ITEMS, ZONES, get_live_events
+from game.data import DIRTY_DRAW_POOL, ITEMS, ZONES, get_live_events
 from game.rarities import RARITY_BADGES, RARITY_FX
 
 DIVE_STARTERS = [
