@@ -14,6 +14,7 @@ SCHEMA_STATEMENTS = [
         xp INTEGER NOT NULL DEFAULT 0,
         level INTEGER NOT NULL DEFAULT 1,
         current_zone_id TEXT NOT NULL DEFAULT 'back_alley',
+        current_time_phase TEXT NOT NULL DEFAULT 'morning',
         current_title TEXT NOT NULL DEFAULT 'Trash Rookie',
         total_dives INTEGER NOT NULL DEFAULT 0,
         dirty_tickets INTEGER NOT NULL DEFAULT 0,

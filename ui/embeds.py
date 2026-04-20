@@ -37,13 +37,19 @@ def profile_embed(
     quest_status,
     avatar_url,
 ):
+    from game.time_system import get_phase_emoji, get_phase_name
+    
     zone = ZONES[player["current_zone_id"]]["name"]
+    time_phase = player.get("current_time_phase", "morning")
+    time_emoji = get_phase_emoji(time_phase)
+    time_name = get_phase_name(time_phase)
+    
     live_names = [f"{event.get('emoji', '✨')} {event['name']}" for event in get_live_events()]
 
     embed = discord.Embed(
         title=f"{player['username']} — {player['current_title']}",
         description=(
-            f"📍 **{zone}**\n"
+            f"📍 **{zone}** • {time_emoji} **{time_name}**\n"
             f"🌐 {' • '.join(live_names) if live_names else 'No live world event'}"
         ),
         color=0x2C2F33,
@@ -78,7 +84,7 @@ def profile_embed(
 
     embed.add_field(name="🗑️ Total Dives", value=str(player["total_dives"]), inline=True)
     embed.add_field(name="👑 Title", value=player["current_title"], inline=True)
-    embed.add_field(name="🗺️ Zone", value=zone, inline=True)
+    embed.add_field(name=f"{time_emoji} Phase", value=time_name, inline=True)
 
     recent_text = "\n".join(recent_finds[-3:]) if recent_finds else "None yet"
     embed.add_field(name="🪄 Recent Finds", value=recent_text, inline=False)

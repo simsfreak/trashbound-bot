@@ -1148,25 +1148,52 @@ def get_active_quest(user_id: int) -> dict | None:
 def progress_generated_quest(user_id: int, quest_id: str, progress_amount: int = 1) -> bool:
     """
     Update progress on an active generated quest.
+    Only increments progress if player's current zone and time phase match quest requirements.
     """
+    from game.time_system import is_phase_match
+    
     with get_conn() as conn:
         with conn.cursor() as cur:
+            # Get quest details including zone/time requirements
             cur.execute(
                 """
-                SELECT progress, target, is_completed, is_redeemed, expires_at
+                SELECT progress, target, is_completed, is_redeemed, expires_at, zone_id, time
                 FROM generated_quests
                 WHERE user_id = %s AND quest_id = %s
                 """,
                 (user_id, quest_id),
             )
-            row = cur.fetchone()
-            if not row:
+            quest_row = cur.fetchone()
+            if not quest_row:
                 return False
             
-            progress, target, is_completed, is_redeemed, expires_at = row
+            progress, target, is_completed, is_redeemed, expires_at, quest_zone, quest_time = quest_row
             
             # Check if quest is still valid
             if is_redeemed or expires_at <= datetime.utcnow():
+                return False
+            
+            # Get player's current zone and time phase
+            cur.execute(
+                """
+                SELECT current_zone_id, current_time_phase
+                FROM players
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            player_row = cur.fetchone()
+            if not player_row:
+                return False
+            
+            player_zone, player_time = player_row
+            
+            # Validate zone and time requirements
+            zone_match = player_zone == quest_zone
+            time_match = is_phase_match(player_time, quest_time)
+            
+            # Only progress if both requirements are met
+            if not (zone_match and time_match):
                 return False
             
             # Update progress
@@ -1183,6 +1210,63 @@ def progress_generated_quest(user_id: int, quest_id: str, progress_amount: int =
             )
             
             return True
+
+
+def get_quest_requirement_status(user_id: int, quest_id: str) -> tuple[bool, bool, str]:
+    """
+    Check if player meets zone and time requirements for a quest.
+    Returns: (zone_match: bool, time_match: bool, feedback_text: str)
+    """
+    from game.time_system import is_phase_match
+    
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            # Get quest requirements
+            cur.execute(
+                """
+                SELECT zone_id, zone_name, time
+                FROM generated_quests
+                WHERE user_id = %s AND quest_id = %s
+                """,
+                (user_id, quest_id),
+            )
+            quest_row = cur.fetchone()
+            if not quest_row:
+                return False, False, "❌ Quest not found"
+            
+            quest_zone, quest_zone_name, quest_time = quest_row
+            
+            # Get player's current zone and time
+            cur.execute(
+                """
+                SELECT current_zone_id, current_time_phase
+                FROM players
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            player_row = cur.fetchone()
+            if not player_row:
+                return False, False, "❌ Player not found"
+            
+            player_zone, player_time = player_row
+            
+            # Check matches
+            zone_match = player_zone == quest_zone
+            time_match = is_phase_match(player_time, quest_time)
+            
+            # Generate feedback
+            if zone_match and time_match:
+                feedback = "✅ All conditions met. Progress is counting!"
+            else:
+                issues = []
+                if not zone_match:
+                    issues.append(f"⚠️ Zone mismatch: Need {quest_zone_name}")
+                if not time_match:
+                    issues.append(f"⚠️ Time mismatch: Need {quest_time.capitalize()}")
+                feedback = "\n".join(issues)
+            
+            return zone_match, time_match, feedback
 
 
 def redeem_generated_quest(user_id: int, quest_id: str) -> bool:
@@ -1427,4 +1511,109 @@ def fail_pawn_request(user_id: int, request_id: int) -> bool:
             )
             
             return cur.fetchone() is not None
+
+
+# ==================== ZONE & TIME MANAGEMENT ====================
+
+def get_current_zone(user_id: int) -> str:
+    """Get player's currently active zone."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT current_zone_id FROM players WHERE user_id = %s",
+                (user_id,),
+            )
+            row = cur.fetchone()
+            return row[0] if row else "back_alley"
+
+
+def set_current_zone(user_id: int, zone_id: str) -> bool:
+    """Set player's active zone."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE players
+                SET current_zone_id = %s
+                WHERE user_id = %s
+                RETURNING user_id
+                """,
+                (zone_id, user_id),
+            )
+            return cur.fetchone() is not None
+
+
+def get_current_time_phase(user_id: int) -> str:
+    """Get player's current time phase."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT current_time_phase FROM players WHERE user_id = %s",
+                (user_id,),
+            )
+            row = cur.fetchone()
+            return row[0] if row else "morning"
+
+
+def set_current_time_phase(user_id: int, phase: str) -> bool:
+    """Set player's current time phase."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE players
+                SET current_time_phase = %s
+                WHERE user_id = %s
+                RETURNING user_id
+                """,
+                (phase, user_id),
+            )
+            return cur.fetchone() is not None
+
+
+def cycle_time_phase(user_id: int) -> str:
+    """
+    Cycle player to next time phase.
+    morning → evening → night → morning
+    Returns the NEW phase.
+    """
+    current = get_current_time_phase(user_id)
+    phases = ["morning", "evening", "night"]
+    
+    try:
+        current_idx = phases.index(current)
+        next_idx = (current_idx + 1) % len(phases)
+        next_phase = phases[next_idx]
+    except ValueError:
+        next_phase = "morning"
+    
+    set_current_time_phase(user_id, next_phase)
+    return next_phase
+
+
+def randomize_time_phase(user_id: int) -> str:
+    """
+    Set player to a random time phase.
+    Returns the NEW phase.
+    """
+    import random
+    phases = ["morning", "evening", "night"]
+    # Weight toward night (more mysterious)
+    phase = random.choices(phases, weights=[30, 30, 40], k=1)[0]
+    set_current_time_phase(user_id, phase)
+    return phase
+
+
+def initialize_player_time_and_zone(user_id: int, zone_id: str = "back_alley", phase: str = "morning") -> None:
+    """Initialize new player with starting zone and time phase."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE players
+                SET current_zone_id = %s, current_time_phase = %s
+                WHERE user_id = %s
+                """,
+                (zone_id, phase, user_id),
+            )
 

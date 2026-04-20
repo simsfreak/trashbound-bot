@@ -462,6 +462,37 @@ class GeneratedQuestView(discord.ui.View):
         empty = length - filled
         return "[" + "█" * filled + "░" * empty + "]"
 
+    def _get_requirement_status(self, interaction: discord.Interaction, quest: dict) -> tuple[bool, bool, str]:
+        """
+        Check if quest requirements are met.
+        Returns (zone_match, time_match, feedback_text)
+        """
+        from game.time_system import is_phase_match
+        
+        player = queries.get_player(interaction.user.id)
+        player_zone = player.get("current_zone_id", "back_alley")
+        player_time = player.get("current_time_phase", "morning")
+        
+        quest_zone = quest.get("zone_id", "back_alley")
+        quest_time = quest.get("time", "morning")
+        
+        zone_match = player_zone == quest_zone
+        time_match = is_phase_match(player_time, quest_time)
+        
+        if zone_match and time_match:
+            feedback = "✅ All conditions met. Ready to start!"
+        else:
+            issues = []
+            if not zone_match:
+                zone_name = ZONES.get(quest_zone, {}).get("name", quest_zone)
+                issues.append(f"⚠️ Zone mismatch: Need {zone_name}")
+            if not time_match:
+                time_emoji = self._get_time_emoji(quest_time)
+                issues.append(f"⚠️ Time mismatch: Need {time_emoji} {quest_time.capitalize()}")
+            feedback = "\n".join(issues)
+        
+        return zone_match, time_match, feedback
+
     def _generate_quest_batch(self, count: int = 5) -> list:
         """Generate a batch of randomized quests"""
         from game.quest_generator import generate_quest
@@ -554,8 +585,8 @@ class GeneratedQuestView(discord.ui.View):
             return self.quests[self.current_quest_index]
         return None
 
-    def build_embed(self) -> discord.Embed:
-        """Build the quest display embed"""
+    def build_embed(self, interaction: discord.Interaction = None) -> discord.Embed:
+        """Build the quest display embed with requirement status"""
         quest = self._get_current_quest()
         
         if not quest:
@@ -585,6 +616,15 @@ class GeneratedQuestView(discord.ui.View):
         # Task
         embed.add_field(name="📋 Task", value=quest['description'], inline=False)
         
+        # Requirements status (if interaction provided)
+        if interaction:
+            zone_match, time_match, feedback = self._get_requirement_status(interaction, quest)
+            embed.add_field(
+                name="📍 Requirements",
+                value=feedback,
+                inline=False
+            )
+        
         # Rewards
         reward_text = []
         if quest.get("reward_coins"):
@@ -610,7 +650,7 @@ class GeneratedQuestView(discord.ui.View):
         self.current_quest_index = (self.current_quest_index + 1) % len(self.quests)
         self._save_session()
         
-        embed = self.build_embed()
+        embed = self.build_embed(interaction)
         await interaction.response.edit_message(embed=embed, view=self, attachments=[])
 
     @discord.ui.button(label="✅ Accept Quest", style=discord.ButtonStyle.primary, row=0)
@@ -630,9 +670,18 @@ class GeneratedQuestView(discord.ui.View):
         # Store this quest as the active one
         quest["is_active"] = True
         
+        # Check requirement status
+        zone_match, time_match, feedback = self._get_requirement_status(interaction, quest)
+        
+        description = f"You've accepted **{quest['name']}**\n\n_{quest['description']}_\n\n💰 **Reward:** {quest['reward_coins']} coins"
+        
+        # Add warning if conditions not met
+        if not (zone_match and time_match):
+            description += f"\n\n⚠️ **Note:** Progress will only count when the following conditions are met:\n{feedback}"
+        
         embed = discord.Embed(
             title="✅ Quest Accepted!",
-            description=f"You've accepted **{quest['name']}**\n\n_{quest['description']}_\n\n💰 **Reward:** {quest['reward_coins']} coins",
+            description=description,
             color=0x57F287,
         )
         
@@ -653,7 +702,7 @@ class GeneratedQuestView(discord.ui.View):
         self.current_quest_index = 0
         self._load_quests()
         
-        embed = self.build_embed()
+        embed = self.build_embed(interaction)
         await interaction.response.edit_message(embed=embed, view=self, attachments=[])
 
     @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=1)
@@ -1880,7 +1929,7 @@ class ProfileView(discord.ui.View):
     @discord.ui.button(label="� Quests", style=discord.ButtonStyle.secondary, row=3)
     async def quests_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         view = GeneratedQuestView(self.owner_id, self.is_admin)
-        embed = view.build_embed()
+        embed = view.build_embed(interaction)
         await interaction.response.edit_message(
             embed=embed,
             view=view,
@@ -1911,6 +1960,30 @@ class ProfileView(discord.ui.View):
     @discord.ui.button(label="🔄 Refresh", style=discord.ButtonStyle.secondary, row=2)
     async def refresh_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = build_profile_embed_for_user(interaction.user)
+        await interaction.response.edit_message(
+            embed=embed,
+            view=ProfileView(self.owner_id, self.is_admin),
+            attachments=[],
+        )
+
+    @discord.ui.button(label="⏰ Phase", style=discord.ButtonStyle.secondary, row=2)
+    async def time_phase_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Cycle to the next time phase"""
+        from game.time_system import get_next_phase, get_phase_name, get_phase_full_description
+        
+        current_phase = queries.get_current_time_phase(interaction.user.id)
+        new_phase = queries.cycle_time_phase(interaction.user.id)
+        
+        embed = discord.Embed(
+            title="⏰ Time Shifts",
+            description=(
+                f"The world changes around you...\n\n"
+                f"🔄 {get_phase_name(current_phase)} → {get_phase_name(new_phase)}\n\n"
+                f"{get_phase_full_description(new_phase)}"
+            ),
+            color=0x5865F2,
+        )
+        
         await interaction.response.edit_message(
             embed=embed,
             view=ProfileView(self.owner_id, self.is_admin),
