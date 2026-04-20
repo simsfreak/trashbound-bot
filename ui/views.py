@@ -359,6 +359,68 @@ class PawnChatBackButton(discord.ui.Button):
             return
         await show_profile(interaction, self.view.owner_id, self.view.is_admin)
 
+class PawnShopView(discord.ui.View):
+    def __init__(self, owner_id: int, is_admin: bool):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("Not your shop session.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="💱 Exchange Loot", style=discord.ButtonStyle.success, row=0)
+    async def exchange_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.edit_message(
+            embed=mix_result_embed(
+                "💱 Exchange Loot",
+                "Bring me junk. I’ll turn it into coins.\n\n(Exchange system coming next 👀)",
+            ),
+            view=PawnShopView(self.owner_id, self.is_admin),
+        )
+
+    @discord.ui.button(label="🎟 Buy Tickets", style=discord.ButtonStyle.primary, row=0)
+    async def buy_tickets_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.edit_message(
+            embed=mix_result_embed(
+                "🎟 Dirty Tickets",
+                "Tickets cost coins. Good ones cost more.\n\n(Ticket shop coming next 👀)",
+            ),
+            view=PawnShopView(self.owner_id, self.is_admin),
+        )
+
+    @discord.ui.button(label="💬 Chat with Owner", style=discord.ButtonStyle.secondary, row=1)
+    async def chat_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not queries.can_chat_with_pawn_owner(interaction.user.id):
+            await interaction.response.send_message(
+                "The pawn owner waves you off. Come back tomorrow.",
+                ephemeral=True,
+            )
+            return
+
+        story = get_random_pawn_story()
+
+        embed = discord.Embed(
+            title="💬 Pawn Owner",
+            description=(
+                f"**{interaction.user.display_name}**, listen up.\n\n"
+                f"{story['text']}"
+            ),
+            color=0x8B5E3C,
+        )
+
+        await interaction.response.edit_message(
+            embed=embed,
+            view=PawnChatChoiceView(self.owner_id, self.is_admin, story),
+        )
+
+    @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=2)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await show_profile(interaction, self.owner_id, self.is_admin)
+
+
 class ProfileView(discord.ui.View):
     def __init__(self, owner_id: int, is_admin: bool):
         super().__init__(timeout=300)
@@ -498,6 +560,22 @@ class ProfileView(discord.ui.View):
         )
         await interaction.response.edit_message(embed=embed, view=view)
 
+    @discord.ui.button(label="🏚️ Pawn Shop", style=discord.ButtonStyle.success, row=0)
+async def pawnshop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    embed = discord.Embed(
+        title="🏚️ Pawn Shop",
+        description=(
+            f"Welcome back, **{interaction.user.display_name}**.\n\n"
+            "I deal in junk, favors, and things people don’t ask about.\n\n"
+            "What do you need?"
+        ),
+        color=0x8B5E3C,
+    )
+
+    await interaction.response.edit_message(
+        embed=embed,
+        view=PawnShopView(self.owner_id, self.is_admin),
+    )
     
     @discord.ui.button(label="🗺️ Zones", style=discord.ButtonStyle.success, row=1)
     async def zones_button(self, interaction: discord.Interaction, button: discord.ui.Button):
