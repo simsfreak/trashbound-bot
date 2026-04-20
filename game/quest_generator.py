@@ -219,6 +219,44 @@ TIME_PERIODS = {
 
 GEAR_TYPES = ["Gloves", "Boots", "Vest", "Visor", "Accessory", "Full Rig"]
 
+DIFFICULTY_SCALING = {
+    1: {
+        "hearts": "♥♡♡♡♡",
+        "item_count_multiplier": 0.8,
+        "coin_reward_base": 100,
+        "ticket_reward_base": 0,
+        "description_suffix": "— A warm-up.",
+    },
+    2: {
+        "hearts": "♥♥♡♡♡",
+        "item_count_multiplier": 1.0,
+        "coin_reward_base": 150,
+        "ticket_reward_base": 0,
+        "description_suffix": "— Standard fare.",
+    },
+    3: {
+        "hearts": "♥♥♥♡♡",
+        "item_count_multiplier": 1.2,
+        "coin_reward_base": 200,
+        "ticket_reward_base": 1,
+        "description_suffix": "— A fair challenge.",
+    },
+    4: {
+        "hearts": "♥♥♥♥♡",
+        "item_count_multiplier": 1.5,
+        "coin_reward_base": 300,
+        "ticket_reward_base": 1,
+        "description_suffix": "— For the bold.",
+    },
+    5: {
+        "hearts": "♥♥♥♥♥",
+        "item_count_multiplier": 2.0,
+        "coin_reward_base": 500,
+        "ticket_reward_base": 2,
+        "description_suffix": "— Legends only.",
+    },
+}
+
 # ==================== QUEST GENERATION FUNCTIONS ====================
 
 def generate_random_quests(count: int = 3, difficulty_range: tuple = (1, 5)) -> list[dict]:

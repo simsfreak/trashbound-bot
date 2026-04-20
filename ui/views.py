@@ -2,6 +2,7 @@ import asyncio
 import math
 import discord
 import random
+from datetime import datetime, timedelta
 
 PAWN_STORIES = [
     {
@@ -516,14 +517,17 @@ class GeneratedQuestView(discord.ui.View):
         return zone_match, time_match, feedback
 
     def _generate_quest_batch(self, count: int = 5) -> list:
-        """Generate a batch of randomized quests"""
+        """Generate a batch of randomized quests and store them in the database"""
         from game.quest_generator import generate_quest
+        from db import queries
         
         quests = []
         for _ in range(count):
             try:
                 # generate_quest handles all randomization internally
                 quest = generate_quest()
+                # IMPORTANT: Store the quest in the database so it can be accepted later
+                queries.store_generated_quest(self.owner_id, quest)
                 quests.append(quest)
             except Exception as e:
                 # Skip if generation fails, fallback will handle it
@@ -532,8 +536,10 @@ class GeneratedQuestView(discord.ui.View):
         return quests if quests else self._generate_simple_quests(count)
 
     def _generate_simple_quests(self, count: int = 5) -> list:
-        """Fallback: Generate simple quests from templates"""
+        """Fallback: Generate simple quests from templates and store them in the database"""
         from game.data import DAILY_QUEST_TEMPLATES, ZONES
+        from db import queries
+        import uuid
         
         quests = []
         zone_ids = list(ZONES.keys())
@@ -555,7 +561,7 @@ class GeneratedQuestView(discord.ui.View):
             reward_coins = int(base_coins * multiplier)
             
             quest = {
-                "quest_id": f"quest_{self.owner_id}_{i}_{random.randint(1000, 9999)}",
+                "quest_id": str(uuid.uuid4()),  # Use full UUID for uniqueness
                 "template_id": base.get("quest_key", ""),
                 "name": base.get("name", "Mystery Quest"),
                 "description": base.get("description", "Complete this quest."),
@@ -573,7 +579,11 @@ class GeneratedQuestView(discord.ui.View):
                 "is_active": False,
                 "is_completed": False,
                 "is_redeemed": False,
+                "generated_at": datetime.utcnow(),
+                "expires_at": datetime.utcnow() + timedelta(hours=24),
             }
+            # Store in database so it can be accepted later
+            queries.store_generated_quest(self.owner_id, quest)
             quests.append(quest)
         
         return quests
