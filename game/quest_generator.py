@@ -514,3 +514,9 @@ def accept_quest(user_id: int, quest_id: str) -> bool:
     from db import queries
     
     return queries.set_active_quest(user_id, quest_id)
+
+
+# ==================== ALIASES FOR COMPATIBILITY ====================
+
+# Alias for views.py compatibility
+generate_quest = generate_single_quest

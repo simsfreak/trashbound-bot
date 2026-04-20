@@ -464,27 +464,16 @@ class GeneratedQuestView(discord.ui.View):
 
     def _generate_quest_batch(self, count: int = 5) -> list:
         """Generate a batch of randomized quests"""
-        from game.quest_generator import generate_quest, QUEST_TEMPLATES
+        from game.quest_generator import generate_quest
         
         quests = []
-        available_templates = list(QUEST_TEMPLATES.keys())
-        
         for _ in range(count):
-            # Pick random template
-            template_id = random.choice(available_templates)
-            template = QUEST_TEMPLATES[template_id]
-            
-            # Pick random difficulty (1-5)
-            min_diff = template.get("min_difficulty", 1)
-            max_diff = template.get("max_difficulty", 5)
-            difficulty = random.randint(min_diff, max_diff)
-            
-            # Generate quest using the existing generator
             try:
-                quest = generate_quest(template, difficulty)
+                # generate_quest handles all randomization internally
+                quest = generate_quest()
                 quests.append(quest)
             except Exception as e:
-                # Skip if generation fails
+                # Skip if generation fails, fallback will handle it
                 pass
         
         return quests if quests else self._generate_simple_quests(count)
