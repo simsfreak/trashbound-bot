@@ -174,6 +174,19 @@ def update_player_progress(
             )
 
 
+def add_player_coins(user_id: int, coins_delta: int) -> None:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE players
+                SET coins = coins + %s
+                WHERE user_id = %s
+                """,
+                (coins_delta, user_id),
+            )
+
+
 def get_unlocked_zone_ids(user_id: int) -> list[str]:
     with get_conn() as conn:
         with conn.cursor() as cur:

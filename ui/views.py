@@ -375,11 +375,59 @@ class PawnShopView(discord.ui.View):
 
     @discord.ui.button(label="💱 Exchange Loot", style=discord.ButtonStyle.success, row=0)
     async def exchange_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.edit_message(
-            embed=mix_result_embed(
+        inventory = queries.get_inventory(interaction.user.id)
+        pawnable_items = []
+        total_coins = 0
+
+        for item_id, quantity in inventory:
+            item = ITEMS.get(item_id)
+            if not item or not item.get("pawnable", False):
+                continue
+
+            item_value = int(item.get("coins", 0)) * quantity
+            if item_value <= 0:
+                continue
+
+            pawnable_items.append((item_id, quantity, item_value))
+            total_coins += item_value
+
+        if total_coins <= 0:
+            embed = mix_result_embed(
                 "💱 Exchange Loot",
-                "Bring me junk. I’ll turn it into coins.\n\n(Exchange system coming next 👀)",
-            ),
+                "You’ve got nothing good enough to pawn right now. Come back with some pawnable junk.",
+            )
+            await interaction.response.edit_message(
+                embed=embed,
+                view=PawnShopView(self.owner_id, self.is_admin),
+                attachments=[],
+            )
+            return
+
+        total_quantity = sum(quantity for _, quantity, _ in pawnable_items)
+        exchanged_names = [f'{ITEMS[item_id]["name"]} x{quantity}' for item_id, quantity, _ in pawnable_items]
+
+        for item_id, quantity, _ in pawnable_items:
+            queries.remove_item_from_inventory(interaction.user.id, item_id, quantity)
+
+        queries.add_player_coins(interaction.user.id, total_coins)
+
+        description_lines = [
+            f"Pawned **{total_quantity}** items for **{total_coins} coins**.",
+        ]
+        if exchanged_names:
+            description_lines.append("Exchanged:")
+            description_lines.extend(exchanged_names[:6])
+            if len(exchanged_names) > 6:
+                description_lines.append("…and more pawnable junk.")
+
+        embed = discord.Embed(
+            title="💱 Exchange Loot",
+            description="\n".join(description_lines),
+            color=0xFFD700,
+        )
+
+        await interaction.response.edit_message(
+            embed=embed,
             view=PawnShopView(self.owner_id, self.is_admin),
             attachments=[],
         )
