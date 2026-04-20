@@ -450,3 +450,116 @@ def museum_collections_embed(
         embed.add_field(name=status, value=value, inline=False)
     
     return embed
+
+
+def admin_panel_embed(unread_count: int = 0) -> discord.Embed:
+    """Admin panel home."""
+    embed = discord.Embed(
+        title="🛠️ Admin Panel",
+        description="Admin tools and utilities.",
+        color=0xED4245,
+        timestamp=datetime.utcnow(),
+    )
+    
+    embed.add_field(
+        name="📬 Contact Messages",
+        value=f"📨 {unread_count} unread messages",
+        inline=False,
+    )
+    
+    embed.add_field(
+        name="🎁 Grant Tools",
+        value="Grant XP, Coins, Tickets, or Items to players.",
+        inline=False,
+    )
+    
+    embed.add_field(
+        name="🌍 Events",
+        value="Trigger or manage world events.",
+        inline=False,
+    )
+    
+    return embed
+
+
+def admin_messages_embed(messages: list[dict], page: int = 1, per_page: int = 5) -> discord.Embed:
+    """List all contact messages."""
+    total = len(messages)
+    total_pages = (total + per_page - 1) // per_page
+    start_idx = (page - 1) * per_page
+    end_idx = min(start_idx + per_page, total)
+    
+    embed = discord.Embed(
+        title="📬 Contact Messages",
+        description=f"Page {page}/{total_pages} ({total} total)",
+        color=0x5865F2,
+        timestamp=datetime.utcnow(),
+    )
+    
+    for i, msg in enumerate(messages[start_idx:end_idx], 1):
+        status_icon = "✉️" if msg["status"] == "open" else "✅"
+        username = msg.get("username", "Unknown")
+        subject = msg.get("subject", "No subject")
+        created_at = msg.get("created_at", "Unknown date")
+        
+        embed.add_field(
+            name=f"{status_icon} {i}. {username} — {subject}",
+            value=f"ID: {msg['id']} | {created_at.strftime('%Y-%m-%d %H:%M') if hasattr(created_at, 'strftime') else created_at}",
+            inline=False,
+        )
+    
+    return embed
+
+
+def admin_message_detail_embed(message: dict) -> discord.Embed:
+    """Show full message details."""
+    embed = discord.Embed(
+        title=f"📧 Message from {message.get('username', 'Unknown')}",
+        description=f"**Subject:** {message.get('subject', 'No subject')}",
+        color=0x5865F2,
+        timestamp=datetime.utcnow(),
+    )
+    
+    embed.add_field(
+        name="Message",
+        value=message.get("message", "No message content"),
+        inline=False,
+    )
+    
+    embed.add_field(
+        name="User ID",
+        value=str(message.get("user_id", "Unknown")),
+        inline=True,
+    )
+    
+    embed.add_field(
+        name="Message ID",
+        value=str(message.get("id", "Unknown")),
+        inline=True,
+    )
+    
+    embed.add_field(
+        name="Status",
+        value=message.get("status", "unknown").title(),
+        inline=True,
+    )
+    
+    return embed
+
+
+def admin_grant_success_embed(action: str, player_name: str, details: str) -> discord.Embed:
+    """Grant action success confirmation."""
+    embed = discord.Embed(
+        title="✅ Admin Action Completed",
+        description=f"**Action:** {action}\n**Player:** {player_name}",
+        color=0x2ECC71,
+        timestamp=datetime.utcnow(),
+    )
+    
+    embed.add_field(
+        name="Details",
+        value=details,
+        inline=False,
+    )
+    
+    return embed

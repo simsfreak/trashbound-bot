@@ -65,6 +65,10 @@ from ui.embeds import (
     mix_result_embed,
     museum_home_embed,
     museum_collections_embed,
+    admin_panel_embed,
+    admin_messages_embed,
+    admin_message_detail_embed,
+    admin_grant_success_embed,
     profile_embed,
     zone_embed,
 )
@@ -1262,9 +1266,99 @@ class AdminButton(discord.ui.Button):
         super().__init__(label="Admin", emoji="🛠️", style=discord.ButtonStyle.danger, row=row)
 
     async def callback(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="🛠️ Admin Panel",
-            description="Admin tools are coming next:\n• View messages\n• Grant XP\n• Grant coins\n• Trigger events",
-            color=0xED4245,
-        )
-        await interaction.response.edit_message(embed=embed, view=self.view, attachments=[])
+        from ui.embeds import admin_panel_embed
+        from db.queries import get_all_contact_messages
+        
+        messages = get_all_contact_messages()
+        unread_count = sum(1 for m in messages if m.get("status") == "open")
+        
+        embed = admin_panel_embed(unread_count)
+        view = AdminPanelView()
+        
+        await interaction.response.edit_message(embed=embed, view=view, attachments=[])
+
+
+class AdminPanelView(discord.ui.View):
+    """Admin panel home."""
+    def __init__(self):
+        super().__init__(timeout=600)
+
+    @discord.ui.button(label="📬 View Messages", style=discord.ButtonStyle.primary, row=0)
+    async def view_messages_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        from ui.embeds import admin_messages_embed
+        from db.queries import get_all_contact_messages
+        
+        messages = get_all_contact_messages()
+        embed = admin_messages_embed(messages, page=1)
+        view = AdminMessagesView(messages, page=1)
+        
+        await interaction.response.edit_message(embed=embed, view=view, attachments=[])
+
+    @discord.ui.button(label="💰 Grant Coins", style=discord.ButtonStyle.success, row=0)
+    async def grant_coins_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        from ui.modals import GrantCoinsModal
+        await interaction.response.send_modal(GrantCoinsModal())
+
+    @discord.ui.button(label="✨ Grant XP", style=discord.ButtonStyle.success, row=1)
+    async def grant_xp_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        from ui.modals import GrantXPModal
+        await interaction.response.send_modal(GrantXPModal())
+
+    @discord.ui.button(label="🎟 Grant Tickets", style=discord.ButtonStyle.success, row=1)
+    async def grant_tickets_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        from ui.modals import GrantTicketsModal
+        await interaction.response.send_modal(GrantTicketsModal())
+
+    @discord.ui.button(label="🎁 Grant Items", style=discord.ButtonStyle.success, row=1)
+    async def grant_items_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        from ui.modals import GrantItemsModal
+        await interaction.response.send_modal(GrantItemsModal())
+
+    @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=2)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await show_profile(interaction, interaction.user.id, True)
+
+
+class AdminMessagesView(discord.ui.View):
+    """List contact messages."""
+    def __init__(self, messages: list[dict], page: int = 1, per_page: int = 5):
+        super().__init__(timeout=600)
+        self.messages = messages
+        self.page = page
+        self.per_page = per_page
+        self.total_pages = (len(messages) + per_page - 1) // per_page
+        
+        # Disable prev/next if only one page
+        if self.total_pages <= 1:
+            self.previous_page.disabled = True
+            self.next_page.disabled = True
+
+    @discord.ui.button(label="◀ Previous", style=discord.ButtonStyle.secondary, row=0)
+    async def previous_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.page > 1:
+            self.page -= 1
+            from ui.embeds import admin_messages_embed
+            embed = admin_messages_embed(self.messages, self.page, self.per_page)
+            view = AdminMessagesView(self.messages, self.page, self.per_page)
+            await interaction.response.edit_message(embed=embed, view=view, attachments=[])
+
+    @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary, row=0)
+    async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.page < self.total_pages:
+            self.page += 1
+            from ui.embeds import admin_messages_embed
+            embed = admin_messages_embed(self.messages, self.page, self.per_page)
+            view = AdminMessagesView(self.messages, self.page, self.per_page)
+            await interaction.response.edit_message(embed=embed, view=view, attachments=[])
+
+    @discord.ui.button(label="🏠 Back to Panel", style=discord.ButtonStyle.primary, row=1)
+    async def back_to_panel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        from ui.embeds import admin_panel_embed
+        from db.queries import get_all_contact_messages
+        
+        messages = get_all_contact_messages()
+        unread_count = sum(1 for m in messages if m.get("status") == "open")
+        embed = admin_panel_embed(unread_count)
+        view = AdminPanelView()
+        
+        await interaction.response.edit_message(embed=embed, view=view, attachments=[])

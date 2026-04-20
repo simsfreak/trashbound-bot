@@ -534,6 +534,128 @@ def save_contact_message(user_id: int, username: str, subject: str, message: str
             )
 
 
+def get_all_contact_messages() -> list[dict]:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, user_id, username, subject, message, created_at, status
+                FROM contact_messages
+                ORDER BY created_at DESC
+                """
+            )
+            return [
+                {
+                    "id": row[0],
+                    "user_id": row[1],
+                    "username": row[2],
+                    "subject": row[3],
+                    "message": row[4],
+                    "created_at": row[5],
+                    "status": row[6],
+                }
+                for row in cur.fetchall()
+            ]
+
+
+def get_contact_message_by_id(message_id: int) -> dict | None:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, user_id, username, subject, message, created_at, status
+                FROM contact_messages
+                WHERE id = %s
+                """,
+                (message_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            return {
+                "id": row[0],
+                "user_id": row[1],
+                "username": row[2],
+                "subject": row[3],
+                "message": row[4],
+                "created_at": row[5],
+                "status": row[6],
+            }
+
+
+def mark_contact_message_read(message_id: int) -> None:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE contact_messages
+                SET status = 'read'
+                WHERE id = %s
+                """,
+                (message_id,),
+            )
+
+
+def grant_player_xp(user_id: int, xp_amount: int) -> bool:
+    player = get_player(user_id)
+    if not player:
+        return False
+    
+    from game.leveling import apply_xp
+    from game.helpers import determine_title
+    
+    new_xp, new_level, leveled_up = apply_xp(player["xp"], player["level"], xp_amount)
+    new_title = determine_title(new_level)
+    
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE players
+                SET xp = %s, level = %s, current_title = %s
+                WHERE user_id = %s
+                """,
+                (new_xp, new_level, new_title, user_id),
+            )
+    return True
+
+
+def grant_player_coins(user_id: int, coins_amount: int) -> bool:
+    player = get_player(user_id)
+    if not player:
+        return False
+    
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE players
+                SET coins = coins + %s
+                WHERE user_id = %s
+                """,
+                (coins_amount, user_id),
+            )
+    return True
+
+
+def grant_player_tickets(user_id: int, tickets_amount: int) -> bool:
+    player = get_player(user_id)
+    if not player:
+        return False
+    
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE players
+                SET dirty_tickets = dirty_tickets + %s
+                WHERE user_id = %s
+                """,
+                (tickets_amount, user_id),
+            )
+    return True
+
+
 def add_active_effect(
     user_id: int,
     effect_id: str,
