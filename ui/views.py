@@ -577,11 +577,7 @@ class ProfileView(discord.ui.View):
             view=PawnShopView(self.owner_id, self.is_admin),
         )
 
-    await interaction.response.edit_message(
-        embed=embed,
-        view=PawnShopView(self.owner_id, self.is_admin),
-    )
-    
+         
     @discord.ui.button(label="🗺️ Zones", style=discord.ButtonStyle.success, row=1)
     async def zones_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         unlocked = queries.get_unlocked_zone_ids(interaction.user.id)
