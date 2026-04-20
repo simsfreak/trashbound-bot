@@ -59,6 +59,23 @@ def profile_embed(
     embed.add_field(name="⭐ Level", value=str(player["level"]), inline=True)
     embed.add_field(name="🎒 Items", value=str(inventory_count), inline=True)
     embed.add_field(name="✨ XP", value=build_xp_bar(player["xp"], player["level"]), inline=False)
+
+    bonuses = calculate_equipment_bonuses(equipment)
+    bonus_lines = []
+    if bonuses["xp_boost"] > 0:
+        bonus_lines.append(f"✨ +{int(bonuses['xp_boost'] * 100)}% XP Gain")
+    if bonuses["coin_boost"] > 0:
+        bonus_lines.append(f"💰 +{int(bonuses['coin_boost'] * 100)}% Coin Gain")
+    if bonuses["loot_value"] > 0:
+        bonus_lines.append(f"💎 +{int(bonuses['loot_value'] * 100)}% Item Value")
+    if bonuses["drop_bonus"] > 0:
+        bonus_lines.append(f"🎯 +{int(bonuses['drop_bonus'] * 100)}% Rare Chance")
+    if bonuses["extra_item_chance"] > 0:
+        bonus_lines.append(f"🎁 +{int(bonuses['extra_item_chance'] * 100)}% Extra Item Chance")
+
+    if bonus_lines:
+        embed.add_field(name="✨ Active Bonuses", value="\n".join(bonus_lines), inline=False)
+
     embed.add_field(name="🗑️ Total Dives", value=str(player["total_dives"]), inline=True)
     embed.add_field(name="👑 Title", value=player["current_title"], inline=True)
     embed.add_field(name="🗺️ Zone", value=zone, inline=True)
@@ -90,24 +107,6 @@ def profile_embed(
         else:
             lines.append(f"▫️ **{slot.title()}** — Empty")
     embed.add_field(name="🧥 Equipped", value="\n".join(lines), inline=False)
-
-    bonuses = calculate_equipment_bonuses(equipment)
-    bonus_lines = []
-    if bonuses["xp_boost"] > 0:
-        bonus_lines.append(f"✨ +{int(bonuses['xp_boost'] * 100)}% XP Gain")
-    if bonuses["coin_boost"] > 0:
-        bonus_lines.append(f"💰 +{int(bonuses['coin_boost'] * 100)}% Coin Gain")
-    if bonuses["loot_value"] > 0:
-        bonus_lines.append(f"💎 +{int(bonuses['loot_value'] * 100)}% Item Value")
-    if bonuses["drop_bonus"] > 0:
-        bonus_lines.append(f"🎁 +{int(bonuses['drop_bonus'] * 100)}% Rare Chance")
-    if bonuses["extra_item_chance"] > 0:
-        bonus_lines.append(f"🌟 +{int(bonuses['extra_item_chance'] * 100)}% Extra Item Chance")
-
-    if bonus_lines:
-        embed.add_field(name="⚡ Active Bonuses", value="\n".join(bonus_lines), inline=False)
-    else:
-        embed.add_field(name="⚡ Active Bonuses", value="No active gear bonuses yet.", inline=False)
 
     return embed
 
