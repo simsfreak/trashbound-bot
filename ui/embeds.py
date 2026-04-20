@@ -368,3 +368,85 @@ def museum_artifact_embed(item_id: str, discovered: bool) -> discord.Embed:
         embed.set_thumbnail(url=image_path)
 
     return embed
+
+
+def museum_home_embed(
+    museum_level: int,
+    museum_xp: int,
+    collections_completed: int,
+    total_collections: int,
+    next_collection_info: tuple[str, str, int, int] | None = None,
+) -> discord.Embed:
+    """Museum home view showing level, XP, and next collection."""
+    xp_for_level = 100
+    xp_in_current_level = museum_xp % xp_for_level
+    
+    embed = discord.Embed(
+        title="🏛️ Museum",
+        description=f"Your personal archive of discovered treasures and memories.",
+        color=0xFFD700,
+        timestamp=datetime.utcnow(),
+    )
+    
+    embed.add_field(
+        name="📚 Level",
+        value=f"**{museum_level}** — {xp_in_current_level}/{xp_for_level} XP to next level",
+        inline=False,
+    )
+    
+    embed.add_field(
+        name="🎯 Collections",
+        value=f"**{collections_completed} / {total_collections}** completed",
+        inline=True,
+    )
+    
+    embed.add_field(
+        name="✨ Total XP",
+        value=f"**{museum_xp}** XP earned",
+        inline=True,
+    )
+    
+    if next_collection_info:
+        collection_key, collection_name, progress, total = next_collection_info
+        embed.add_field(
+            name="📍 Next Collection",
+            value=f"**{collection_name}**\n{progress}/{total} items discovered",
+            inline=False,
+        )
+    
+    return embed
+
+
+def museum_collections_embed(
+    collections_data: dict[str, dict],
+    discovered_item_ids: set[str],
+    completed_collections: set[str],
+) -> discord.Embed:
+    """List all collections with progress."""
+    embed = discord.Embed(
+        title="📖 Collections",
+        description="Your museum archives. Complete collections for bonuses.",
+        color=0x9B59B6,
+        timestamp=datetime.utcnow(),
+    )
+    
+    for collection_key, collection_data in collections_data.items():
+        required_items = set(collection_data.get("item_ids", []))
+        discovered = len(required_items & discovered_item_ids)
+        total = len(required_items)
+        is_complete = collection_key in completed_collections
+        
+        emoji = collection_data.get("emoji", "📦")
+        name = collection_data.get("name", collection_key)
+        
+        if is_complete:
+            status = f"{emoji} ✅ **{name}** (Complete)"
+        else:
+            status = f"{emoji} **{name}**"
+        
+        progress_bar = "🟩" * discovered + "⬜" * (total - discovered)
+        value = f"{progress_bar}\n{discovered}/{total} items"
+        
+        embed.add_field(name=status, value=value, inline=False)
+    
+    return embed

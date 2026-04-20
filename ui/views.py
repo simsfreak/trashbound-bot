@@ -64,6 +64,7 @@ from ui.embeds import (
     inventory_embed,
     mix_result_embed,
     museum_home_embed,
+    museum_collections_embed,
     profile_embed,
     zone_embed,
 )
@@ -637,7 +638,21 @@ class MuseumHomeView(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(label="🏠 Back to Profile", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="📖 All Collections", style=discord.ButtonStyle.primary, row=0)
+    async def collections_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        from ui.embeds import museum_collections_embed
+        
+        discovered = queries.get_discovered_item_ids(interaction.user.id)
+        completed_collections = queries.get_completed_collections(interaction.user.id)
+        
+        embed = museum_collections_embed(MUSEUM_COLLECTIONS, discovered, completed_collections)
+        await interaction.response.edit_message(
+            embed=embed,
+            view=self,
+            attachments=[],
+        )
+
+    @discord.ui.button(label="🏠 Back to Profile", style=discord.ButtonStyle.primary, row=0)
     async def back_to_profile(self, interaction: discord.Interaction, button: discord.ui.Button):
         await show_profile(interaction, self.owner_id, self.is_admin)
 
@@ -1071,6 +1086,7 @@ class ProfileView(discord.ui.View):
             total_dives=new_dives,
         )
         queries.progress_daily_quest(interaction.user.id, "dive_count", 1)
+        queries.check_and_complete_collections(interaction.user.id)
 
         updated_player = queries.get_player(interaction.user.id)
         unlocked_zone_names = [
@@ -1165,11 +1181,30 @@ class ProfileView(discord.ui.View):
 
     @discord.ui.button(label="🏛️ Museum", style=discord.ButtonStyle.secondary, row=1)
     async def museum_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        from game.helpers import get_next_incomplete_collection
+        
+        player = queries.get_player(interaction.user.id)
         discovered = queries.get_discovered_item_ids(interaction.user.id)
-        embed = museum_home_embed(interaction.user.display_name, discovered)
+        completed_collections = queries.get_completed_collections(interaction.user.id)
+        
+        museum_level = player.get("museum_level", 1)
+        museum_xp = player.get("museum_xp", 0)
+        total_collections = len(MUSEUM_COLLECTIONS)
+        collections_completed = len(completed_collections)
+        
+        next_info = get_next_incomplete_collection(discovered, MUSEUM_COLLECTIONS, completed_collections)
+        
+        embed = museum_home_embed(
+            museum_level=museum_level,
+            museum_xp=museum_xp,
+            collections_completed=collections_completed,
+            total_collections=total_collections,
+            next_collection_info=next_info,
+        )
+        view = MuseumHomeView(self.owner_id, self.is_admin)
         await interaction.response.edit_message(
             embed=embed,
-            view=MuseumHomeView(self.owner_id, self.is_admin),
+            view=view,
             attachments=[],
         )
 

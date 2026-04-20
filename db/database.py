@@ -108,6 +108,14 @@ SCHEMA_STATEMENTS = [
         PRIMARY KEY (user_id, item_id)
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS museum_completed_collections (
+        user_id BIGINT NOT NULL REFERENCES players(user_id) ON DELETE CASCADE,
+        collection_key TEXT NOT NULL,
+        completed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (user_id, collection_key)
+    )
+    """,
 ]
 
 
@@ -135,4 +143,10 @@ def run_schema() -> None:
             )
             cur.execute(
                 "ALTER TABLE players ADD COLUMN IF NOT EXISTS last_pawn_chat_date DATE"
+            )
+            cur.execute(
+                "ALTER TABLE players ADD COLUMN IF NOT EXISTS museum_xp INTEGER NOT NULL DEFAULT 0"
+            )
+            cur.execute(
+                "ALTER TABLE players ADD COLUMN IF NOT EXISTS museum_level INTEGER NOT NULL DEFAULT 1"
             )

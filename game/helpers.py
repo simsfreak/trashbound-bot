@@ -1,7 +1,7 @@
 import random
 from datetime import datetime, timedelta
 
-from game.data import DIRTY_DRAW_POOL, ITEMS, ZONES, get_live_events
+from game.data import DIRTY_DRAW_POOL, ITEMS, ZONES, get_live_events, MUSEUM_COLLECTIONS
 from game.rarities import RARITY_BADGES, RARITY_FX
 
 DIVE_STARTERS = [
@@ -230,3 +230,72 @@ def get_world_status_lines() -> list[str]:
     if not live:
         return ["🌫️ Nothing major is live right now. The dumpster spirits are resting."]
     return [f"{event['emoji']} **{event['name']}** — {event['profile_line']}" for event in live]
+
+
+def get_collection_progress_all(discovered_item_ids: set[str], museum_collections: dict) -> dict[str, int]:
+    """Calculate progress for all collections."""
+    progress: dict[str, int] = {}
+    for collection_key, collection_data in museum_collections.items():
+        required_items = set(collection_data.get("item_ids", []))
+        discovered = len(required_items & discovered_item_ids)
+        progress[collection_key] = discovered
+    return progress
+
+
+def is_collection_complete(discovered_item_ids: set[str], required_item_ids: list[str]) -> bool:
+    """Check if a collection is complete."""
+    required_set = set(required_item_ids)
+    return required_set.issubset(discovered_item_ids)
+
+
+def calculate_museum_bonuses(completed_collections: set[str]) -> dict[str, float]:
+    """Calculate bonuses from completed collections."""
+    bonuses: dict[str, float] = {
+        "xp_boost": 0.0,
+        "coin_boost": 0.0,
+        "drop_bonus": 0.0,
+    }
+    
+    # Each collection grants specific bonuses
+    collection_rewards = {
+        "salvaged_basics": {"xp_boost": 0.05},
+        "tech_relics": {"coin_boost": 0.05},
+        "glitched_objects": {"drop_bonus": 0.03},
+        "rat_market": {"coin_boost": 0.08, "drop_bonus": 0.02},
+        "crafted_gear": {"xp_boost": 0.08, "coin_boost": 0.05},
+        "crown_artifacts": {"xp_boost": 0.10, "coin_boost": 0.10, "drop_bonus": 0.05},
+    }
+    
+    for collection_key in completed_collections:
+        rewards = collection_rewards.get(collection_key, {})
+        for bonus_type, bonus_value in rewards.items():
+            bonuses[bonus_type] += bonus_value
+    
+    return bonuses
+
+
+def get_next_incomplete_collection(discovered_item_ids: set[str], museum_collections: dict, completed_collections: set[str]) -> tuple[str, str, int, int] | None:
+    """Find the next collection closest to completion."""
+    best_key: str | None = None
+    best_name: str | None = None
+    best_progress: int = -1
+    best_total: int = 0
+    
+    for collection_key, collection_data in museum_collections.items():
+        if collection_key in completed_collections:
+            continue
+        
+        required_items = set(collection_data.get("item_ids", []))
+        discovered = len(required_items & discovered_item_ids)
+        total = len(required_items)
+        
+        # Prefer collections closest to completion
+        if discovered > best_progress:
+            best_key = collection_key
+            best_name = collection_data.get("name", collection_key)
+            best_progress = discovered
+            best_total = total
+    
+    if best_key:
+        return (best_key, best_name, best_progress, best_total)
+    return None

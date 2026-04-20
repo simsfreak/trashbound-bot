@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, date
 from decimal import Decimal
 
 from db.database import get_conn
-from game.data import DAILY_QUEST_TEMPLATES, ITEMS, ZONES
+from game.data import DAILY_QUEST_TEMPLATES, ITEMS, ZONES, MUSEUM_COLLECTIONS
 
 
 def ensure_player(user_id: int, username: str) -> None:
@@ -33,7 +33,7 @@ def get_player(user_id: int) -> dict | None:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT user_id, username, coins, xp, level, current_zone_id, current_title, total_dives, last_dive_at, dirty_tickets, pawn_relationship, last_pawn_chat_date
+                SELECT user_id, username, coins, xp, level, current_zone_id, current_title, total_dives, last_dive_at, dirty_tickets, pawn_relationship, last_pawn_chat_date, museum_xp, museum_level
                 FROM players
                 WHERE user_id = %s
                 """,
@@ -54,6 +54,8 @@ def get_player(user_id: int) -> dict | None:
                 "dirty_tickets": row[9],
                 "pawn_relationship": row[10],
                 "last_pawn_chat_date": row[11],
+                "museum_xp": row[12],
+                "museum_level": row[13],
             }
 
 
@@ -669,3 +671,97 @@ def get_equipment(user_id: int) -> list[dict]:
                 {"slot": row[0], "item_id": row[1], "equipped_at": row[2]}
                 for row in cur.fetchall()
             ]
+
+
+def get_completed_collections(user_id: int) -> set[str]:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT collection_key
+                FROM museum_completed_collections
+                WHERE user_id = %s
+                ORDER BY completed_at ASC
+                """,
+                (user_id,),
+            )
+            return {row[0] for row in cur.fetchall()}
+
+
+def complete_collection(user_id: int, collection_key: str, xp_award: int = 50) -> bool:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO museum_completed_collections (user_id, collection_key, completed_at)
+                VALUES (%s, %s, NOW())
+                ON CONFLICT (user_id, collection_key) DO NOTHING
+                RETURNING collection_key
+                """,
+                (user_id, collection_key),
+            )
+            if not cur.fetchone():
+                return False
+            
+            cur.execute(
+                """
+                UPDATE players
+                SET museum_xp = museum_xp + %s
+                WHERE user_id = %s
+                """,
+                (xp_award, user_id),
+            )
+            return True
+
+
+def get_collection_progress(user_id: int, collection_key: str, required_item_ids: list[str]) -> int:
+    discovered = get_discovered_item_ids(user_id)
+    return sum(1 for item_id in required_item_ids if item_id in discovered)
+
+
+def update_museum_level(user_id: int) -> int:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT museum_xp FROM players WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return 1
+            
+            museum_xp = row[0]
+            new_level = 1 + (museum_xp // 100)
+            
+            cur.execute(
+                """
+                UPDATE players
+                SET museum_level = %s
+                WHERE user_id = %s
+                """,
+                (new_level, user_id),
+            )
+            return new_level
+
+
+def check_and_complete_collections(user_id: int) -> list[str]:
+    """Check for any newly completed collections and award XP."""
+    discovered = get_discovered_item_ids(user_id)
+    completed = get_completed_collections(user_id)
+    
+    newly_completed: list[str] = []
+    for collection_key, collection_data in MUSEUM_COLLECTIONS.items():
+        if collection_key in completed:
+            continue
+        
+        required_items = set(collection_data.get("item_ids", []))
+        if required_items.issubset(discovered):
+            if complete_collection(user_id, collection_key, xp_award=50):
+                newly_completed.append(collection_key)
+    
+    if newly_completed:
+        update_museum_level(user_id)
+    
+    return newly_completed
