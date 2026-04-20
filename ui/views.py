@@ -124,6 +124,7 @@ async def show_profile(interaction: discord.Interaction, owner_id: int, is_admin
     await interaction.response.edit_message(
         embed=embed,
         view=ProfileView(owner_id, is_admin),
+        attachments=[],
     )
 
 
@@ -172,20 +173,20 @@ class InventoryView(discord.ui.View):
         if self.page > 0:
             self.page -= 1
         embed = inventory_embed(interaction.user.display_name, self.page_lines(), self.page, self.total_pages)
-        await interaction.response.edit_message(embed=embed, view=self)
+        await interaction.response.edit_message(embed=embed, view=self, attachments=[])
 
     @discord.ui.button(label="➡️ Next", style=discord.ButtonStyle.secondary, row=0)
     async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.page < self.total_pages - 1:
             self.page += 1
         embed = inventory_embed(interaction.user.display_name, self.page_lines(), self.page, self.total_pages)
-        await interaction.response.edit_message(embed=embed, view=self)
+        await interaction.response.edit_message(embed=embed, view=self, attachments=[])
 
     @discord.ui.button(label="🔄 Reload", style=discord.ButtonStyle.secondary, row=1)
     async def reload_inventory(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.items = queries.get_inventory(interaction.user.id)
         embed = inventory_embed(interaction.user.display_name, self.page_lines(), self.page, self.total_pages)
-        await interaction.response.edit_message(embed=embed, view=self)
+        await interaction.response.edit_message(embed=embed, view=self, attachments=[])
 
     @discord.ui.button(label="🏠 Back to Profile", style=discord.ButtonStyle.primary, row=1)
     async def back_to_profile(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -231,7 +232,7 @@ class ZoneSelectorView(discord.ui.View):
     @discord.ui.button(label="⬅️", style=discord.ButtonStyle.secondary, row=0)
     async def previous_zone(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.index = (self.index - 1) % len(self.zone_ids)
-        await interaction.response.edit_message(embed=self.build_embed(interaction), view=self)
+        await interaction.response.edit_message(embed=self.build_embed(interaction), view=self, attachments=[])
 
     @discord.ui.button(label="✅ Set Active", style=discord.ButtonStyle.success, row=0)
     async def set_active_zone(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -243,12 +244,12 @@ class ZoneSelectorView(discord.ui.View):
             return
 
         queries.set_current_zone(interaction.user.id, zone_id)
-        await interaction.response.edit_message(embed=self.build_embed(interaction), view=self)
+        await interaction.response.edit_message(embed=self.build_embed(interaction), view=self, attachments=[])
 
     @discord.ui.button(label="➡️", style=discord.ButtonStyle.secondary, row=0)
     async def next_zone(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.index = (self.index + 1) % len(self.zone_ids)
-        await interaction.response.edit_message(embed=self.build_embed(interaction), view=self)
+        await interaction.response.edit_message(embed=self.build_embed(interaction), view=self, attachments=[])
 
     @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.primary, row=1)
     async def back_to_profile(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -347,6 +348,7 @@ class PawnChatChoiceButton(discord.ui.Button):
         await interaction.response.edit_message(
             embed=embed,
             view=ProfileView(self.view.owner_id, self.view.is_admin),
+            attachments=[],
         )
 
 
@@ -379,6 +381,7 @@ class PawnShopView(discord.ui.View):
                 "Bring me junk. I’ll turn it into coins.\n\n(Exchange system coming next 👀)",
             ),
             view=PawnShopView(self.owner_id, self.is_admin),
+            attachments=[],
         )
 
     @discord.ui.button(label="🎟 Buy Tickets", style=discord.ButtonStyle.primary, row=0)
@@ -389,6 +392,7 @@ class PawnShopView(discord.ui.View):
                 "Tickets cost coins. Good ones cost more.\n\n(Ticket shop coming next 👀)",
             ),
             view=PawnShopView(self.owner_id, self.is_admin),
+            attachments=[],
         )
 
     @discord.ui.button(label="💬 Chat with Owner", style=discord.ButtonStyle.secondary, row=1)
@@ -414,6 +418,7 @@ class PawnShopView(discord.ui.View):
         await interaction.response.edit_message(
             embed=embed,
             view=PawnChatChoiceView(self.owner_id, self.is_admin, story),
+            attachments=[],
         )
 
     @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=2)
@@ -558,7 +563,7 @@ class ProfileView(discord.ui.View):
             view.page,
             view.total_pages,
         )
-        await interaction.response.edit_message(embed=embed, view=view)
+        await interaction.response.edit_message(embed=embed, view=view, attachments=[])
 
     @discord.ui.button(label="🏚️ Pawn Shop", style=discord.ButtonStyle.success, row=0)
     async def pawnshop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -575,19 +580,21 @@ class ProfileView(discord.ui.View):
         await interaction.response.edit_message(
             embed=embed,
             view=PawnShopView(self.owner_id, self.is_admin),
+            attachments=[],
         )
          
     @discord.ui.button(label="🗺️ Zones", style=discord.ButtonStyle.success, row=1)
     async def zones_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         unlocked = queries.get_unlocked_zone_ids(interaction.user.id)
         view = ZoneSelectorView(self.owner_id, self.is_admin, unlocked or ["back_alley"], index=0)
-        await interaction.response.edit_message(embed=view.build_embed(interaction), view=view)
+        await interaction.response.edit_message(embed=view.build_embed(interaction), view=view, attachments=[])
 
     @discord.ui.button(label="✨ Events", style=discord.ButtonStyle.danger, row=1)
     async def events_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(
             embed=events_embed(),
             view=ProfileView(self.owner_id, self.is_admin),
+            attachments=[],
         )
 
     @discord.ui.button(label="🏛️ Museum", style=discord.ButtonStyle.secondary, row=1)
@@ -597,6 +604,7 @@ class ProfileView(discord.ui.View):
         await interaction.response.edit_message(
             embed=embed,
             view=MuseumHomeView(self.owner_id, self.is_admin),
+            attachments=[],
         )
 
     @discord.ui.button(label="❓ Help", style=discord.ButtonStyle.secondary, row=1)
@@ -604,6 +612,7 @@ class ProfileView(discord.ui.View):
         await interaction.response.edit_message(
             embed=help_embed(),
             view=ProfileView(self.owner_id, self.is_admin),
+            attachments=[],
         )
 
     @discord.ui.button(label="💌 Contact Admin", style=discord.ButtonStyle.secondary, row=2)
@@ -616,6 +625,7 @@ class ProfileView(discord.ui.View):
         await interaction.response.edit_message(
             embed=embed,
             view=ProfileView(self.owner_id, self.is_admin),
+            attachments=[],
         )
 
 
@@ -629,4 +639,4 @@ class AdminButton(discord.ui.Button):
             description="Admin tools are coming next:\n• View messages\n• Grant XP\n• Grant coins\n• Trigger events",
             color=0xED4245,
         )
-        await interaction.response.edit_message(embed=embed, view=self.view)
+        await interaction.response.edit_message(embed=embed, view=self.view, attachments=[])
