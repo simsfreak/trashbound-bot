@@ -560,7 +560,7 @@ class ProfileView(discord.ui.View):
         )
         await interaction.response.edit_message(embed=embed, view=view)
 
-        @discord.ui.button(label="🏚️ Pawn Shop", style=discord.ButtonStyle.success, row=0)
+    @discord.ui.button(label="🏚️ Pawn Shop", style=discord.ButtonStyle.success, row=0)
     async def pawnshop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = discord.Embed(
             title="🏚️ Pawn Shop",
@@ -576,7 +576,6 @@ class ProfileView(discord.ui.View):
             embed=embed,
             view=PawnShopView(self.owner_id, self.is_admin),
         )
-
          
     @discord.ui.button(label="🗺️ Zones", style=discord.ButtonStyle.success, row=1)
     async def zones_button(self, interaction: discord.Interaction, button: discord.ui.Button):
