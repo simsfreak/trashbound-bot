@@ -83,6 +83,24 @@ SCHEMA_STATEMENTS = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS daily_quests (
+        user_id BIGINT NOT NULL REFERENCES players(user_id) ON DELETE CASCADE,
+        quest_key TEXT NOT NULL,
+        quest_type TEXT NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        progress INTEGER NOT NULL DEFAULT 0,
+        target INTEGER NOT NULL DEFAULT 1,
+        reward_coins INTEGER NOT NULL DEFAULT 0,
+        reward_tickets INTEGER NOT NULL DEFAULT 0,
+        started_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        expires_at TIMESTAMP NOT NULL DEFAULT NOW() + INTERVAL '24 hours',
+        completed BOOLEAN NOT NULL DEFAULT FALSE,
+        redeemed BOOLEAN NOT NULL DEFAULT FALSE,
+        PRIMARY KEY (user_id)
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS museum_discoveries (
         user_id BIGINT NOT NULL REFERENCES players(user_id) ON DELETE CASCADE,
         item_id TEXT NOT NULL,

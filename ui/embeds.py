@@ -1,7 +1,7 @@
 from datetime import datetime
 import discord
 
-from game.data import ITEMS, ZONES, get_live_events, MUSEUM_COLLECTIONS, MUSEUM_ARTIFACT_TEXT
+from game.data import EQUIP_SLOTS, ITEMS, ZONES, get_live_events, MUSEUM_COLLECTIONS, MUSEUM_ARTIFACT_TEXT
 from game.leveling import xp_to_next_level
 
 
@@ -33,6 +33,7 @@ def profile_embed(
     active_effects,
     equipment,
     dirty_tickets,
+    quest_status,
     avatar_url,
 ):
     zone = ZONES[player["current_zone_id"]]["name"]
@@ -64,6 +65,9 @@ def profile_embed(
     recent_text = "\n".join(recent_finds[-3:]) if recent_finds else "None yet"
     embed.add_field(name="🪄 Recent Finds", value=recent_text, inline=False)
 
+    if quest_status:
+        embed.add_field(name="🎯 Daily Quest", value=quest_status, inline=False)
+
     if active_effects:
         lines = []
         for effect in active_effects[:4]:
@@ -75,8 +79,9 @@ def profile_embed(
                 lines.append(str(effect))
         embed.add_field(name="⏳ Active Effects", value="\n".join(lines), inline=False)
 
-    slot_order = ["head", "body", "hands", "feet", "accessory"]
     equipment_map = {entry.get("slot", ""): entry.get("item_id") for entry in equipment if isinstance(entry, dict) and "item_id" in entry}
+    lines = []
+    for slot in EQUIP_SLOTS:
 
     lines = []
     for slot in slot_order:

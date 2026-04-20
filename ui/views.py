@@ -35,7 +35,7 @@ PAWN_STORIES = [
 ]
 
 from db import queries
-from game.data import ITEMS, ZONES, MUSEUM_COLLECTIONS
+from game.data import EQUIP_SLOTS, ITEMS, ZONES, MUSEUM_COLLECTIONS
 from game.helpers import (
     calculate_equipment_bonuses,
     determine_title,
@@ -110,6 +110,16 @@ def build_profile_embed_for_user(user: discord.abc.User) -> discord.Embed:
     recent_finds = get_recent_finds_from_inventory_rows(inventory)
     active_effects = _safe_active_effects(user.id)
     equipment = _safe_equipment(user.id)
+    daily_quest = queries.get_daily_quest(user.id)
+
+    quest_status = None
+    if daily_quest:
+        if daily_quest["redeemed"]:
+            quest_status = "✅ Quest redeemed. New quest will arrive after 24 hours."
+        elif daily_quest["completed"]:
+            quest_status = "🎉 Ready to redeem! Open Quests to claim your reward."
+        else:
+            quest_status = f"{daily_quest['name']} — {daily_quest['progress']}/{daily_quest['target']}"
 
     return profile_embed(
         player=player,
@@ -118,6 +128,7 @@ def build_profile_embed_for_user(user: discord.abc.User) -> discord.Embed:
         active_effects=active_effects,
         equipment=equipment,
         dirty_tickets=player.get("dirty_tickets", 0),
+        quest_status=quest_status,
         avatar_url=_avatar_url(user),
     )
 
@@ -212,6 +223,8 @@ class EquipItemSelect(discord.ui.Select):
             await interaction.response.send_message("Could not equip that item. Make sure it is in your inventory.", ephemeral=True)
             return
 
+        queries.progress_daily_quest(self.owner_id, "equip_item", 1)
+
         await interaction.response.edit_message(
             embed=EquipmentView(self.owner_id, self.is_admin).build_embed(interaction),
             view=EquipmentView(self.owner_id, self.is_admin),
@@ -289,6 +302,82 @@ class EquipmentBackButton(discord.ui.Button):
         await show_profile(interaction, self.view.owner_id, self.view.is_admin)
 
 
+class QuestView(discord.ui.View):
+    def __init__(self, owner_id: int, is_admin: bool):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This quest panel isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    def build_embed(self) -> discord.Embed:
+        quest = queries.get_daily_quest(self.owner_id)
+        if not quest:
+            return discord.Embed(title="🎯 Daily Quest", description="No active quest right now.", color=0xEB459E)
+
+        status = "Completed" if quest["completed"] else "In progress"
+        if quest["redeemed"]:
+            status = "Redeemed"
+
+        reward_parts = []
+        if quest["reward_coins"]:
+            reward_parts.append(f"{quest['reward_coins']} coins")
+        if quest["reward_tickets"]:
+            reward_parts.append(f"{quest['reward_tickets']} Dirty Ticket(s)")
+
+        embed = discord.Embed(
+            title="🎯 Daily Quest",
+            description=f"**{quest['name']}**\n{quest['description']}",
+            color=0xEB459E,
+        )
+        embed.add_field(name="Progress", value=f"{quest['progress']}/{quest['target']}", inline=False)
+        embed.add_field(name="Reward", value=", ".join(reward_parts) or "None", inline=False)
+        embed.add_field(name="Status", value=status, inline=False)
+        embed.set_footer(text=f"Expires: {quest['expires_at'].strftime('%Y-%m-%d %H:%M UTC')}")
+        return embed
+
+    @discord.ui.button(label="Redeem", style=discord.ButtonStyle.success, row=0)
+    async def redeem_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        quest = queries.get_daily_quest(self.owner_id)
+        if not quest or not quest["completed"] or quest["redeemed"]:
+            embed = discord.Embed(
+                title="🎯 Daily Quest",
+                description="That quest is not ready to redeem yet.",
+                color=0xED4245,
+            )
+            await interaction.response.edit_message(embed=embed, view=self, attachments=[])
+            return
+
+        if queries.redeem_daily_quest(self.owner_id):
+            reward_text = []
+            if quest["reward_coins"]:
+                reward_text.append(f"{quest['reward_coins']} coins")
+            if quest["reward_tickets"]:
+                reward_text.append(f"{quest['reward_tickets']} Dirty Ticket(s)")
+            embed = discord.Embed(
+                title="🎉 Quest Redeemed",
+                description=(
+                    f"You claimed {', '.join(reward_text)}."
+                ),
+                color=0x57F287,
+            )
+        else:
+            embed = discord.Embed(
+                title="🎯 Daily Quest",
+                description="Unable to redeem that quest right now.",
+                color=0xED4245,
+            )
+        await interaction.response.edit_message(embed=embed, view=self, attachments=[])
+
+    @discord.ui.button(label="🏠 Back to Profile", style=discord.ButtonStyle.secondary, row=1)
+    async def back_to_profile(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await show_profile(interaction, self.owner_id, self.is_admin)
+
+
 class DirtyDrawView(discord.ui.View):
     def __init__(self, owner_id: int, is_admin: bool):
         super().__init__(timeout=300)
@@ -342,6 +431,8 @@ class DirtyDrawView(discord.ui.View):
                 reward_lines.append(f"{item.get('emoji', '✨')} **{item['name']}**")
             else:
                 reward_lines.append(f"✨ Unknown reward: {item_id}")
+
+        queries.progress_daily_quest(interaction.user.id, "dive_count", 1)
 
         updated_player = queries.get_player(interaction.user.id)
         embed = discord.Embed(
@@ -585,6 +676,8 @@ class PawnShopView(discord.ui.View):
             queries.remove_item_from_inventory(interaction.user.id, item_id, quantity)
 
         queries.add_player_coins(interaction.user.id, total_coins)
+        if total_quantity > 0:
+            queries.progress_daily_quest(interaction.user.id, "pawn_count", total_quantity)
 
         description_lines = [
             f"Pawned **{total_quantity}** items for **{total_coins} coins**.",
@@ -974,7 +1067,16 @@ class ProfileView(discord.ui.View):
             attachments=[],
         )
 
-    @discord.ui.button(label="🎟 Dirty Draw", style=discord.ButtonStyle.danger, row=3)
+    @discord.ui.button(label="� Quests", style=discord.ButtonStyle.secondary, row=3)
+    async def quests_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        view = QuestView(self.owner_id, self.is_admin)
+        await interaction.response.edit_message(
+            embed=view.build_embed(),
+            view=view,
+            attachments=[],
+        )
+
+    @discord.ui.button(label="�🎟 Dirty Draw", style=discord.ButtonStyle.danger, row=3)
     async def dirty_draw_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         view = DirtyDrawView(self.owner_id, self.is_admin)
         await interaction.response.edit_message(

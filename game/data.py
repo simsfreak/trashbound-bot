@@ -43,6 +43,8 @@ ZONES = {
     },
 }
 
+EQUIP_SLOTS = ["head", "body", "hands", "feet", "accessory"]
+
 ITEMS = {
     "old_shoe": {
         "name": "Old Shoe",
@@ -637,6 +639,45 @@ DIRTY_DRAW_POOL = [
     {"item_id": "broken_phone", "weight": 6},
     {"item_id": "burnt_sludge", "weight": 3},
     {"item_id": "scrap_metal", "weight": 10},
+]
+
+DAILY_QUEST_TEMPLATES = [
+    {
+        "quest_key": "dive_master",
+        "name": "Dumpster Diver",
+        "description": "Complete 3 dives.",
+        "quest_type": "dive_count",
+        "target": 3,
+        "reward_coins": 200,
+        "reward_tickets": 0,
+    },
+    {
+        "quest_key": "junk_dealer",
+        "name": "Junk Dealer",
+        "description": "Pawn 2 pawnbable items.",
+        "quest_type": "pawn_count",
+        "target": 2,
+        "reward_coins": 100,
+        "reward_tickets": 1,
+    },
+    {
+        "quest_key": "coin_hustle",
+        "name": "Coin Hustle",
+        "description": "Earn 300 coins from dives.",
+        "quest_type": "earn_coins",
+        "target": 300,
+        "reward_coins": 250,
+        "reward_tickets": 0,
+    },
+    {
+        "quest_key": "gear_up",
+        "name": "Gear Up",
+        "description": "Equip 1 item.",
+        "quest_type": "equip_item",
+        "target": 1,
+        "reward_coins": 150,
+        "reward_tickets": 0,
+    },
 ]
 
 WEEKEND_EVENTS = [

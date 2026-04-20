@@ -1,8 +1,9 @@
+import random
 from datetime import datetime, timedelta, date
 from decimal import Decimal
 
 from db.database import get_conn
-from game.data import ITEMS, ZONES
+from game.data import DAILY_QUEST_TEMPLATES, ITEMS, ZONES
 
 
 def ensure_player(user_id: int, username: str) -> None:
@@ -218,6 +219,173 @@ def get_inventory(user_id: int) -> list[tuple[str, int]]:
 
 def get_inventory_map(user_id: int) -> dict[str, int]:
     return {item_id: qty for item_id, qty in get_inventory(user_id)}
+
+
+def _create_daily_quest_row(user_id: int, template: dict) -> None:
+    expires_at = datetime.utcnow() + timedelta(hours=24)
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO daily_quests (
+                    user_id,
+                    quest_key,
+                    quest_type,
+                    name,
+                    description,
+                    progress,
+                    target,
+                    reward_coins,
+                    reward_tickets,
+                    started_at,
+                    expires_at,
+                    completed,
+                    redeemed
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (user_id)
+                DO UPDATE SET
+                    quest_key = EXCLUDED.quest_key,
+                    quest_type = EXCLUDED.quest_type,
+                    name = EXCLUDED.name,
+                    description = EXCLUDED.description,
+                    progress = EXCLUDED.progress,
+                    target = EXCLUDED.target,
+                    reward_coins = EXCLUDED.reward_coins,
+                    reward_tickets = EXCLUDED.reward_tickets,
+                    started_at = EXCLUDED.started_at,
+                    expires_at = EXCLUDED.expires_at,
+                    completed = EXCLUDED.completed,
+                    redeemed = EXCLUDED.redeemed
+                """,
+                (
+                    user_id,
+                    template["quest_key"],
+                    template["quest_type"],
+                    template["name"],
+                    template["description"],
+                    0,
+                    template["target"],
+                    template["reward_coins"],
+                    template["reward_tickets"],
+                    datetime.utcnow(),
+                    expires_at,
+                    False,
+                    False,
+                ),
+            )
+
+
+def ensure_daily_quest(user_id: int) -> None:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT expires_at FROM daily_quests WHERE user_id = %s",
+                (user_id,),
+            )
+            row = cur.fetchone()
+            if row and row[0] and row[0] > datetime.utcnow():
+                return
+    template = random.choice(DAILY_QUEST_TEMPLATES)
+    _create_daily_quest_row(user_id, template)
+
+
+def get_daily_quest(user_id: int) -> dict | None:
+    ensure_daily_quest(user_id)
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT quest_key, quest_type, name, description, progress, target, reward_coins, reward_tickets, started_at, expires_at, completed, redeemed
+                FROM daily_quests
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            return {
+                "quest_key": row[0],
+                "quest_type": row[1],
+                "name": row[2],
+                "description": row[3],
+                "progress": row[4],
+                "target": row[5],
+                "reward_coins": row[6],
+                "reward_tickets": row[7],
+                "started_at": row[8],
+                "expires_at": row[9],
+                "completed": row[10],
+                "redeemed": row[11],
+            }
+
+
+def progress_daily_quest(user_id: int, event_type: str, amount: int = 1) -> bool:
+    ensure_daily_quest(user_id)
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT progress, target, completed, redeemed, expires_at, quest_type
+                FROM daily_quests
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return False
+            progress, target, completed, redeemed, expires_at, quest_type = row
+            if redeemed or completed or expires_at <= datetime.utcnow() or quest_type != event_type:
+                return False
+            new_progress = min(progress + amount, target)
+            completed_flag = new_progress >= target
+            cur.execute(
+                """
+                UPDATE daily_quests
+                SET progress = %s, completed = %s
+                WHERE user_id = %s
+                """,
+                (new_progress, completed_flag, user_id),
+            )
+            return True
+
+
+def redeem_daily_quest(user_id: int) -> bool:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT progress, target, completed, redeemed, expires_at, reward_coins, reward_tickets
+                FROM daily_quests
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return False
+            progress, target, completed, redeemed, expires_at, reward_coins, reward_tickets = row
+            if redeemed or not completed or expires_at <= datetime.utcnow():
+                return False
+            cur.execute(
+                """
+                UPDATE players
+                SET coins = coins + %s,
+                    dirty_tickets = dirty_tickets + %s
+                WHERE user_id = %s
+                """,
+                (reward_coins, reward_tickets, user_id),
+            )
+            cur.execute(
+                """
+                UPDATE daily_quests
+                SET redeemed = TRUE
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            return True
 
 
 def update_player_progress(
