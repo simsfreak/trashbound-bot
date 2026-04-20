@@ -48,6 +48,14 @@ from game.helpers import (
     roll_item_for_zone,
 )
 from game.leveling import apply_xp
+
+SLOT_EMOJIS = {
+    "head": "🧢",
+    "body": "🧥",
+    "hands": "🧤",
+    "feet": "👟",
+    "accessory": "💍",
+}
 from ui.embeds import (
     dive_processing_embed,
     dive_result_embed,
@@ -359,12 +367,13 @@ class EquipmentView(discord.ui.View):
         gear_lines = []
         for slot in EQUIP_SLOTS:
             item_id = slot_map.get(slot)
+            slot_emoji = SLOT_EMOJIS.get(slot, "▫️")
             badge = "⭐ " if slot == change_slot else ""
             if item_id:
                 item = ITEMS.get(item_id, {"name": item_id, "emoji": "✨"})
-                gear_lines.append(f"{badge}{item.get('emoji', '✨')} **{item['name']}** — {slot.title()}")
+                gear_lines.append(f"{badge}{slot_emoji} **{slot.title()}** — {item.get('emoji', '✨')} {item['name']}")
             else:
-                gear_lines.append(f"{badge}▫️ **{slot.title()}** — Empty")
+                gear_lines.append(f"{badge}{slot_emoji} **{slot.title()}** — Empty")
 
         available_lines = []
         for item_id, qty in inventory_map.items():
