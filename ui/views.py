@@ -498,15 +498,6 @@ class ProfileView(discord.ui.View):
         )
         await interaction.response.edit_message(embed=embed, view=view)
 
-    @discord.ui.button(label="🎟 Exchange", style=discord.ButtonStyle.success, row=0)
-    async def mix_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.edit_message(
-            embed=mix_result_embed(
-                    "🎟 Exchange",
-                    "The pawn shop is being reworked...\n\nCome back soon 👀",
-                ),
-                view=ProfileView(self.owner_id, self.is_admin),
-            )
     
     @discord.ui.button(label="🗺️ Zones", style=discord.ButtonStyle.success, row=1)
     async def zones_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -547,30 +538,6 @@ class ProfileView(discord.ui.View):
         await interaction.response.edit_message(
             embed=embed,
             view=ProfileView(self.owner_id, self.is_admin),
-        )
-
-    @discord.ui.button(label="💬 Chat", style=discord.ButtonStyle.secondary, row=1)
-    async def pawn_chat_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not queries.can_chat_with_pawn_owner(interaction.user.id):
-            await interaction.response.send_message(
-                "The pawn owner waves you off. Come back tomorrow.",
-                ephemeral=True,
-            )
-            return
-
-        story = get_random_pawn_story()
-        embed = discord.Embed(
-            title="💬 Pawn Owner",
-            description=(
-                f"**{interaction.user.display_name}**, listen up.\n\n"
-                f"{story['text']}"
-            ),
-            color=0x8B5E3C,
-        )
-        embed.set_footer(text="Choose your answer carefully.")
-        await interaction.response.edit_message(
-            embed=embed,
-            view=PawnChatChoiceView(self.owner_id, self.is_admin, story),
         )
 
 
