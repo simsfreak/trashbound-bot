@@ -1263,3 +1263,168 @@ def get_player_quest_history(user_id: int, limit: int = 10) -> list[dict]:
                 for row in cur.fetchall()
             ]
 
+
+# ==================== PAWN REQUEST SYSTEM ====================
+
+def store_pawn_request(user_id: int, request_data: dict) -> bool:
+    """
+    Store a new pawn request for a player.
+    Only one active request per player.
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            # Clear any previous pending requests
+            cur.execute(
+                """
+                DELETE FROM pawn_requests
+                WHERE user_id = %s AND status = 'pending_choice'
+                """,
+                (user_id,),
+            )
+            
+            # Insert new request
+            cur.execute(
+                """
+                INSERT INTO pawn_requests (
+                    user_id, request_id, item_name, flavor,
+                    reward_coins, reward_tickets, reward_exclusive,
+                    difficulty, status, deadline
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    user_id,
+                    request_data.get("request_id"),
+                    request_data.get("item_name"),
+                    request_data.get("flavor"),
+                    request_data.get("reward_coins"),
+                    request_data.get("reward_tickets"),
+                    request_data.get("reward_exclusive"),
+                    request_data.get("difficulty"),
+                    "pending_choice",
+                    request_data.get("deadline"),
+                ),
+            )
+            
+            return True
+
+
+def get_active_pawn_request(user_id: int) -> dict | None:
+    """
+    Get the player's active pawn request (non-completed).
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, request_id, item_name, flavor,
+                       reward_coins, reward_tickets, reward_exclusive,
+                       difficulty, status, deadline, created_at
+                FROM pawn_requests
+                WHERE user_id = %s AND status IN ('pending_choice', 'active')
+                ORDER BY created_at DESC
+                LIMIT 1
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            
+            return {
+                "id": row[0],
+                "request_id": row[1],
+                "item_name": row[2],
+                "flavor": row[3],
+                "reward_coins": row[4],
+                "reward_tickets": row[5],
+                "reward_exclusive": row[6],
+                "difficulty": row[7],
+                "status": row[8],
+                "deadline": row[9],
+                "created_at": row[10],
+            }
+
+
+def update_pawn_request_status(user_id: int, request_id: int, new_status: str) -> bool:
+    """
+    Update the status of a pawn request.
+    Statuses: pending_choice -> active -> completed/failed
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE pawn_requests
+                SET status = %s, updated_at = NOW()
+                WHERE user_id = %s AND id = %s
+                RETURNING id
+                """,
+                (new_status, user_id, request_id),
+            )
+            
+            return cur.fetchone() is not None
+
+
+def complete_pawn_request(user_id: int, request_id: int, reward_coins: int, reward_tickets: int, exclusive_item: str = None) -> bool:
+    """
+    Complete a pawn request and award the player.
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            # Mark request as completed
+            cur.execute(
+                """
+                UPDATE pawn_requests
+                SET status = 'completed', updated_at = NOW()
+                WHERE user_id = %s AND id = %s
+                RETURNING id
+                """,
+                (user_id, request_id),
+            )
+            
+            if not cur.fetchone():
+                return False
+            
+            # Award player
+            cur.execute(
+                """
+                UPDATE players
+                SET coins = coins + %s, dirty_tickets = dirty_tickets + %s
+                WHERE user_id = %s
+                """,
+                (reward_coins, reward_tickets, user_id),
+            )
+            
+            # If there's an exclusive reward item, add to inventory
+            if exclusive_item:
+                cur.execute(
+                    """
+                    INSERT INTO inventory (user_id, item_id, quantity)
+                    VALUES (%s, %s, 1)
+                    ON CONFLICT (user_id, item_id)
+                    DO UPDATE SET quantity = inventory.quantity + 1
+                    """,
+                    (user_id, exclusive_item),
+                )
+            
+            return True
+
+
+def fail_pawn_request(user_id: int, request_id: int) -> bool:
+    """
+    Fail a pawn request.
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE pawn_requests
+                SET status = 'failed', updated_at = NOW()
+                WHERE user_id = %s AND id = %s
+                RETURNING id
+                """,
+                (user_id, request_id),
+            )
+            
+            return cur.fetchone() is not None
+

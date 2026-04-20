@@ -154,6 +154,23 @@ SCHEMA_STATEMENTS = [
         UNIQUE (user_id, quest_id)
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS pawn_requests (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL REFERENCES players(user_id) ON DELETE CASCADE,
+        request_id TEXT NOT NULL,
+        item_name TEXT NOT NULL,
+        flavor TEXT NOT NULL,
+        reward_coins INTEGER NOT NULL,
+        reward_tickets INTEGER NOT NULL,
+        reward_exclusive TEXT,
+        difficulty TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending_choice',
+        deadline TIMESTAMP NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+    """,
 ]
 
 

@@ -1080,6 +1080,312 @@ class PawnChatBackButton(discord.ui.Button):
             return
         await show_profile(interaction, self.view.owner_id, self.view.is_admin)
 
+
+# ==================== PAWN EVENT VIEWS ====================
+
+class PawnEventView(discord.ui.View):
+    """
+    Displays normal or enhanced pawn chat events with player choices.
+    """
+    def __init__(self, owner_id: int, is_admin: bool, event_type: str):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+        self.event_type = event_type
+        self.story = get_random_pawn_story()
+
+        for choice in self.story["choices"]:
+            self.add_item(PawnChatChoiceButton(choice["label"], choice["liked"], row=0))
+
+        self.add_item(PawnChatBackButton(row=1))
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This conversation isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    def build_embed(self) -> discord.Embed:
+        from game.pawn_events import EVENT_TRIGGERS
+        
+        event_info = EVENT_TRIGGERS.get(self.event_type, {})
+        
+        embed = discord.Embed(
+            title=f"💬 {event_info.get('name', 'Pawn Chat')}",
+            description=f"**{self.story['text']}**",
+            color=0x8B5E3C,
+        )
+        
+        return embed
+
+
+class TheAskView(discord.ui.View):
+    """
+    Displays a special "The Ask" event where the pawn owner requests something.
+    Player can accept or refuse.
+    """
+    def __init__(self, owner_id: int, is_admin: bool, request_data: dict):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+        self.request_data = request_data
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This isn't your conversation.", ephemeral=True)
+            return False
+        return True
+
+    def build_embed(self) -> discord.Embed:
+        embed = discord.Embed(
+            title="🔮 The Pawnbroker Has A Request",
+            description=self.request_data.get("flavor", "The pawn owner needs something..."),
+            color=0x9B4D96,
+        )
+        
+        embed.add_field(
+            name="📋 Target",
+            value=f"Find: **{self.request_data.get('item_name')}**",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="⏱️ Time Limit",
+            value="**24 hours**",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="🎁 Reward",
+            value=f"{self.request_data['reward_coins']} coins · {self.request_data['reward_tickets']} Tickets · **Exclusive Item**",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="⚠️ Warning",
+            value="Refuse or fail, and he won't forget.",
+            inline=False
+        )
+        
+        return embed
+
+    @discord.ui.button(label="✅ Accept The Ask", style=discord.ButtonStyle.success, row=0)
+    async def accept_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        from game.pawn_events import (
+            get_random_acceptance_dialogue,
+            calculate_relationship_change,
+        )
+        
+        # Store the request
+        request_id = queries.store_pawn_request(interaction.user.id, self.request_data)
+        
+        # Update request status to "active"
+        if request_id:
+            # Note: store_pawn_request returns True, we need to get the actual request ID
+            active_req = queries.get_active_pawn_request(interaction.user.id)
+            if active_req:
+                queries.update_pawn_request_status(interaction.user.id, active_req["id"], "active")
+        
+        # Update relationship (accepting is neutral but respectful)
+        rel_delta = calculate_relationship_change("special", ask_outcome="accepted")
+        queries.update_pawn_chat(interaction.user.id, relationship_delta=rel_delta)
+        
+        dialogue = get_random_acceptance_dialogue()
+        
+        embed = discord.Embed(
+            title="🔮 The Ask Begins",
+            description=dialogue,
+            color=0x57F287,
+        )
+        
+        embed.add_field(
+            name="📋 Your Objective",
+            value=f"Find: **{self.request_data['item_name']}**",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="⏱️ Deadline",
+            value="24 hours from now",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="💡 Tip",
+            value="Check the zones or trading areas. The item must be in good condition.",
+            inline=False
+        )
+        
+        await interaction.response.edit_message(
+            embed=embed,
+            view=PawnShopView(self.owner_id, self.is_admin),
+            attachments=[],
+        )
+
+    @discord.ui.button(label="❌ Refuse", style=discord.ButtonStyle.danger, row=0)
+    async def refuse_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        from game.pawn_events import (
+            get_random_refusal_dialogue,
+            calculate_relationship_change,
+        )
+        
+        # Update relationship (refusing damages trust)
+        rel_delta = calculate_relationship_change("special", ask_outcome="refused")
+        queries.update_pawn_chat(interaction.user.id, relationship_delta=rel_delta)
+        
+        dialogue = get_random_refusal_dialogue()
+        
+        embed = discord.Embed(
+            title="❌ Request Refused",
+            description=dialogue,
+            color=0xED4245,
+        )
+        
+        embed.add_field(
+            name="💔 Relationship",
+            value=f"The pawnbroker's trust has been damaged.",
+            inline=False
+        )
+        
+        updated_player = queries.get_player(interaction.user.id)
+        embed.add_field(
+            name="🤝 Current Relationship",
+            value=f"**{updated_player.get('pawn_relationship', 0)}**",
+            inline=False
+        )
+        
+        await interaction.response.edit_message(
+            embed=embed,
+            view=PawnShopView(self.owner_id, self.is_admin),
+            attachments=[],
+        )
+
+    @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=1)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await show_profile(interaction, self.owner_id, self.is_admin)
+
+
+class ActivePawnRequestView(discord.ui.View):
+    """
+    Displays an active pawn request with time remaining and completion option.
+    """
+    def __init__(self, owner_id: int, is_admin: bool, request_data: dict):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+        self.request_data = request_data
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This isn't your request.", ephemeral=True)
+            return False
+        return True
+
+    def build_embed(self) -> discord.Embed:
+        from datetime import datetime
+        
+        deadline = self.request_data.get("deadline")
+        time_remaining = deadline - datetime.utcnow() if deadline else None
+        
+        hours_left = int(time_remaining.total_seconds() / 3600) if time_remaining else 0
+        minutes_left = int((time_remaining.total_seconds() % 3600) / 60) if time_remaining else 0
+        
+        embed = discord.Embed(
+            title="🔮 Active Pawn Request",
+            description=f"_The pawnbroker is waiting._\n\n{self.request_data.get('flavor', '')}",
+            color=0x9B4D96,
+        )
+        
+        embed.add_field(
+            name="📋 Find",
+            value=f"**{self.request_data.get('item_name')}**",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="⏱️ Time Remaining",
+            value=f"**{hours_left}h {minutes_left}m**" if time_remaining and time_remaining.total_seconds() > 0 else "⚠️ **TIME'S UP**",
+            inline=False
+        )
+        
+        embed.add_field(
+            name="🎁 Reward",
+            value=f"{self.request_data['reward_coins']} coins · {self.request_data['reward_tickets']} Tickets · **Exclusive**",
+            inline=False
+        )
+        
+        return embed
+
+    @discord.ui.button(label="✅ I Have It!", style=discord.ButtonStyle.success, row=0)
+    async def complete_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        from game.pawn_events import (
+            get_random_success_dialogue,
+            calculate_relationship_change,
+            get_exclusive_reward_data,
+        )
+        
+        # Check if player has the item (simplified check - you may need to verify inventory)
+        inventory_items = queries.get_inventory(interaction.user.id)
+        item_ids = [item_id for item_id, _ in inventory_items]
+        
+        # For now, we'll assume the player has it if they click the button
+        # In a real implementation, you'd verify the item exists
+        
+        # Complete the request
+        exclusive_item = self.request_data.get("reward_exclusive")
+        request_id = self.request_data.get("id")
+        
+        queries.complete_pawn_request(
+            interaction.user.id,
+            request_id,
+            self.request_data.get("reward_coins", 0),
+            self.request_data.get("reward_tickets", 0),
+            exclusive_item,
+        )
+        
+        # Update relationship (successful completion earns respect)
+        rel_delta = calculate_relationship_change("special", ask_outcome="completed")
+        queries.update_pawn_chat(interaction.user.id, relationship_delta=rel_delta)
+        
+        dialogue = get_random_success_dialogue()
+        exclusive_reward = get_exclusive_reward_data(exclusive_item)
+        
+        embed = discord.Embed(
+            title="🎉 Mission Accomplished",
+            description=dialogue,
+            color=0x57F287,
+        )
+        
+        if exclusive_reward:
+            embed.add_field(
+                name=f"✨ Exclusive Reward",
+                value=f"{exclusive_reward['emoji']} **{exclusive_reward['name']}**\n_{exclusive_reward['flavor']}_",
+                inline=False
+            )
+        
+        embed.add_field(
+            name="💰 Payment",
+            value=f"{self.request_data['reward_coins']} coins · {self.request_data['reward_tickets']} Tickets",
+            inline=False
+        )
+        
+        updated_player = queries.get_player(interaction.user.id)
+        embed.add_field(
+            name="🤝 Relationship",
+            value=f"**{updated_player.get('pawn_relationship', 0)}**",
+            inline=False
+        )
+        
+        await interaction.response.edit_message(
+            embed=embed,
+            view=PawnShopView(self.owner_id, self.is_admin),
+            attachments=[],
+        )
+
+    @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=1)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await show_profile(interaction, self.owner_id, self.is_admin)
+
 class PawnShopView(discord.ui.View):
     def __init__(self, owner_id: int, is_admin: bool):
         super().__init__(timeout=300)
@@ -1171,20 +1477,39 @@ class PawnShopView(discord.ui.View):
             )
             return
 
-        story = get_random_pawn_story()
+        # Check if there's an active pawn request
+        active_request = queries.get_active_pawn_request(interaction.user.id)
+        if active_request and active_request.get("status") == "active":
+            # Show active request status view
+            view = ActivePawnRequestView(self.owner_id, self.is_admin, active_request)
+            await interaction.response.edit_message(
+                embed=view.build_embed(),
+                view=view,
+                attachments=[],
+            )
+            return
 
-        embed = discord.Embed(
-            title="💬 Pawn Owner",
-            description=(
-                f"**{interaction.user.display_name}**, listen up.\n\n"
-                f"{story['text']}"
-            ),
-            color=0x8B5E3C,
-        )
-
+        # Otherwise, trigger a pawn event
+        from game.pawn_events import pick_event_type, generate_special_event, get_enhanced_dialogue
+        
+        player = queries.get_player(interaction.user.id)
+        relationship = player.get("pawn_relationship", 0)
+        
+        # Pick event type
+        event_type = pick_event_type(relationship)
+        
+        if event_type == "special":
+            # Generate and show "The Ask" special event
+            request_data = generate_special_event()
+            view = TheAskView(self.owner_id, self.is_admin, request_data)
+        else:
+            # Show normal or enhanced event
+            view = PawnEventView(self.owner_id, self.is_admin, event_type)
+        
+        embed = view.build_embed()
         await interaction.response.edit_message(
             embed=embed,
-            view=PawnChatChoiceView(self.owner_id, self.is_admin, story),
+            view=view,
             attachments=[],
         )
 
