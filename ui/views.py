@@ -124,6 +124,7 @@ def build_profile_embed_for_user(user: discord.abc.User) -> discord.Embed:
     active_effects = _safe_active_effects(user.id)
     equipment = _safe_equipment(user.id)
     daily_quest = queries.get_daily_quest(user.id)
+    active_quest = queries.get_active_quest(user.id)
 
     quest_status = None
     if daily_quest:
@@ -134,6 +135,19 @@ def build_profile_embed_for_user(user: discord.abc.User) -> discord.Embed:
         else:
             quest_status = f"{daily_quest['name']} — {daily_quest['progress']}/{daily_quest['target']}"
 
+    active_quest_info = None
+    if active_quest:
+        # Check real-time activation status
+        is_valid, feedback = queries.check_quest_real_time_conditions(user.id, active_quest["quest_id"])
+        status_icon = "🟢" if is_valid else "🟡"
+        active_quest_info = {
+            "name": active_quest["name"],
+            "zone": active_quest["zone_name"],
+            "time_window": f"{active_quest.get('time_window_start', '00:00')}–{active_quest.get('time_window_end', '23:59')}",
+            "status": status_icon,
+            "feedback": feedback,
+        }
+
     return profile_embed(
         player=player,
         inventory_count=sum(qty for _, qty in inventory),
@@ -142,6 +156,7 @@ def build_profile_embed_for_user(user: discord.abc.User) -> discord.Embed:
         equipment=equipment,
         dirty_tickets=player.get("dirty_tickets", 0),
         quest_status=quest_status,
+        active_quest_info=active_quest_info,
         avatar_url=_avatar_url(user),
     )
 

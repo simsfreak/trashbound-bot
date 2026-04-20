@@ -1611,9 +1611,353 @@ def initialize_player_time_and_zone(user_id: int, zone_id: str = "back_alley", p
             cur.execute(
                 """
                 UPDATE players
-                SET current_zone_id = %s, current_time_phase = %s
+                SET current_zone_id = %s, current_time_phase = %s, current_real_date = CURRENT_DATE
                 WHERE user_id = %s
                 """,
                 (zone_id, phase, user_id),
             )
+
+
+# ==================== REAL-TIME QUEST SYSTEM ====================
+
+def abandon_quest(user_id: int, quest_id: str = None) -> bool:
+    """
+    Abandon the active quest. If quest_id is None, abandons current active quest.
+    Returns True if successfully abandoned.
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            if quest_id is None:
+                # Get currently active quest
+                cur.execute(
+                    """
+                    SELECT quest_id FROM generated_quests
+                    WHERE user_id = %s AND is_active = TRUE
+                    LIMIT 1
+                    """,
+                    (user_id,),
+                )
+                row = cur.fetchone()
+                if not row:
+                    return False
+                quest_id = row[0]
+            
+            # Mark quest as abandoned and deactivate
+            cur.execute(
+                """
+                UPDATE generated_quests
+                SET is_active = FALSE, abandoned_at = NOW()
+                WHERE user_id = %s AND quest_id = %s
+                RETURNING quest_id
+                """,
+                (user_id, quest_id),
+            )
+            
+            if not cur.fetchone():
+                return False
+            
+            # Clear player's active_quest_id
+            cur.execute(
+                """
+                UPDATE players
+                SET active_quest_id = NULL
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            
+            return True
+
+
+def check_quest_real_time_conditions(user_id: int, quest_id: str) -> tuple[bool, str]:
+    """
+    Check if player meets REAL-TIME conditions for quest activation.
+    Uses actual datetime.now() to check against time window.
+    
+    Returns: (is_valid: bool, feedback: str)
+    """
+    from datetime import datetime as dt
+    from game.data import ZONES
+    
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            # Get quest details
+            cur.execute(
+                """
+                SELECT zone_id, zone_name, time_window_start, time_window_end
+                FROM generated_quests
+                WHERE user_id = %s AND quest_id = %s AND NOT abandoned_at IS NOT NULL
+                """,
+                (user_id, quest_id),
+            )
+            quest_row = cur.fetchone()
+            if not quest_row:
+                return False, "❌ Quest not found or has been abandoned"
+            
+            quest_zone, quest_zone_name, time_start, time_end = quest_row
+            
+            # Get player's current zone
+            cur.execute(
+                "SELECT current_zone_id FROM players WHERE user_id = %s",
+                (user_id,),
+            )
+            player_row = cur.fetchone()
+            if not player_row:
+                return False, "❌ Player not found"
+            
+            player_zone = player_row[0]
+            
+            # Check zone match
+            zone_match = player_zone == quest_zone
+            if not zone_match:
+                return False, f"📍 Need to be in {quest_zone_name}. Currently in {ZONES.get(player_zone, {}).get('name', 'Unknown Zone')}"
+            
+            # Check real-world time match
+            now = dt.now()
+            current_time_str = now.strftime("%H:%M")
+            
+            # Parse time windows (format: "12:00")
+            try:
+                start_hour, start_min = map(int, time_start.split(":"))
+                end_hour, end_min = map(int, time_end.split(":"))
+                current_hour, current_min = map(int, current_time_str.split(":"))
+                
+                # Convert to minutes for easier comparison
+                start_total = start_hour * 60 + start_min
+                end_total = end_hour * 60 + end_min
+                current_total = current_hour * 60 + current_min
+                
+                # Handle overnight windows (e.g., 22:00 to 06:00)
+                if start_total <= end_total:
+                    time_match = start_total <= current_total <= end_total
+                else:
+                    time_match = current_total >= start_total or current_total <= end_total
+                
+                if not time_match:
+                    return False, f"⏰ Quest time window: {time_start}–{time_end}. Current time: {current_time_str}"
+                
+            except (ValueError, AttributeError):
+                # If time parsing fails, accept the quest
+                pass
+            
+            return True, "✅ Quest conditions met! Progress is counting."
+
+
+def get_quest_activation_status(user_id: int, quest_id: str) -> dict:
+    """
+    Get comprehensive activation status for a quest.
+    Returns dict with zone_ok, time_ok, and feedback messages.
+    """
+    from game.data import ZONES
+    from datetime import datetime as dt
+    
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            # Get quest
+            cur.execute(
+                """
+                SELECT zone_id, zone_name, time_window_start, time_window_end, is_active
+                FROM generated_quests
+                WHERE user_id = %s AND quest_id = %s
+                """,
+                (user_id, quest_id),
+            )
+            quest_row = cur.fetchone()
+            if not quest_row:
+                return {
+                    "quest_id": quest_id,
+                    "zone_ok": False,
+                    "time_ok": False,
+                    "can_activate": False,
+                    "feedback": "❌ Quest not found",
+                }
+            
+            quest_zone, quest_zone_name, time_start, time_end, is_active = quest_row
+            
+            # Get player zone
+            cur.execute(
+                "SELECT current_zone_id FROM players WHERE user_id = %s",
+                (user_id,),
+            )
+            player_row = cur.fetchone()
+            player_zone = player_row[0] if player_row else "back_alley"
+            
+            zone_ok = player_zone == quest_zone
+            
+            # Check time
+            now = dt.now()
+            current_time_str = now.strftime("%H:%M")
+            time_ok = False
+            
+            try:
+                start_hour, start_min = map(int, time_start.split(":"))
+                end_hour, end_min = map(int, time_end.split(":"))
+                current_hour, current_min = map(int, current_time_str.split(":"))
+                
+                start_total = start_hour * 60 + start_min
+                end_total = end_hour * 60 + end_min
+                current_total = current_hour * 60 + current_min
+                
+                if start_total <= end_total:
+                    time_ok = start_total <= current_total <= end_total
+                else:
+                    time_ok = current_total >= start_total or current_total <= end_total
+            except (ValueError, AttributeError):
+                time_ok = True
+            
+            can_activate = zone_ok and time_ok
+            
+            # Build feedback
+            feedback_parts = []
+            if zone_ok:
+                feedback_parts.append(f"✅ Zone: {quest_zone_name}")
+            else:
+                player_zone_name = ZONES.get(player_zone, {}).get("name", "Unknown")
+                feedback_parts.append(f"📍 Zone: Need {quest_zone_name}, at {player_zone_name}")
+            
+            if time_ok:
+                feedback_parts.append(f"✅ Time: {current_time_str} (window {time_start}–{time_end})")
+            else:
+                feedback_parts.append(f"⏰ Time: Need {time_start}–{time_end}, current {current_time_str}")
+            
+            feedback = "\n".join(feedback_parts)
+            if can_activate:
+                feedback += "\n\n🎯 Ready to activate!"
+            
+            return {
+                "quest_id": quest_id,
+                "zone_ok": zone_ok,
+                "time_ok": time_ok,
+                "can_activate": can_activate,
+                "feedback": feedback,
+                "is_active": is_active,
+                "current_zone": player_zone,
+                "required_zone": quest_zone,
+                "current_time": current_time_str,
+                "time_window": f"{time_start}–{time_end}",
+            }
+
+
+def is_quest_dive_available(user_id: int) -> bool:
+    """
+    Check if player has an active quest with conditions met.
+    This determines if Quest Dive button should be shown.
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            # Check if player has active quest
+            cur.execute(
+                """
+                SELECT quest_id FROM generated_quests
+                WHERE user_id = %s AND is_active = TRUE AND NOT is_redeemed
+                LIMIT 1
+                """,
+                (user_id,),
+            )
+            if not cur.fetchone():
+                return False
+    
+    # Check if conditions are met
+    from datetime import datetime as dt
+    from game.data import ZONES
+    
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT gq.zone_id, gq.time_window_start, gq.time_window_end,
+                       p.current_zone_id
+                FROM generated_quests gq
+                JOIN players p ON gq.user_id = p.user_id
+                WHERE gq.user_id = %s AND gq.is_active = TRUE
+                LIMIT 1
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return False
+            
+            quest_zone, time_start, time_end, player_zone = row
+            
+            # Zone check
+            if player_zone != quest_zone:
+                return False
+            
+            # Time check
+            now = dt.now()
+            current_time_str = now.strftime("%H:%M")
+            
+            try:
+                start_hour, start_min = map(int, time_start.split(":"))
+                end_hour, end_min = map(int, time_end.split(":"))
+                current_hour, current_min = map(int, current_time_str.split(":"))
+                
+                start_total = start_hour * 60 + start_min
+                end_total = end_hour * 60 + end_min
+                current_total = current_hour * 60 + current_min
+                
+                if start_total <= end_total:
+                    time_ok = start_total <= current_total <= end_total
+                else:
+                    time_ok = current_total >= start_total or current_total <= end_total
+                
+                return time_ok
+            except (ValueError, AttributeError):
+                return True
+
+
+def get_accepted_quests_page(user_id: int, page: int = 0, page_size: int = 5) -> list[dict]:
+    """
+    Get paginated list of accepted (non-active, non-completed) quests for browsing.
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            offset = page * page_size
+            
+            cur.execute(
+                """
+                SELECT quest_id, name, zone_id, zone_name, difficulty, 
+                       time_window_start, time_window_end, reward_coins, reward_tickets, is_active
+                FROM generated_quests
+                WHERE user_id = %s AND NOT is_redeemed AND NOT abandoned_at IS NOT NULL
+                ORDER BY generated_at DESC
+                LIMIT %s OFFSET %s
+                """,
+                (user_id, page_size, offset),
+            )
+            
+            return [
+                {
+                    "quest_id": row[0],
+                    "name": row[1],
+                    "zone_id": row[2],
+                    "zone_name": row[3],
+                    "difficulty": row[4],
+                    "hearts": _difficulty_to_hearts(row[4]),
+                    "time_window": f"{row[5]}–{row[6]}",
+                    "reward_coins": row[7],
+                    "reward_tickets": row[8],
+                    "is_active": row[9],
+                }
+                for row in cur.fetchall()
+            ]
+
+
+def count_available_quests(user_id: int) -> int:
+    """
+    Get count of available (non-redeemed, non-abandoned) quests.
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT COUNT(*) FROM generated_quests
+                WHERE user_id = %s AND NOT is_redeemed AND abandoned_at IS NULL
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone()
+            return row[0] if row else 0
+
 

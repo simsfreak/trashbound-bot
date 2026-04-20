@@ -232,3 +232,19 @@ def run_schema() -> None:
             cur.execute(
                 "CREATE INDEX IF NOT EXISTS idx_quest_pagination_user ON quest_pagination(user_id, view_order)"
             )
+            # Add columns for real-time quest system
+            cur.execute(
+                "ALTER TABLE generated_quests ADD COLUMN IF NOT EXISTS time_window_start TEXT DEFAULT '00:00'"
+            )
+            cur.execute(
+                "ALTER TABLE generated_quests ADD COLUMN IF NOT EXISTS time_window_end TEXT DEFAULT '23:59'"
+            )
+            cur.execute(
+                "ALTER TABLE generated_quests ADD COLUMN IF NOT EXISTS abandoned_at TIMESTAMP"
+            )
+            cur.execute(
+                "ALTER TABLE players ADD COLUMN IF NOT EXISTS last_quest_activation_check TIMESTAMP"
+            )
+            cur.execute(
+                "ALTER TABLE players ADD COLUMN IF NOT EXISTS current_real_date DATE"
+            )

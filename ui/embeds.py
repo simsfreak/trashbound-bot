@@ -36,19 +36,27 @@ def profile_embed(
     dirty_tickets,
     quest_status,
     avatar_url,
+    active_quest_info=None,
 ):
     from game.time_system import get_phase_emoji, get_phase_name
+    from datetime import datetime as dt
     
     zone = ZONES[player["current_zone_id"]]["name"]
     time_phase = player.get("current_time_phase", "morning")
     time_emoji = get_phase_emoji(time_phase)
     time_name = get_phase_name(time_phase)
     
+    # Get current real-world time
+    now = dt.now()
+    real_time = now.strftime("%H:%M")
+    real_date = now.strftime("%a, %b %d")
+    
     live_names = [f"{event.get('emoji', '✨')} {event['name']}" for event in get_live_events()]
 
     embed = discord.Embed(
         title=f"{player['username']} — {player['current_title']}",
         description=(
+            f"🕐 **{real_date}** • {real_time}\n"
             f"📍 **{zone}** • {time_emoji} **{time_name}**\n"
             f"🌐 {' • '.join(live_names) if live_names else 'No live world event'}"
         ),
@@ -88,6 +96,16 @@ def profile_embed(
 
     recent_text = "\n".join(recent_finds[-3:]) if recent_finds else "None yet"
     embed.add_field(name="🪄 Recent Finds", value=recent_text, inline=False)
+
+    # Add active quest information
+    if active_quest_info:
+        quest_text = f"{active_quest_info['status']} **{active_quest_info['name']}**\n"
+        quest_text += f"📍 {active_quest_info['zone']}\n"
+        quest_text += f"⏰ {active_quest_info['time_window']}\n"
+        quest_text += f"\n{active_quest_info['feedback']}"
+        embed.add_field(name="📜 Active Quest", value=quest_text, inline=False)
+    else:
+        embed.add_field(name="📜 Active Quest", value="None active. Browse quests to accept one!", inline=False)
 
     if quest_status:
         embed.add_field(name="🎯 Daily Quest", value=quest_status, inline=False)
