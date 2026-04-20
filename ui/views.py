@@ -1449,7 +1449,7 @@ class ProfileView(discord.ui.View):
             view=PawnShopView(self.owner_id, self.is_admin),
             attachments=[],
         )
-         python -m uvicorn api.main:app --reload
+
     @discord.ui.button(label="🗺️ Zones", style=discord.ButtonStyle.success, row=1)
     async def zones_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         unlocked = queries.get_unlocked_zone_ids(interaction.user.id)
