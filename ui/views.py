@@ -422,10 +422,42 @@ class QuestView(discord.ui.View):
             return False
         return True
 
+    def _get_difficulty_hearts(self, difficulty: int) -> str:
+        """Convert difficulty (1-5) to heart system (♥♥♥♡♡)"""
+        filled = min(max(difficulty, 1), 5)
+        empty = 5 - filled
+        return "♥" * filled + "♡" * empty
+
+    def _get_zone_emoji(self, zone_id: str) -> str:
+        """Get emoji for zone"""
+        zone_emojis = {
+            "back_alley": "🗑️",
+            "apartment_bins": "🏢",
+            "restaurant_dumpster": "🍔",
+            "mall_rear_lot": "🛍️",
+        }
+        return zone_emojis.get(zone_id, "📍")
+
+    def _get_time_emoji(self, time_str: str) -> str:
+        """Get emoji for time of day"""
+        time_emojis = {
+            "morning": "🌅",
+            "evening": "🌆",
+            "night": "🌙",
+        }
+        return time_emojis.get(time_str, "⏰")
+
     def build_embed(self) -> discord.Embed:
         quest = queries.get_daily_quest(self.owner_id)
         if not quest:
             return discord.Embed(title="🎯 Daily Quest", description="No active quest right now.", color=0xEB459E)
+
+        zone_id = quest.get("zone_id", "back_alley")
+        zone = ZONES.get(zone_id, {})
+        zone_name = zone.get("name", zone_id)
+        time_of_day = quest.get("time", "morning")
+        difficulty = quest.get("difficulty", 1)
+        flavor_text = quest.get("flavor_text", "A quest awaits.")
 
         status = "Completed" if quest["completed"] else "In progress"
         if quest["redeemed"]:
@@ -437,16 +469,63 @@ class QuestView(discord.ui.View):
         if quest["reward_tickets"]:
             reward_parts.append(f"{quest['reward_tickets']} Dirty Ticket(s)")
 
+        zone_emoji = self._get_zone_emoji(zone_id)
+        time_emoji = self._get_time_emoji(time_of_day)
+        difficulty_hearts = self._get_difficulty_hearts(difficulty)
+
         embed = discord.Embed(
             title="🎯 Daily Quest",
-            description=f"**{quest['name']}**\n{quest['description']}",
+            description=f"**{quest['name']}**\n_{flavor_text}_",
             color=0xEB459E,
         )
-        embed.add_field(name="Progress", value=f"{quest['progress']}/{quest['target']}", inline=False)
-        embed.add_field(name="Reward", value=", ".join(reward_parts) or "None", inline=False)
-        embed.add_field(name="Status", value=status, inline=False)
+        # Add zone and time info
+        embed.add_field(name=f"{zone_emoji} Zone", value=zone_name, inline=True)
+        embed.add_field(name=f"{time_emoji} Time", value=time_of_day.capitalize(), inline=True)
+        embed.add_field(name=f"⚔️ Difficulty", value=difficulty_hearts, inline=True)
+        
+        # Add main task
+        embed.add_field(name="Task", value=quest['description'], inline=False)
+        
+        # Add progress
+        progress_bar = self._build_progress_bar(quest['progress'], quest['target'])
+        embed.add_field(name="Progress", value=f"{progress_bar} {quest['progress']}/{quest['target']}", inline=False)
+        
+        # Add reward
+        embed.add_field(name="💰 Reward", value=", ".join(reward_parts) or "None", inline=False)
+        
+        # Add status
+        status_emoji = "✅" if quest["redeemed"] else "🎉" if quest["completed"] else "⏳"
+        embed.add_field(name=f"{status_emoji} Status", value=status, inline=False)
+        
         embed.set_footer(text=f"Expires: {quest['expires_at'].strftime('%Y-%m-%d %H:%M UTC')}")
         return embed
+
+    def _build_progress_bar(self, current: int, target: int, length: int = 10) -> str:
+        """Build a simple progress bar"""
+        filled = int((current / target) * length) if target > 0 else 0
+        filled = min(filled, length)
+        empty = length - filled
+        return "[" + "█" * filled + "░" * empty + "]"
+
+    @discord.ui.button(label="Accept Quest", style=discord.ButtonStyle.primary, row=0)
+    async def accept_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        quest = queries.get_daily_quest(self.owner_id)
+        if not quest:
+            embed = discord.Embed(
+                title="🎯 Daily Quest",
+                description="No active quest to accept.",
+                color=0xED4245,
+            )
+            await interaction.response.edit_message(embed=embed, view=self, attachments=[])
+            return
+
+        # Quest is automatically accepted when displayed, just confirm
+        embed = discord.Embed(
+            title="✅ Quest Accepted",
+            description=f"You've accepted: **{quest['name']}**\n\n{quest['description']}",
+            color=0x57F287,
+        )
+        await interaction.response.edit_message(embed=embed, view=self, attachments=[])
 
     @discord.ui.button(label="Redeem", style=discord.ButtonStyle.success, row=0)
     async def redeem_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -1168,7 +1247,7 @@ class ProfileView(discord.ui.View):
             view=PawnShopView(self.owner_id, self.is_admin),
             attachments=[],
         )
-         
+         python -m uvicorn api.main:app --reload
     @discord.ui.button(label="🗺️ Zones", style=discord.ButtonStyle.success, row=1)
     async def zones_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         unlocked = queries.get_unlocked_zone_ids(interaction.user.id)

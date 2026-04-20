@@ -1,5 +1,13 @@
 def xp_to_next_level(level: int) -> int:
-    return 50 + (level * 25) + (level * level * 5)
+    """
+    Calculate XP required to reach the next level.
+    
+    Formula: 50 * (level ^ 1.5)
+    - Early levels are fast (10→50 xp needed for levels 1-5)
+    - Later levels take longer (level 100 needs ~50,000 xp)
+    - No hard level cap, supports infinite progression
+    """
+    return int(50 * (level ** 1.5))
 
 
 

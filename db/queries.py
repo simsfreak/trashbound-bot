@@ -268,11 +268,15 @@ def _create_daily_quest_row(user_id: int, template: dict) -> None:
                     target,
                     reward_coins,
                     reward_tickets,
+                    zone_id,
+                    time,
+                    difficulty,
+                    flavor_text,
                     started_at,
                     expires_at,
                     completed,
                     redeemed
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (user_id)
                 DO UPDATE SET
                     quest_key = EXCLUDED.quest_key,
@@ -283,6 +287,10 @@ def _create_daily_quest_row(user_id: int, template: dict) -> None:
                     target = EXCLUDED.target,
                     reward_coins = EXCLUDED.reward_coins,
                     reward_tickets = EXCLUDED.reward_tickets,
+                    zone_id = EXCLUDED.zone_id,
+                    time = EXCLUDED.time,
+                    difficulty = EXCLUDED.difficulty,
+                    flavor_text = EXCLUDED.flavor_text,
                     started_at = EXCLUDED.started_at,
                     expires_at = EXCLUDED.expires_at,
                     completed = EXCLUDED.completed,
@@ -298,6 +306,10 @@ def _create_daily_quest_row(user_id: int, template: dict) -> None:
                     template["target"],
                     template["reward_coins"],
                     template["reward_tickets"],
+                    template.get("zone_id", "back_alley"),
+                    template.get("time", "morning"),
+                    template.get("difficulty", 1),
+                    template.get("flavor_text", "A quest awaits."),
                     datetime.utcnow(),
                     expires_at,
                     False,
@@ -326,7 +338,7 @@ def get_daily_quest(user_id: int) -> dict | None:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT quest_key, quest_type, name, description, progress, target, reward_coins, reward_tickets, started_at, expires_at, completed, redeemed
+                SELECT quest_key, quest_type, name, description, progress, target, reward_coins, reward_tickets, zone_id, time, difficulty, flavor_text, started_at, expires_at, completed, redeemed
                 FROM daily_quests
                 WHERE user_id = %s
                 """,
@@ -344,10 +356,14 @@ def get_daily_quest(user_id: int) -> dict | None:
                 "target": row[5],
                 "reward_coins": row[6],
                 "reward_tickets": row[7],
-                "started_at": row[8],
-                "expires_at": row[9],
-                "completed": row[10],
-                "redeemed": row[11],
+                "zone_id": row[8],
+                "time": row[9],
+                "difficulty": row[10],
+                "flavor_text": row[11],
+                "started_at": row[12],
+                "expires_at": row[13],
+                "completed": row[14],
+                "redeemed": row[15],
             }
 
 

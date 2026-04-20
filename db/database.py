@@ -150,3 +150,16 @@ def run_schema() -> None:
             cur.execute(
                 "ALTER TABLE players ADD COLUMN IF NOT EXISTS museum_level INTEGER NOT NULL DEFAULT 1"
             )
+            # Quest enhancement columns
+            cur.execute(
+                "ALTER TABLE daily_quests ADD COLUMN IF NOT EXISTS zone_id TEXT DEFAULT 'back_alley'"
+            )
+            cur.execute(
+                "ALTER TABLE daily_quests ADD COLUMN IF NOT EXISTS time TEXT DEFAULT 'morning'"
+            )
+            cur.execute(
+                "ALTER TABLE daily_quests ADD COLUMN IF NOT EXISTS difficulty INTEGER DEFAULT 1"
+            )
+            cur.execute(
+                "ALTER TABLE daily_quests ADD COLUMN IF NOT EXISTS flavor_text TEXT DEFAULT 'A quest awaits.'"
+            )
