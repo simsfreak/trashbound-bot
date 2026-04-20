@@ -1021,23 +1021,32 @@ class ProfileView(discord.ui.View):
             event_text = event.get("text")
 
         gained_coins = int(item["coins"]) + bonus_coins
-        gained_coins = int(gained_coins * (1 + equipment_bonuses["coin_boost"]))
+        gained_coins = int(gained_coins * (1 + equipment_bonuses["coin_boost"] + equipment_bonuses["loot_value"]))
         gained_xp = int(item["xp"]) + bonus_xp
         gained_xp = int(gained_xp * (1 + equipment_bonuses["xp_boost"]))
 
+        extra_item_triggered = random.random() < equipment_bonuses["extra_item_chance"]
+        extra_items_text = None
+        if extra_item_triggered:
+            extra_items_text = f"{item.get('emoji', '✨')} {item['name']} x1"
+
         gear_bonus_lines = []
         if equipment_bonuses["coin_boost"]:
-            gear_bonus_lines.append(f"Gear adds +{int(equipment_bonuses['coin_boost'] * 100)}% coins")
+            gear_bonus_lines.append(f"💰 Gear Bonus: +{int(equipment_bonuses['coin_boost'] * 100)}% coins")
+        if equipment_bonuses["loot_value"]:
+            gear_bonus_lines.append(f"💎 Gear Bonus: +{int(equipment_bonuses['loot_value'] * 100)}% item value")
         if equipment_bonuses["xp_boost"]:
-            gear_bonus_lines.append(f"Gear adds +{int(equipment_bonuses['xp_boost'] * 100)}% XP")
+            gear_bonus_lines.append(f"✨ Gear Bonus: +{int(equipment_bonuses['xp_boost'] * 100)}% XP")
         if equipment_bonuses["drop_bonus"]:
-            gear_bonus_lines.append(f"Gear adds +{int(equipment_bonuses['drop_bonus'] * 100)}% rare chance")
+            gear_bonus_lines.append(f"🎁 Gear Bonus: +{int(equipment_bonuses['drop_bonus'] * 100)}% rare chance")
+        if extra_item_triggered:
+            gear_bonus_lines.append(f"🎁 Extra Drop: {extra_items_text}")
 
         bonus_parts = []
         if bonus_coins or bonus_xp:
-            bonus_parts.append(f"🎉 Bonus: +{bonus_coins} coins, +{bonus_xp} XP")
+            bonus_parts.append(f"🎉 Event Bonus: +{bonus_coins} coins, +{bonus_xp} XP")
         if gear_bonus_lines:
-            bonus_parts.append(" | ".join(gear_bonus_lines))
+            bonus_parts.extend(gear_bonus_lines)
         bonus_text = "\n".join(bonus_parts) if bonus_parts else None
 
         new_xp, new_level, leveled_up = apply_xp(
@@ -1050,6 +1059,8 @@ class ProfileView(discord.ui.View):
         new_coins = player["coins"] + gained_coins
 
         queries.add_item_to_inventory(interaction.user.id, item_id, 1)
+        if extra_item_triggered:
+            queries.add_item_to_inventory(interaction.user.id, item_id, 1)
         unlocked_zone_ids = queries.unlock_zones_for_level(interaction.user.id, new_level)
         queries.update_player_progress(
             user_id=interaction.user.id,

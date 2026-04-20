@@ -119,6 +119,8 @@ def calculate_equipment_bonuses(equipment_rows: list[dict]) -> dict[str, float]:
     xp_boost = 0.0
     coin_boost = 0.0
     drop_bonus = 0.0
+    extra_item_chance = 0.0
+    loot_value = 0.0
     for entry in equipment_rows:
         if not isinstance(entry, dict):
             continue
@@ -129,10 +131,14 @@ def calculate_equipment_bonuses(equipment_rows: list[dict]) -> dict[str, float]:
         xp_boost += float(effects.get("xp_boost", 0))
         coin_boost += float(effects.get("coin_boost", 0))
         drop_bonus += float(effects.get("drop_bonus", 0))
+        extra_item_chance += float(effects.get("extra_item_chance", 0))
+        loot_value += float(effects.get("loot_value", 0))
     return {
         "xp_boost": xp_boost,
         "coin_boost": coin_boost,
         "drop_bonus": drop_bonus,
+        "extra_item_chance": extra_item_chance,
+        "loot_value": loot_value,
     }
 
 
