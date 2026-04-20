@@ -409,26 +409,35 @@ class EquipmentBackButton(discord.ui.Button):
             return
         await show_profile(interaction, self.view.owner_id, self.view.is_admin)
 
+# ==================== QUEST SESSION STORAGE ====================
+# This stores quest batches per user for pagination
+# Structure: {user_id: {"quests": [...], "index": 0}}
+_ACTIVE_QUEST_SESSIONS = {}
+
 
 class GeneratedQuestView(discord.ui.View):
     """
-    Quest view for the scalable, paginated quest system.
-    Shows one quest at a time with [Next] and [Select] buttons.
+    Paginated quest view for the quest generation system.
+    - Generates 3-5 quests on first load
+    - Allows cycling through them with [🎲 Next]
+    - Player can [✅ Accept] a quest to lock it in
+    - Emojis and kawaii style throughout
     """
     def __init__(self, owner_id: int, is_admin: bool):
         super().__init__(timeout=300)
         self.owner_id = owner_id
         self.is_admin = is_admin
-        self.current_quest = None
+        self.current_quest_index = 0
+        self.quests = []
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("This quest panel isn't yours.", ephemeral=True)
+            await interaction.response.send_message("This quest panel isn't yours. 🚫", ephemeral=True)
             return False
         return True
 
     def _get_zone_emoji(self, zone_id: str) -> str:
-        """Get emoji for zone"""
+        """Get cute emoji for zone"""
         zone_emojis = {
             "back_alley": "🗑️",
             "apartment_bins": "🏢",
@@ -447,163 +456,215 @@ class GeneratedQuestView(discord.ui.View):
         return time_emojis.get(time_str, "⏰")
 
     def _build_progress_bar(self, current: int, target: int, length: int = 10) -> str:
-        """Build a simple progress bar"""
+        """Build a cute progress bar"""
         filled = int((current / target) * length) if target > 0 else 0
         filled = min(filled, length)
         empty = length - filled
         return "[" + "█" * filled + "░" * empty + "]"
 
-    def build_embed(self) -> discord.Embed:
-        from game.data import ZONES
+    def _generate_quest_batch(self, count: int = 5) -> list:
+        """Generate a batch of randomized quests"""
+        from game.quest_generator import generate_quest, QUEST_TEMPLATES
         
-        quest = queries.get_next_generated_quest(self.owner_id)
-        if not quest:
-            # Try to generate new quests if none available
-            from game.quest_generator import regenerate_player_quests
+        quests = []
+        available_templates = list(QUEST_TEMPLATES.keys())
+        
+        for _ in range(count):
+            # Pick random template
+            template_id = random.choice(available_templates)
+            template = QUEST_TEMPLATES[template_id]
+            
+            # Pick random difficulty (1-5)
+            min_diff = template.get("min_difficulty", 1)
+            max_diff = template.get("max_difficulty", 5)
+            difficulty = random.randint(min_diff, max_diff)
+            
+            # Generate quest using the existing generator
             try:
-                regenerate_player_quests(self.owner_id, count=5)
-                quest = queries.get_next_generated_quest(self.owner_id)
-            except:
+                quest = generate_quest(template, difficulty)
+                quests.append(quest)
+            except Exception as e:
+                # Skip if generation fails
                 pass
+        
+        return quests if quests else self._generate_simple_quests(count)
+
+    def _generate_simple_quests(self, count: int = 5) -> list:
+        """Fallback: Generate simple quests from templates"""
+        from game.data import DAILY_QUEST_TEMPLATES, ZONES
+        
+        quests = []
+        zone_ids = list(ZONES.keys())
+        times = ["morning", "evening", "night"]
+        
+        for i in range(min(count, len(DAILY_QUEST_TEMPLATES))):
+            base = DAILY_QUEST_TEMPLATES[i]
+            zone_id = random.choice(zone_ids)
+            zone = ZONES[zone_id]
+            time_of_day = random.choice(times)
+            difficulty = random.randint(1, 5)
+            
+            # Build hearts display
+            hearts = "♥" * difficulty + "♡" * (5 - difficulty)
+            
+            # Adjust reward based on difficulty
+            base_coins = base.get("reward_coins", 150)
+            multiplier = 0.5 + (difficulty * 0.3)
+            reward_coins = int(base_coins * multiplier)
+            
+            quest = {
+                "quest_id": f"quest_{self.owner_id}_{i}_{random.randint(1000, 9999)}",
+                "template_id": base.get("quest_key", ""),
+                "name": base.get("name", "Mystery Quest"),
+                "description": base.get("description", "Complete this quest."),
+                "objective_type": base.get("quest_type", "dive_count"),
+                "zone_id": zone_id,
+                "zone_name": zone.get("name", zone_id),
+                "time": time_of_day,
+                "difficulty": difficulty,
+                "hearts": hearts,
+                "flavor_text": base.get("flavor_text", "A quest awaits."),
+                "progress": 0,
+                "target": base.get("target", 1),
+                "reward_coins": reward_coins,
+                "reward_tickets": 1 if difficulty >= 3 else 0,
+                "is_active": False,
+                "is_completed": False,
+                "is_redeemed": False,
+            }
+            quests.append(quest)
+        
+        return quests
+
+    def _load_quests(self):
+        """Load or generate quests for this user"""
+        if self.owner_id in _ACTIVE_QUEST_SESSIONS:
+            session = _ACTIVE_QUEST_SESSIONS[self.owner_id]
+            self.quests = session.get("quests", [])
+            self.current_quest_index = session.get("index", 0)
+        
+        if not self.quests:
+            self.quests = self._generate_quest_batch(5)
+            self.current_quest_index = 0
+            _ACTIVE_QUEST_SESSIONS[self.owner_id] = {
+                "quests": self.quests,
+                "index": 0
+            }
+
+    def _save_session(self):
+        """Save current session state"""
+        _ACTIVE_QUEST_SESSIONS[self.owner_id] = {
+            "quests": self.quests,
+            "index": self.current_quest_index
+        }
+
+    def _get_current_quest(self) -> dict:
+        """Get the quest at current index"""
+        self._load_quests()
+        if 0 <= self.current_quest_index < len(self.quests):
+            return self.quests[self.current_quest_index]
+        return None
+
+    def build_embed(self) -> discord.Embed:
+        """Build the quest display embed"""
+        quest = self._get_current_quest()
         
         if not quest:
             return discord.Embed(
-                title="🎯 Quest Generator",
-                description="No quests available right now. Check back soon!",
+                title="🎯 Quests",
+                description="No quests available right now. Check back soon! 🔄",
                 color=0xEB459E
             )
         
-        self.current_quest = quest
-        
-        zone_id = quest.get("zone_id", "back_alley")
-        zone = ZONES.get(zone_id, {})
-        zone_name = zone.get("name", zone_id)
-        time_of_day = quest.get("time", "morning")
-        difficulty = quest.get("difficulty", 1)
-        flavor_text = quest.get("flavor_text", "A quest awaits.")
-        
-        # Determine status
-        status = "🎯 Available"
-        if quest.get("is_redeemed"):
-            status = "✅ Redeemed"
-        elif quest.get("is_completed"):
-            status = "🎉 Completed"
-        elif quest.get("is_active"):
-            status = "⏳ In Progress"
-        
-        reward_parts = []
-        if quest.get("reward_coins"):
-            reward_parts.append(f"{quest['reward_coins']} coins")
-        if quest.get("reward_tickets"):
-            reward_parts.append(f"{quest['reward_tickets']} Dirty Ticket(s)")
-        
-        zone_emoji = self._get_zone_emoji(zone_id)
-        time_emoji = self._get_time_emoji(time_of_day)
+        zone_emoji = self._get_zone_emoji(quest.get("zone_id", "back_alley"))
+        time_emoji = self._get_time_emoji(quest.get("time", "morning"))
         hearts = quest.get("hearts", "♥♡♡♡♡")
         
+        description = f"**{quest['name']}**\n_{quest.get('flavor_text', 'A quest awaits.')}_"
+        
         embed = discord.Embed(
-            title="✨ Dynamic Quest",
-            description=f"**{quest['name']}**\n_{flavor_text}_",
+            title="✨ Quest Available",
+            description=description,
             color=0xEB459E,
         )
         
-        # Context row
-        embed.add_field(name=f"{zone_emoji} Zone", value=zone_name, inline=True)
-        embed.add_field(name=f"{time_emoji} Time", value=time_of_day.capitalize(), inline=True)
-        embed.add_field(name=f"⚔️ Difficulty", value=hearts, inline=True)
+        # Zone, time, difficulty row
+        embed.add_field(name=f"{zone_emoji} Zone", value=quest.get("zone_name", "Unknown"), inline=True)
+        embed.add_field(name=f"{time_emoji} Time", value=quest.get("time", "morning").capitalize(), inline=True)
+        embed.add_field(name="⚔️ Difficulty", value=hearts, inline=True)
         
         # Task
         embed.add_field(name="📋 Task", value=quest['description'], inline=False)
         
-        # Progress (only if active)
-        if quest.get("is_active"):
-            progress_bar = self._build_progress_bar(quest['progress'], quest['target'])
-            embed.add_field(
-                name="Progress",
-                value=f"{progress_bar} {quest['progress']}/{quest['target']}",
-                inline=False
-            )
-        
         # Rewards
-        embed.add_field(name="💰 Rewards", value=", ".join(reward_parts) or "None", inline=False)
+        reward_text = []
+        if quest.get("reward_coins"):
+            reward_text.append(f"{quest['reward_coins']} coins")
+        if quest.get("reward_tickets"):
+            reward_text.append(f"{quest['reward_tickets']} Ticket(s)")
         
-        # Status
-        embed.add_field(name="Status", value=status, inline=False)
+        embed.add_field(
+            name="💰 Rewards",
+            value=", ".join(reward_text) if reward_text else "None",
+            inline=False
+        )
         
-        embed.set_footer(text=f"Expires: {quest['expires_at'].strftime('%Y-%m-%d %H:%M UTC')}")
+        # Quest counter
+        embed.set_footer(text=f"Quest {self.current_quest_index + 1}/{len(self.quests)} • Click [🎲 Next] to see more")
+        
         return embed
 
-    @discord.ui.button(label="🎲 Next Quest", style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(label="🎲 Next", style=discord.ButtonStyle.secondary, row=0)
     async def next_quest_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Cycle to the next quest in the queue"""
+        """Cycle to the next quest in the batch"""
+        self._load_quests()
+        self.current_quest_index = (self.current_quest_index + 1) % len(self.quests)
+        self._save_session()
+        
         embed = self.build_embed()
         await interaction.response.edit_message(embed=embed, view=self, attachments=[])
 
-    @discord.ui.button(label="✅ Select Quest", style=discord.ButtonStyle.primary, row=0)
-    async def select_quest_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Accept and activate the current quest"""
-        if not self.current_quest:
+    @discord.ui.button(label="✅ Accept Quest", style=discord.ButtonStyle.primary, row=0)
+    async def accept_quest_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Accept the currently displayed quest"""
+        quest = self._get_current_quest()
+        
+        if not quest:
             embed = discord.Embed(
-                title="❌ No Quest Selected",
-                description="Please view a quest first.",
+                title="❌ Error",
+                description="No quest to accept.",
                 color=0xED4245,
             )
             await interaction.response.edit_message(embed=embed, view=self, attachments=[])
             return
         
-        quest_id = self.current_quest.get("quest_id")
-        if queries.set_active_quest(self.owner_id, quest_id):
-            embed = discord.Embed(
-                title="✅ Quest Activated",
-                description=f"You've accepted: **{self.current_quest['name']}**\n\n{self.current_quest['description']}",
-                color=0x57F287,
-            )
-        else:
-            embed = discord.Embed(
-                title="❌ Error",
-                description="Could not activate this quest.",
-                color=0xED4245,
-            )
+        # Store this quest as the active one
+        quest["is_active"] = True
+        
+        embed = discord.Embed(
+            title="✅ Quest Accepted!",
+            description=f"You've accepted **{quest['name']}**\n\n_{quest['description']}_\n\n💰 **Reward:** {quest['reward_coins']} coins",
+            color=0x57F287,
+        )
+        
+        # Clear the session since they picked a quest
+        if self.owner_id in _ACTIVE_QUEST_SESSIONS:
+            del _ACTIVE_QUEST_SESSIONS[self.owner_id]
         
         await interaction.response.edit_message(embed=embed, view=self, attachments=[])
 
-    @discord.ui.button(label="💎 Redeem", style=discord.ButtonStyle.success, row=0)
-    async def redeem_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Redeem a completed quest"""
-        if not self.current_quest:
-            await interaction.response.send_message("No quest to redeem.", ephemeral=True)
-            return
+    @discord.ui.button(label="🔄 Refresh", style=discord.ButtonStyle.secondary, row=0)
+    async def refresh_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Regenerate a completely new batch of quests"""
+        # Clear old quests
+        if self.owner_id in _ACTIVE_QUEST_SESSIONS:
+            del _ACTIVE_QUEST_SESSIONS[self.owner_id]
         
-        quest_id = self.current_quest.get("quest_id")
+        self.quests = []
+        self.current_quest_index = 0
+        self._load_quests()
         
-        if not self.current_quest.get("is_completed"):
-            embed = discord.Embed(
-                title="⏳ Quest Not Complete",
-                description="This quest hasn't been completed yet.",
-                color=0xED4245,
-            )
-            await interaction.response.edit_message(embed=embed, view=self, attachments=[])
-            return
-        
-        if queries.redeem_generated_quest(self.owner_id, quest_id):
-            reward_text = []
-            if self.current_quest.get("reward_coins"):
-                reward_text.append(f"{self.current_quest['reward_coins']} coins")
-            if self.current_quest.get("reward_tickets"):
-                reward_text.append(f"{self.current_quest['reward_tickets']} Dirty Ticket(s)")
-            
-            embed = discord.Embed(
-                title="🎉 Quest Redeemed!",
-                description=f"You claimed {', '.join(reward_text)}.",
-                color=0x57F287,
-            )
-        else:
-            embed = discord.Embed(
-                title="❌ Redemption Failed",
-                description="Could not redeem this quest.",
-                color=0xED4245,
-            )
-        
+        embed = self.build_embed()
         await interaction.response.edit_message(embed=embed, view=self, attachments=[])
 
     @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=1)
@@ -1504,9 +1565,10 @@ class ProfileView(discord.ui.View):
 
     @discord.ui.button(label="� Quests", style=discord.ButtonStyle.secondary, row=3)
     async def quests_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        view = QuestView(self.owner_id, self.is_admin)
+        view = GeneratedQuestView(self.owner_id, self.is_admin)
+        embed = view.build_embed()
         await interaction.response.edit_message(
-            embed=view.build_embed(),
+            embed=embed,
             view=view,
             attachments=[],
         )
