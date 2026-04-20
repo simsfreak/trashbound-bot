@@ -48,6 +48,7 @@ from game.helpers import (
     roll_item_for_zone,
 )
 from game.leveling import apply_xp
+from game.quest_system import can_use_quest_dive, handle_dive_completion
 
 SLOT_EMOJIS = {
     "head": "🧢",
@@ -1702,6 +1703,26 @@ class ProfileView(discord.ui.View):
         self.owner_id = owner_id
         self.is_admin = is_admin
 
+        # Create dynamic dive button based on quest state
+        is_quest_dive = can_use_quest_dive(owner_id)
+        
+        # Set button label and style based on quest state
+        if is_quest_dive:
+            label = "📜 Quest Dive"
+            style = discord.ButtonStyle.success  # Green for quest active
+        else:
+            label = "🗑️ Dive"
+            style = discord.ButtonStyle.primary  # Blue for normal
+        
+        # Create button programmatically to make it dynamic
+        dive_btn = discord.ui.Button(
+            label=label,
+            style=style,
+            row=0,
+        )
+        dive_btn.callback = self.dive_button
+        self.add_item(dive_btn)
+
         if is_admin:
             self.add_item(AdminButton(row=2))
 
@@ -1714,10 +1735,20 @@ class ProfileView(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(label="🗑️ Dive", style=discord.ButtonStyle.primary, row=0)
-    async def dive_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    async def dive_button(self, interaction: discord.Interaction):
+        """
+        Main dive button - handles both normal dives and quest dives.
+        
+        Quest Dive Logic:
+        - Button shows "📜 Quest Dive" when quest is active and conditions met
+        - After successful dive, quest progress is updated
+        - Returns to normal dive on quest completion/abandonment
+        """
         import os
 
+        # Determine if this is a quest dive
+        is_quest_dive = can_use_quest_dive(interaction.user.id)
+        
         player = queries.get_player(interaction.user.id)
         zone_name = ZONES[player["current_zone_id"]]["name"]
 
@@ -1811,6 +1842,15 @@ class ProfileView(discord.ui.View):
         )
         queries.progress_daily_quest(interaction.user.id, "dive_count", 1)
         queries.check_and_complete_collections(interaction.user.id)
+        
+        # Handle quest progression if this is a quest dive
+        quest_feedback = None
+        if is_quest_dive:
+            progress_info = handle_dive_completion(interaction.user.id, is_quest_dive=True)
+            if progress_info:
+                quest_feedback = progress_info.get("feedback", "✅ Quest progress updated!")
+                # If quest is now completed, it will automatically become inactive
+                # and the next button creation will show normal dive mode
 
         updated_player = queries.get_player(interaction.user.id)
         unlocked_zone_names = [
