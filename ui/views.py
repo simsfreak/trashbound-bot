@@ -217,7 +217,7 @@ class InventoryView(discord.ui.View):
 
 class EquipItemSelect(discord.ui.Select):
     def __init__(self, owner_id: int, is_admin: bool, options: list[discord.SelectOption]):
-        super().__init__(placeholder="Choose gear to equip", min_values=1, max_values=1, options=options)
+        super().__init__(placeholder="Equip Gear", min_values=1, max_values=1, options=options)
         self.owner_id = owner_id
         self.is_admin = is_admin
         self.row = 0
@@ -266,7 +266,7 @@ class EquipItemSelect(discord.ui.Select):
 
 class UnequipItemSelect(discord.ui.Select):
     def __init__(self, owner_id: int, is_admin: bool, options: list[discord.SelectOption]):
-        super().__init__(placeholder="Choose gear to unequip", min_values=1, max_values=1, options=options)
+        super().__init__(placeholder="Unequip Gear", min_values=1, max_values=1, options=options)
         self.owner_id = owner_id
         self.is_admin = is_admin
         self.row = 1
@@ -386,14 +386,11 @@ class EquipmentView(discord.ui.View):
         embed = discord.Embed(
             title="🛠️ Gear Locker",
             description=(
-                f"**Equipped Gear**\n" + "\n".join(gear_lines[:6]) + "\n\n"
-                f"**Inventory Gear**\n" + "\n".join(available_lines[:10])
+                f"✨ **Equipped Gear**\n" + "\n".join(gear_lines[:6]) + "\n\n"
+                f"🎒 **Inventory Gear**\n" + "\n".join(available_lines[:10])
             ),
             color=0x9B59B6,
         )
-
-        if change_field:
-            embed.add_field(name=change_field[0], value=change_field[1], inline=False)
 
         return embed
 
