@@ -125,12 +125,47 @@ def equip_item(user_id: int, item_id: str) -> bool:
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
+                "SELECT item_id FROM player_equipment WHERE user_id = %s AND slot = %s",
+                (user_id, slot),
+            )
+            row = cur.fetchone()
+            old_item_id = row[0] if row else None
+
+            cur.execute(
+                "SELECT quantity FROM inventory WHERE user_id = %s AND item_id = %s",
+                (user_id, item_id),
+            )
+            row = cur.fetchone()
+            if not row or row[0] < 1:
+                return False
+
+            if old_item_id:
+                cur.execute(
+                    """
+                    INSERT INTO inventory (user_id, item_id, quantity)
+                    VALUES (%s, %s, 1)
+                    ON CONFLICT (user_id, item_id)
+                    DO UPDATE SET quantity = inventory.quantity + 1,
+                                  acquired_at = NOW()
+                    """,
+                    (user_id, old_item_id),
+                )
+
+            cur.execute(
+                "UPDATE inventory SET quantity = quantity - 1 WHERE user_id = %s AND item_id = %s",
+                (user_id, item_id),
+            )
+            cur.execute(
+                "DELETE FROM inventory WHERE user_id = %s AND item_id = %s AND quantity <= 0",
+                (user_id, item_id),
+            )
+
+            cur.execute(
                 """
                 INSERT INTO player_equipment (user_id, slot, item_id)
                 VALUES (%s, %s, %s)
                 ON CONFLICT (user_id, slot)
-                DO UPDATE SET item_id = EXCLUDED.item_id,
-                              equipped_at = NOW()
+                DO UPDATE SET item_id = EXCLUDED.item_id, equipped_at = NOW()
                 """,
                 (user_id, slot, item_id),
             )
@@ -378,18 +413,20 @@ def get_effect_multiplier(user_id: int, effect_id: str) -> float:
             return float(row[0] or 1.0)
 
 
-def equip_item(user_id: int, slot: str, item_id: str) -> None:
+def use_dirty_tickets(user_id: int, ticket_count: int) -> bool:
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO player_equipment (user_id, slot, item_id)
-                VALUES (%s, %s, %s)
-                ON CONFLICT (user_id, slot)
-                DO UPDATE SET item_id = EXCLUDED.item_id, equipped_at = NOW()
+                UPDATE players
+                SET dirty_tickets = dirty_tickets - %s
+                WHERE user_id = %s AND dirty_tickets >= %s
+                RETURNING user_id
                 """,
-                (user_id, slot, item_id),
+                (ticket_count, user_id, ticket_count),
             )
+            return cur.fetchone() is not None
+
 def can_chat_with_pawn_owner(user_id: int) -> bool:
     player = get_player(user_id)
     if not player:

@@ -37,12 +37,14 @@ PAWN_STORIES = [
 from db import queries
 from game.data import ITEMS, ZONES, MUSEUM_COLLECTIONS
 from game.helpers import (
+    calculate_equipment_bonuses,
     determine_title,
     get_random_dive_midpoint,
     get_random_dive_reaction,
     get_random_dive_starter,
     get_recent_finds_from_inventory_rows,
     maybe_roll_dive_event,
+    roll_dirty_draw_reward,
     roll_item_for_zone,
 )
 from game.leveling import apply_xp
@@ -115,6 +117,7 @@ def build_profile_embed_for_user(user: discord.abc.User) -> discord.Embed:
         recent_finds=recent_finds,
         active_effects=active_effects,
         equipment=equipment,
+        dirty_tickets=player.get("dirty_tickets", 0),
         avatar_url=_avatar_url(user),
     )
 
@@ -189,6 +192,178 @@ class InventoryView(discord.ui.View):
         await interaction.response.edit_message(embed=embed, view=self, attachments=[])
 
     @discord.ui.button(label="🏠 Back to Profile", style=discord.ButtonStyle.primary, row=1)
+    async def back_to_profile(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await show_profile(interaction, self.owner_id, self.is_admin)
+
+
+class EquipItemSelect(discord.ui.Select):
+    def __init__(self, owner_id: int, is_admin: bool, options: list[discord.SelectOption]):
+        super().__init__(placeholder="Choose gear to equip", min_values=1, max_values=1, options=options)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This gear menu isn't yours.", ephemeral=True)
+            return
+
+        item_id = self.values[0]
+        if not queries.equip_item(self.owner_id, item_id):
+            await interaction.response.send_message("Could not equip that item. Make sure it is in your inventory.", ephemeral=True)
+            return
+
+        await interaction.response.edit_message(
+            embed=EquipmentView(self.owner_id, self.is_admin).build_embed(interaction),
+            view=EquipmentView(self.owner_id, self.is_admin),
+            attachments=[],
+        )
+
+
+class EquipmentView(discord.ui.View):
+    def __init__(self, owner_id: int, is_admin: bool):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+
+        inventory_map = queries.get_inventory_map(owner_id)
+        select_options = []
+
+        for item_id, qty in inventory_map.items():
+            item = ITEMS.get(item_id)
+            if not item or not item.get("equip_slot"):
+                continue
+
+            slot = item["equip_slot"].title()
+            label = f"{item.get('emoji', '✨')} {item['name']}"
+            description = f"{slot} • Qty: {qty} • {item['rarity']}"
+            select_options.append(discord.SelectOption(label=label, description=description, value=item_id))
+
+        if select_options:
+            self.add_item(EquipItemSelect(owner_id, is_admin, select_options))
+
+        self.add_item(EquipmentBackButton(row=1))
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This gear menu isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    def build_embed(self, interaction: discord.Interaction) -> discord.Embed:
+        player = queries.get_player(self.owner_id)
+        current_equipment = queries.get_equipped_items(self.owner_id)
+        inventory_map = queries.get_inventory_map(self.owner_id)
+
+        gear_lines = []
+        for entry in current_equipment:
+            item = ITEMS.get(entry["item_id"], {"name": entry["item_id"], "emoji": "✨"})
+            gear_lines.append(f"{item.get('emoji', '✨')} **{item['name']}** — {entry.get('slot', 'Unknown').title()}")
+        if not gear_lines:
+            gear_lines = ["No gear equipped yet."]
+
+        available_lines = []
+        for item_id, qty in inventory_map.items():
+            item = ITEMS.get(item_id)
+            if item and item.get("equip_slot"):
+                available_lines.append(f"{item.get('emoji', '✨')} **{item['name']}** x{qty} — {item['equip_slot'].title()}")
+        if not available_lines:
+            available_lines = ["No equipable gear in inventory."]
+
+        return discord.Embed(
+            title="🛠️ Gear Locker",
+            description=(
+                f"**Equipped Gear**\n" + "\n".join(gear_lines[:6]) + "\n\n"
+                f"**Inventory Gear**\n" + "\n".join(available_lines[:10])
+            ),
+            color=0x9B59B6,
+        )
+
+
+class EquipmentBackButton(discord.ui.Button):
+    def __init__(self, row: int = 1):
+        super().__init__(label="🏠 Back to Profile", style=discord.ButtonStyle.primary, row=row)
+
+    async def callback(self, interaction: discord.Interaction):
+        if not isinstance(self.view, EquipmentView):
+            return
+        await show_profile(interaction, self.view.owner_id, self.view.is_admin)
+
+
+class DirtyDrawView(discord.ui.View):
+    def __init__(self, owner_id: int, is_admin: bool):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This Dirty Draw isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    def build_embed(self) -> discord.Embed:
+        player = queries.get_player(self.owner_id)
+        return discord.Embed(
+            title="🎟 Dirty Draw",
+            description=(
+                f"Dirty Tickets: **{player.get('dirty_tickets', 0)}**\n\n"
+                "Use your tickets to pull strange, useful loot from the muck."
+            ),
+            color=0xEB459E,
+        )
+
+    async def _draw(self, interaction: discord.Interaction, ticket_count: int):
+        player = queries.get_player(interaction.user.id)
+        if player.get("dirty_tickets", 0) < ticket_count:
+            embed = discord.Embed(
+                title="🎟 Not enough Dirty Tickets",
+                description=(
+                    f"You need {ticket_count} Dirty Ticket(s), but only have {player.get('dirty_tickets', 0)}."
+                ),
+                color=0xED4245,
+            )
+            await interaction.response.edit_message(embed=embed, view=self, attachments=[])
+            return
+
+        if not queries.use_dirty_tickets(interaction.user.id, ticket_count):
+            embed = discord.Embed(
+                title="🎟 Draw Failed",
+                description="Unable to spend tickets right now. Try again later.",
+                color=0xED4245,
+            )
+            await interaction.response.edit_message(embed=embed, view=self, attachments=[])
+            return
+
+        rewards = roll_dirty_draw_reward(ticket_count)
+        reward_lines = []
+        for item_id, item in rewards:
+            if item:
+                queries.add_item_to_inventory(interaction.user.id, item_id, 1)
+                reward_lines.append(f"{item.get('emoji', '✨')} **{item['name']}**")
+            else:
+                reward_lines.append(f"✨ Unknown reward: {item_id}")
+
+        updated_player = queries.get_player(interaction.user.id)
+        embed = discord.Embed(
+            title="🎟 Dirty Draw Results",
+            description=(
+                "You tore open the muck and found:\n"
+                + "\n".join(reward_lines)
+                + f"\n\nDirty Tickets left: **{updated_player.get('dirty_tickets', 0)}**"
+            ),
+            color=0x57F287,
+        )
+        await interaction.response.edit_message(embed=embed, view=self, attachments=[])
+
+    @discord.ui.button(label="Use x1", style=discord.ButtonStyle.success, row=0)
+    async def use_one(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._draw(interaction, 1)
+
+    @discord.ui.button(label="Use x5", style=discord.ButtonStyle.success, row=1)
+    async def use_five(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._draw(interaction, 5)
+
+    @discord.ui.button(label="🏠 Back to Profile", style=discord.ButtonStyle.secondary, row=2)
     async def back_to_profile(self, interaction: discord.Interaction, button: discord.ui.Button):
         await show_profile(interaction, self.owner_id, self.is_admin)
 
@@ -631,7 +806,13 @@ class ProfileView(discord.ui.View):
         await asyncio.sleep(1.0)
 
         # Roll result
-        item_id, item = roll_item_for_zone(player["current_zone_id"])
+        equipment = _safe_equipment(interaction.user.id)
+        equipment_bonuses = calculate_equipment_bonuses(equipment)
+
+        item_id, item = roll_item_for_zone(
+            player["current_zone_id"],
+            rare_bonus=equipment_bonuses["drop_bonus"],
+        )
         event = maybe_roll_dive_event()
 
         bonus_coins = 0
@@ -644,7 +825,24 @@ class ProfileView(discord.ui.View):
             event_text = event.get("text")
 
         gained_coins = int(item["coins"]) + bonus_coins
+        gained_coins = int(gained_coins * (1 + equipment_bonuses["coin_boost"]))
         gained_xp = int(item["xp"]) + bonus_xp
+        gained_xp = int(gained_xp * (1 + equipment_bonuses["xp_boost"]))
+
+        gear_bonus_lines = []
+        if equipment_bonuses["coin_boost"]:
+            gear_bonus_lines.append(f"Gear adds +{int(equipment_bonuses['coin_boost'] * 100)}% coins")
+        if equipment_bonuses["xp_boost"]:
+            gear_bonus_lines.append(f"Gear adds +{int(equipment_bonuses['xp_boost'] * 100)}% XP")
+        if equipment_bonuses["drop_bonus"]:
+            gear_bonus_lines.append(f"Gear adds +{int(equipment_bonuses['drop_bonus'] * 100)}% rare chance")
+
+        bonus_parts = []
+        if bonus_coins or bonus_xp:
+            bonus_parts.append(f"🎉 Bonus: +{bonus_coins} coins, +{bonus_xp} XP")
+        if gear_bonus_lines:
+            bonus_parts.append(" | ".join(gear_bonus_lines))
+        bonus_text = "\n".join(bonus_parts) if bonus_parts else None
 
         new_xp, new_level, leveled_up = apply_xp(
             player["xp"],
@@ -764,6 +962,24 @@ class ProfileView(discord.ui.View):
         await interaction.response.edit_message(
             embed=embed,
             view=MuseumHomeView(self.owner_id, self.is_admin),
+            attachments=[],
+        )
+
+    @discord.ui.button(label="🛠️ Gear", style=discord.ButtonStyle.secondary, row=3)
+    async def gear_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        view = EquipmentView(self.owner_id, self.is_admin)
+        await interaction.response.edit_message(
+            embed=view.build_embed(interaction),
+            view=view,
+            attachments=[],
+        )
+
+    @discord.ui.button(label="🎟 Dirty Draw", style=discord.ButtonStyle.danger, row=3)
+    async def dirty_draw_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        view = DirtyDrawView(self.owner_id, self.is_admin)
+        await interaction.response.edit_message(
+            embed=view.build_embed(),
+            view=view,
             attachments=[],
         )
 

@@ -32,6 +32,7 @@ def profile_embed(
     recent_finds,
     active_effects,
     equipment,
+    dirty_tickets,
     avatar_url,
 ):
     zone = ZONES[player["current_zone_id"]]["name"]
@@ -52,6 +53,7 @@ def profile_embed(
         embed.set_author(name=player["username"], icon_url=avatar_url)
 
     embed.add_field(name="💰 Coins", value=str(player["coins"]), inline=True)
+    embed.add_field(name="🎟 Dirty Tickets", value=str(dirty_tickets), inline=True)
     embed.add_field(name="⭐ Level", value=str(player["level"]), inline=True)
     embed.add_field(name="🎒 Items", value=str(inventory_count), inline=True)
     embed.add_field(name="✨ XP", value=build_xp_bar(player["xp"], player["level"]), inline=False)
@@ -75,10 +77,11 @@ def profile_embed(
 
     if equipment:
         lines = []
-        for entry in equipment[:4]:
+        for entry in equipment[:6]:
             if isinstance(entry, dict) and "item_id" in entry:
                 item = ITEMS.get(entry["item_id"], {"name": entry["item_id"], "emoji": "✨"})
-                lines.append(f"{item.get('emoji', '✨')} {item['name']}")
+                slot = entry.get("slot", "slot")
+                lines.append(f"{item.get('emoji', '✨')} **{item['name']}** — {slot.title()}")
             else:
                 lines.append(str(entry))
         embed.add_field(name="🧥 Equipped", value="\n".join(lines), inline=False)
