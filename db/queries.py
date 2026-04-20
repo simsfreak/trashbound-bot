@@ -187,6 +187,22 @@ def add_player_coins(user_id: int, coins_delta: int) -> None:
             )
 
 
+def buy_dirty_tickets(user_id: int, coins_cost: int, ticket_count: int) -> bool:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE players
+                SET coins = coins - %s,
+                    dirty_tickets = dirty_tickets + %s
+                WHERE user_id = %s AND coins >= %s
+                RETURNING user_id
+                """,
+                (coins_cost, ticket_count, user_id, coins_cost),
+            )
+            return cur.fetchone() is not None
+
+
 def get_unlocked_zone_ids(user_id: int) -> list[str]:
     with get_conn() as conn:
         with conn.cursor() as cur:

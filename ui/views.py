@@ -434,12 +434,10 @@ class PawnShopView(discord.ui.View):
 
     @discord.ui.button(label="🎟 Buy Tickets", style=discord.ButtonStyle.primary, row=0)
     async def buy_tickets_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        view = TicketShopView(self.owner_id, self.is_admin)
         await interaction.response.edit_message(
-            embed=mix_result_embed(
-                "🎟 Dirty Tickets",
-                "Tickets cost coins. Good ones cost more.\n\n(Ticket shop coming next 👀)",
-            ),
-            view=PawnShopView(self.owner_id, self.is_admin),
+            embed=view.build_embed(),
+            view=view,
             attachments=[],
         )
 
@@ -472,6 +470,120 @@ class PawnShopView(discord.ui.View):
     @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=2)
     async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await show_profile(interaction, self.owner_id, self.is_admin)
+
+
+class TicketShopView(discord.ui.View):
+    TICKET_PACKS = [
+        (1, 1000),
+        (5, 4500),
+        (10, 8500),
+    ]
+
+    def __init__(self, owner_id: int, is_admin: bool):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This ticket shop isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    def build_embed(self) -> discord.Embed:
+        player = queries.get_player(self.owner_id)
+        ticket_lines = [
+            f"Coins: **{player['coins']}**",
+            f"Dirty Tickets: **{player['dirty_tickets']}**",
+            "",
+            "Ticket Packs:",
+            "• Dirty Ticket x1 = 1000 coins",
+            "• Dirty Ticket x5 = 4500 coins",
+            "• Dirty Ticket x10 = 8500 coins",
+        ]
+
+        return discord.Embed(
+            title="🎟 Ticket Shop",
+            description="\n".join(ticket_lines),
+            color=0x8B5E3C,
+        )
+
+    async def _purchase(self, interaction: discord.Interaction, ticket_count: int, coins_cost: int):
+        player = queries.get_player(interaction.user.id)
+        if player['coins'] < coins_cost:
+            embed = discord.Embed(
+                title="🎟 Not enough coins",
+                description=(
+                    f"You need **{coins_cost}** coins for that pack, but only have **{player['coins']}**.",
+                ),
+                color=0xED4245,
+            )
+            await interaction.response.edit_message(
+                embed=embed,
+                view=self,
+                attachments=[],
+            )
+            return
+
+        success = queries.buy_dirty_tickets(interaction.user.id, coins_cost, ticket_count)
+        if not success:
+            embed = discord.Embed(
+                title="🎟 Not enough coins",
+                description=(
+                    f"You need **{coins_cost}** coins for that pack, but only have **{player['coins']}**.",
+                ),
+                color=0xED4245,
+            )
+            await interaction.response.edit_message(
+                embed=embed,
+                view=self,
+                attachments=[],
+            )
+            return
+
+        updated_player = queries.get_player(interaction.user.id)
+        embed = discord.Embed(
+            title="🎟 Ticket Purchase Complete",
+            description=(
+                f"Purchased **{ticket_count}** Dirty Ticket(s) for **{coins_cost}** coins.\n"
+                f"You now have **{updated_player['dirty_tickets']}** Dirty Tickets and **{updated_player['coins']}** coins."
+            ),
+            color=0x57F287,
+        )
+        await interaction.response.edit_message(
+            embed=embed,
+            view=self,
+            attachments=[],
+        )
+
+    @discord.ui.button(label="Buy x1", style=discord.ButtonStyle.success, row=0)
+    async def buy_one(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._purchase(interaction, ticket_count=1, coins_cost=1000)
+
+    @discord.ui.button(label="Buy x5", style=discord.ButtonStyle.success, row=1)
+    async def buy_five(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._purchase(interaction, ticket_count=5, coins_cost=4500)
+
+    @discord.ui.button(label="Buy x10", style=discord.ButtonStyle.success, row=2)
+    async def buy_ten(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._purchase(interaction, ticket_count=10, coins_cost=8500)
+
+    @discord.ui.button(label="🏠 Back to Pawn Shop", style=discord.ButtonStyle.secondary, row=3)
+    async def back_to_pawn_shop(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = discord.Embed(
+            title="🏚️ Pawn Shop",
+            description=(
+                f"Welcome back, **{interaction.user.display_name}**.\n\n"
+                "I deal in junk, favors, and things people don’t ask about.\n\n"
+                "What do you need?"
+            ),
+            color=0x8B5E3C,
+        )
+        await interaction.response.edit_message(
+            embed=embed,
+            view=PawnShopView(self.owner_id, self.is_admin),
+            attachments=[],
+        )
 
 
 class ProfileView(discord.ui.View):
