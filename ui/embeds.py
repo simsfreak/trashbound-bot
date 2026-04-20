@@ -3,6 +3,7 @@ import discord
 
 from game.data import EQUIP_SLOTS, ITEMS, ZONES, get_live_events, MUSEUM_COLLECTIONS, MUSEUM_ARTIFACT_TEXT
 from game.leveling import xp_to_next_level
+from game.helpers import calculate_equipment_bonuses
 
 
 RARITY_COLORS = {
@@ -89,6 +90,24 @@ def profile_embed(
         else:
             lines.append(f"▫️ **{slot.title()}** — Empty")
     embed.add_field(name="🧥 Equipped", value="\n".join(lines), inline=False)
+
+    bonuses = calculate_equipment_bonuses(equipment)
+    bonus_lines = []
+    if bonuses["xp_boost"] > 0:
+        bonus_lines.append(f"✨ +{int(bonuses['xp_boost'] * 100)}% XP Gain")
+    if bonuses["coin_boost"] > 0:
+        bonus_lines.append(f"💰 +{int(bonuses['coin_boost'] * 100)}% Coin Gain")
+    if bonuses["loot_value"] > 0:
+        bonus_lines.append(f"💎 +{int(bonuses['loot_value'] * 100)}% Item Value")
+    if bonuses["drop_bonus"] > 0:
+        bonus_lines.append(f"🎁 +{int(bonuses['drop_bonus'] * 100)}% Rare Chance")
+    if bonuses["extra_item_chance"] > 0:
+        bonus_lines.append(f"🌟 +{int(bonuses['extra_item_chance'] * 100)}% Extra Item Chance")
+
+    if bonus_lines:
+        embed.add_field(name="⚡ Active Bonuses", value="\n".join(bonus_lines), inline=False)
+    else:
+        embed.add_field(name="⚡ Active Bonuses", value="No active gear bonuses yet.", inline=False)
 
     return embed
 
