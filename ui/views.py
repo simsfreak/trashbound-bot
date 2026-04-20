@@ -956,6 +956,7 @@ class ProfileView(discord.ui.View):
             current_title=new_title,
             total_dives=new_dives,
         )
+        queries.progress_daily_quest(interaction.user.id, "dive_count", 1)
 
         updated_player = queries.get_player(interaction.user.id)
         unlocked_zone_names = [
