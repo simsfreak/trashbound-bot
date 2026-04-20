@@ -237,12 +237,17 @@ class EquipItemSelect(discord.ui.Select):
 
         queries.progress_daily_quest(self.owner_id, "equip_item", 1)
 
-        embed = EquipmentView(self.owner_id, self.is_admin).build_embed(interaction)
-        success_text = f"{item.get('emoji', '✨')} **{item['name']}** equipped to {item['equip_slot'].title()} slot."
+        change_title = "Gear Equipped"
+        change_text = f"{item.get('emoji', '✨')} **{item['name']}** equipped to {item['equip_slot'].title()} slot."
         if old_item_id:
             old_item = ITEMS.get(old_item_id, {"name": old_item_id, "emoji": "✨"})
-            success_text += f" Returned {old_item.get('emoji', '✨')} **{old_item['name']}** to inventory."
-        embed.description = f"{success_text}\n\n{embed.description}"
+            change_text += f" Returned {old_item.get('emoji', '✨')} **{old_item['name']}** to inventory."
+
+        embed = EquipmentView(self.owner_id, self.is_admin).build_embed(
+            interaction,
+            change_field=(change_title, change_text),
+            change_slot=item["equip_slot"],
+        )
 
         await interaction.response.edit_message(
             embed=embed,
@@ -274,9 +279,12 @@ class UnequipItemSelect(discord.ui.Select):
             return
 
         old_item = ITEMS.get(old_item_id, {"name": old_item_id, "emoji": "✨"})
-        embed = EquipmentView(self.owner_id, self.is_admin).build_embed(interaction)
-        embed.description = (
-            f"{old_item.get('emoji', '✨')} **{old_item['name']}** unequipped from {slot.title()} and returned to inventory.\n\n{embed.description}"
+        change_title = "Gear Unequipped"
+        change_text = f"{old_item.get('emoji', '✨')} **{old_item['name']}** unequipped from {slot.title()} and returned to inventory."
+        embed = EquipmentView(self.owner_id, self.is_admin).build_embed(
+            interaction,
+            change_field=(change_title, change_text),
+            change_slot=slot,
         )
 
         await interaction.response.edit_message(
@@ -333,7 +341,12 @@ class EquipmentView(discord.ui.View):
             return False
         return True
 
-    def build_embed(self, interaction: discord.Interaction) -> discord.Embed:
+    def build_embed(
+        self,
+        interaction: discord.Interaction,
+        change_field: tuple[str, str] | None = None,
+        change_slot: str | None = None,
+    ) -> discord.Embed:
         player = queries.get_player(self.owner_id)
         current_equipment = queries.get_equipped_items(self.owner_id)
         inventory_map = queries.get_inventory_map(self.owner_id)
@@ -346,11 +359,12 @@ class EquipmentView(discord.ui.View):
         gear_lines = []
         for slot in EQUIP_SLOTS:
             item_id = slot_map.get(slot)
+            badge = "⭐ " if slot == change_slot else ""
             if item_id:
                 item = ITEMS.get(item_id, {"name": item_id, "emoji": "✨"})
-                gear_lines.append(f"{item.get('emoji', '✨')} **{item['name']}** — {slot.title()}")
+                gear_lines.append(f"{badge}{item.get('emoji', '✨')} **{item['name']}** — {slot.title()}")
             else:
-                gear_lines.append(f"▫️ **{slot.title()}** — Empty")
+                gear_lines.append(f"{badge}▫️ **{slot.title()}** — Empty")
 
         available_lines = []
         for item_id, qty in inventory_map.items():
@@ -360,7 +374,7 @@ class EquipmentView(discord.ui.View):
         if not available_lines:
             available_lines = ["No equipable gear in inventory."]
 
-        return discord.Embed(
+        embed = discord.Embed(
             title="🛠️ Gear Locker",
             description=(
                 f"**Equipped Gear**\n" + "\n".join(gear_lines[:6]) + "\n\n"
@@ -368,6 +382,11 @@ class EquipmentView(discord.ui.View):
             ),
             color=0x9B59B6,
         )
+
+        if change_field:
+            embed.add_field(name=change_field[0], value=change_field[1], inline=False)
+
+        return embed
 
 
 class EquipmentBackButton(discord.ui.Button):
