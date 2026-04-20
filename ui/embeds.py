@@ -4,6 +4,7 @@ import discord
 from game.data import EQUIP_SLOTS, ITEMS, ZONES, get_live_events, MUSEUM_COLLECTIONS, MUSEUM_ARTIFACT_TEXT
 from game.leveling import xp_to_next_level
 from game.helpers import calculate_equipment_bonuses
+from ui.profile_formatter import format_profile_display
 
 
 RARITY_COLORS = {
@@ -41,96 +42,30 @@ def profile_embed(
     from game.time_system import get_phase_emoji, get_phase_name
     from datetime import datetime as dt
     
-    zone = ZONES[player["current_zone_id"]]["name"]
-    time_phase = player.get("current_time_phase", "morning")
-    time_emoji = get_phase_emoji(time_phase)
-    time_name = get_phase_name(time_phase)
+    # Build the beautiful ASCII formatted profile
+    live_events = get_live_events()
+    formatted_profile = format_profile_display(
+        player=player,
+        inventory_count=inventory_count,
+        recent_finds=recent_finds,
+        active_effects=active_effects,
+        equipment=equipment,
+        dirty_tickets=dirty_tickets,
+        active_quest_info=active_quest_info,
+        daily_quest=None,  # Can extend later if needed
+        live_events=live_events,
+    )
     
-    # Get current real-world time
-    now = dt.now()
-    real_time = now.strftime("%H:%M")
-    real_date = now.strftime("%a, %b %d")
-    
-    live_names = [f"{event.get('emoji', '✨')} {event['name']}" for event in get_live_events()]
-
+    # Create embed with formatted profile as description
     embed = discord.Embed(
-        title=f"{player['username']} — {player['current_title']}",
-        description=(
-            f"🕐 **{real_date}** • {real_time}\n"
-            f"📍 **{zone}** • {time_emoji} **{time_name}**\n"
-            f"🌐 {' • '.join(live_names) if live_names else 'No live world event'}"
-        ),
+        title=f"👤 {player['username']} • {player['current_title']}",
+        description=f"```\n{formatted_profile}\n```",
         color=0x2C2F33,
         timestamp=datetime.utcnow(),
     )
 
     if avatar_url:
         embed.set_thumbnail(url=avatar_url)
-        embed.set_author(name=player["username"], icon_url=avatar_url)
-
-    embed.add_field(name="💰 Coins", value=str(player["coins"]), inline=True)
-    embed.add_field(name="🎟 Dirty Tickets", value=str(dirty_tickets), inline=True)
-    embed.add_field(name="⭐ Level", value=str(player["level"]), inline=True)
-    embed.add_field(name="🎒 Items", value=str(inventory_count), inline=True)
-    embed.add_field(name="✨ XP", value=build_xp_bar(player["xp"], player["level"]), inline=False)
-
-    bonuses = calculate_equipment_bonuses(equipment)
-    bonus_lines = []
-    if bonuses["xp_boost"] > 0:
-        bonus_lines.append(f"✨ +{int(bonuses['xp_boost'] * 100)}% XP Gain")
-    if bonuses["coin_boost"] > 0:
-        bonus_lines.append(f"💰 +{int(bonuses['coin_boost'] * 100)}% Coin Gain")
-    if bonuses["loot_value"] > 0:
-        bonus_lines.append(f"💎 +{int(bonuses['loot_value'] * 100)}% Item Value")
-    if bonuses["drop_bonus"] > 0:
-        bonus_lines.append(f"🎯 +{int(bonuses['drop_bonus'] * 100)}% Rare Chance")
-    if bonuses["extra_item_chance"] > 0:
-        bonus_lines.append(f"🎁 +{int(bonuses['extra_item_chance'] * 100)}% Extra Item Chance")
-
-    if bonus_lines:
-        embed.add_field(name="✨ Active Bonuses", value="\n".join(bonus_lines), inline=False)
-
-    embed.add_field(name="🗑️ Total Dives", value=str(player["total_dives"]), inline=True)
-    embed.add_field(name="👑 Title", value=player["current_title"], inline=True)
-    embed.add_field(name=f"{time_emoji} Phase", value=time_name, inline=True)
-
-    recent_text = "\n".join(recent_finds[-3:]) if recent_finds else "None yet"
-    embed.add_field(name="🪄 Recent Finds", value=recent_text, inline=False)
-
-    # Add active quest information
-    if active_quest_info:
-        quest_text = f"{active_quest_info['status']} **{active_quest_info['name']}**\n"
-        quest_text += f"📍 {active_quest_info['zone']}\n"
-        quest_text += f"⏰ {active_quest_info['time_window']}\n"
-        quest_text += f"\n{active_quest_info['feedback']}"
-        embed.add_field(name="📜 Active Quest", value=quest_text, inline=False)
-    else:
-        embed.add_field(name="📜 Active Quest", value="None active. Browse quests to accept one!", inline=False)
-
-    if quest_status:
-        embed.add_field(name="🎯 Daily Quest", value=quest_status, inline=False)
-
-    if active_effects:
-        lines = []
-        for effect in active_effects[:4]:
-            if isinstance(effect, dict):
-                label = effect.get("label", "Effect")
-                expires = effect.get("expires_at", "soon")
-                lines.append(f"⏳ {label} — {expires}")
-            else:
-                lines.append(str(effect))
-        embed.add_field(name="⏳ Active Effects", value="\n".join(lines), inline=False)
-
-    equipment_map = {entry.get("slot", ""): entry.get("item_id") for entry in equipment if isinstance(entry, dict) and "item_id" in entry}
-    lines = []
-    for slot in EQUIP_SLOTS:
-        item_id = equipment_map.get(slot)
-        if item_id:
-            item = ITEMS.get(item_id, {"name": item_id, "emoji": "✨"})
-            lines.append(f"{item.get('emoji', '✨')} **{item['name']}** — {slot.title()}")
-        else:
-            lines.append(f"▫️ **{slot.title()}** — Empty")
-    embed.add_field(name="🧥 Equipped", value="\n".join(lines), inline=False)
 
     return embed
 
