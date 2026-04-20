@@ -560,17 +560,22 @@ class ProfileView(discord.ui.View):
         )
         await interaction.response.edit_message(embed=embed, view=view)
 
-    @discord.ui.button(label="🏚️ Pawn Shop", style=discord.ButtonStyle.success, row=0)
-async def pawnshop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-    embed = discord.Embed(
-        title="🏚️ Pawn Shop",
-        description=(
-            f"Welcome back, **{interaction.user.display_name}**.\n\n"
-            "I deal in junk, favors, and things people don’t ask about.\n\n"
-            "What do you need?"
-        ),
-        color=0x8B5E3C,
-    )
+        @discord.ui.button(label="🏚️ Pawn Shop", style=discord.ButtonStyle.success, row=0)
+    async def pawnshop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = discord.Embed(
+            title="🏚️ Pawn Shop",
+            description=(
+                f"Welcome back, **{interaction.user.display_name}**.\n\n"
+                "I deal in junk, favors, and things people don’t ask about.\n\n"
+                "What do you need?"
+            ),
+            color=0x8B5E3C,
+        )
+
+        await interaction.response.edit_message(
+            embed=embed,
+            view=PawnShopView(self.owner_id, self.is_admin),
+        )
 
     await interaction.response.edit_message(
         embed=embed,
