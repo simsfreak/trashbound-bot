@@ -116,6 +116,44 @@ SCHEMA_STATEMENTS = [
         PRIMARY KEY (user_id, collection_key)
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS generated_quests (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL REFERENCES players(user_id) ON DELETE CASCADE,
+        quest_id TEXT NOT NULL UNIQUE,
+        template_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT NOT NULL,
+        objective_type TEXT NOT NULL,
+        zone_id TEXT NOT NULL,
+        zone_name TEXT NOT NULL,
+        time TEXT NOT NULL,
+        difficulty INTEGER NOT NULL,
+        flavor_text TEXT NOT NULL,
+        progress INTEGER NOT NULL DEFAULT 0,
+        target INTEGER NOT NULL DEFAULT 1,
+        reward_coins INTEGER NOT NULL DEFAULT 0,
+        reward_tickets INTEGER NOT NULL DEFAULT 0,
+        objective_meta JSONB DEFAULT '{}'::jsonb,
+        is_active BOOLEAN NOT NULL DEFAULT FALSE,
+        is_completed BOOLEAN NOT NULL DEFAULT FALSE,
+        is_redeemed BOOLEAN NOT NULL DEFAULT FALSE,
+        generated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        expires_at TIMESTAMP NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS quest_pagination (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL REFERENCES players(user_id) ON DELETE CASCADE,
+        quest_id TEXT NOT NULL REFERENCES generated_quests(quest_id) ON DELETE CASCADE,
+        view_order INTEGER NOT NULL,
+        viewed_at TIMESTAMP,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        UNIQUE (user_id, quest_id)
+    )
+    """,
 ]
 
 
@@ -162,4 +200,17 @@ def run_schema() -> None:
             )
             cur.execute(
                 "ALTER TABLE daily_quests ADD COLUMN IF NOT EXISTS flavor_text TEXT DEFAULT 'A quest awaits.'"
+            )
+            # Generated quest system columns
+            cur.execute(
+                "ALTER TABLE players ADD COLUMN IF NOT EXISTS active_quest_id TEXT"
+            )
+            cur.execute(
+                "ALTER TABLE players ADD COLUMN IF NOT EXISTS last_quest_refresh TIMESTAMP"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_generated_quests_user_active ON generated_quests(user_id, is_active)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_quest_pagination_user ON quest_pagination(user_id, view_order)"
             )

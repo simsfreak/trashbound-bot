@@ -903,3 +903,363 @@ def check_and_complete_collections(user_id: int) -> list[str]:
         update_museum_level(user_id)
     
     return newly_completed
+
+
+# ==================== GENERATED QUEST SYSTEM ====================
+
+def store_generated_quest(user_id: int, quest: dict) -> None:
+    """
+    Store a newly generated quest for a player.
+    Automatically orders them for pagination.
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            # Insert the quest
+            cur.execute(
+                """
+                INSERT INTO generated_quests (
+                    user_id, quest_id, template_id, name, description,
+                    objective_type, zone_id, zone_name, time, difficulty,
+                    flavor_text, progress, target, reward_coins, reward_tickets,
+                    objective_meta, is_active, is_completed, is_redeemed,
+                    generated_at, expires_at
+                ) VALUES (
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s,
+                    %s::jsonb, %s, %s, %s,
+                    %s, %s
+                )
+                ON CONFLICT (quest_id) DO NOTHING
+                """,
+                (
+                    user_id,
+                    quest.get("quest_id"),
+                    quest.get("template_id"),
+                    quest.get("name"),
+                    quest.get("description"),
+                    quest.get("objective_type"),
+                    quest.get("zone_id"),
+                    quest.get("zone_name"),
+                    quest.get("time"),
+                    quest.get("difficulty"),
+                    quest.get("flavor_text"),
+                    0,  # progress
+                    quest.get("target", 1),
+                    quest.get("reward_coins", 0),
+                    quest.get("reward_tickets", 0),
+                    str(quest.get("objective_meta", {})),
+                    False,  # is_active
+                    False,  # is_completed
+                    False,  # is_redeemed
+                    quest.get("generated_at", datetime.utcnow()),
+                    quest.get("expires_at", datetime.utcnow() + timedelta(hours=24)),
+                ),
+            )
+            
+            # Add to pagination queue
+            cur.execute(
+                """
+                SELECT COUNT(*) FROM quest_pagination WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            view_order = cur.fetchone()[0]
+            
+            cur.execute(
+                """
+                INSERT INTO quest_pagination (user_id, quest_id, view_order)
+                VALUES (%s, %s, %s)
+                ON CONFLICT DO NOTHING
+                """,
+                (user_id, quest.get("quest_id"), view_order),
+            )
+
+
+def get_next_generated_quest(user_id: int) -> dict | None:
+    """
+    Get the next unviewed quest for a player from their pagination queue.
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            # Get the next unviewed quest in order
+            cur.execute(
+                """
+                SELECT gq.quest_id, gq.name, gq.description, gq.objective_type,
+                       gq.zone_id, gq.zone_name, gq.time, gq.difficulty,
+                       gq.flavor_text, gq.progress, gq.target,
+                       gq.reward_coins, gq.reward_tickets, gq.objective_meta,
+                       gq.is_active, gq.is_completed, gq.is_redeemed,
+                       gq.expires_at
+                FROM generated_quests gq
+                INNER JOIN quest_pagination qp ON gq.quest_id = qp.quest_id
+                WHERE gq.user_id = %s AND qp.viewed_at IS NULL
+                ORDER BY qp.view_order ASC
+                LIMIT 1
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            
+            # Mark as viewed
+            cur.execute(
+                """
+                UPDATE quest_pagination
+                SET viewed_at = NOW()
+                WHERE user_id = %s AND quest_id = %s
+                """,
+                (user_id, row[0]),
+            )
+            
+            return {
+                "quest_id": row[0],
+                "name": row[1],
+                "description": row[2],
+                "objective_type": row[3],
+                "zone_id": row[4],
+                "zone_name": row[5],
+                "time": row[6],
+                "difficulty": row[7],
+                "hearts": _difficulty_to_hearts(row[7]),
+                "flavor_text": row[8],
+                "progress": row[9],
+                "target": row[10],
+                "reward_coins": row[11],
+                "reward_tickets": row[12],
+                "objective_meta": row[13],
+                "is_active": row[14],
+                "is_completed": row[15],
+                "is_redeemed": row[16],
+                "expires_at": row[17],
+            }
+
+
+def _difficulty_to_hearts(difficulty: int) -> str:
+    """Convert difficulty to hearts display"""
+    hearts_map = {
+        1: "♥♡♡♡♡",
+        2: "♥♥♡♡♡",
+        3: "♥♥♥♡♡",
+        4: "♥♥♥♥♡",
+        5: "♥♥♥♥♥",
+    }
+    return hearts_map.get(difficulty, "♥♡♡♡♡")
+
+
+def set_active_quest(user_id: int, quest_id: str) -> bool:
+    """
+    Accept a quest and set it as the player's active quest.
+    Only one quest can be active at a time.
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            # Verify the quest exists and belongs to this player
+            cur.execute(
+                """
+                SELECT quest_id FROM generated_quests
+                WHERE user_id = %s AND quest_id = %s AND NOT is_redeemed
+                """,
+                (user_id, quest_id),
+            )
+            if not cur.fetchone():
+                return False
+            
+            # Deactivate any previous active quest
+            cur.execute(
+                """
+                UPDATE generated_quests
+                SET is_active = FALSE
+                WHERE user_id = %s AND is_active = TRUE
+                """,
+                (user_id,),
+            )
+            
+            # Set this quest as active
+            cur.execute(
+                """
+                UPDATE generated_quests
+                SET is_active = TRUE
+                WHERE user_id = %s AND quest_id = %s
+                """,
+                (user_id, quest_id),
+            )
+            
+            # Also update the player's active_quest_id
+            cur.execute(
+                """
+                UPDATE players
+                SET active_quest_id = %s
+                WHERE user_id = %s
+                """,
+                (quest_id, user_id),
+            )
+            
+            return True
+
+
+def get_active_quest(user_id: int) -> dict | None:
+    """
+    Get the player's currently active quest.
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT quest_id, name, description, objective_type,
+                       zone_id, zone_name, time, difficulty,
+                       flavor_text, progress, target,
+                       reward_coins, reward_tickets, objective_meta,
+                       is_completed, is_redeemed, expires_at
+                FROM generated_quests
+                WHERE user_id = %s AND is_active = TRUE
+                ORDER BY generated_at DESC
+                LIMIT 1
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            
+            return {
+                "quest_id": row[0],
+                "name": row[1],
+                "description": row[2],
+                "objective_type": row[3],
+                "zone_id": row[4],
+                "zone_name": row[5],
+                "time": row[6],
+                "difficulty": row[7],
+                "hearts": _difficulty_to_hearts(row[7]),
+                "flavor_text": row[8],
+                "progress": row[9],
+                "target": row[10],
+                "reward_coins": row[11],
+                "reward_tickets": row[12],
+                "objective_meta": row[13],
+                "is_completed": row[14],
+                "is_redeemed": row[15],
+                "expires_at": row[16],
+            }
+
+
+def progress_generated_quest(user_id: int, quest_id: str, progress_amount: int = 1) -> bool:
+    """
+    Update progress on an active generated quest.
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT progress, target, is_completed, is_redeemed, expires_at
+                FROM generated_quests
+                WHERE user_id = %s AND quest_id = %s
+                """,
+                (user_id, quest_id),
+            )
+            row = cur.fetchone()
+            if not row:
+                return False
+            
+            progress, target, is_completed, is_redeemed, expires_at = row
+            
+            # Check if quest is still valid
+            if is_redeemed or expires_at <= datetime.utcnow():
+                return False
+            
+            # Update progress
+            new_progress = min(progress + progress_amount, target)
+            new_completed = new_progress >= target
+            
+            cur.execute(
+                """
+                UPDATE generated_quests
+                SET progress = %s, is_completed = %s
+                WHERE user_id = %s AND quest_id = %s
+                """,
+                (new_progress, new_completed, user_id, quest_id),
+            )
+            
+            return True
+
+
+def redeem_generated_quest(user_id: int, quest_id: str) -> bool:
+    """
+    Redeem a completed generated quest and award the player.
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT progress, target, is_completed, is_redeemed,
+                       reward_coins, reward_tickets, expires_at
+                FROM generated_quests
+                WHERE user_id = %s AND quest_id = %s
+                """,
+                (user_id, quest_id),
+            )
+            row = cur.fetchone()
+            if not row:
+                return False
+            
+            progress, target, is_completed, is_redeemed, reward_coins, reward_tickets, expires_at = row
+            
+            # Check if quest can be redeemed
+            if is_redeemed or not is_completed or expires_at <= datetime.utcnow():
+                return False
+            
+            # Award the player
+            cur.execute(
+                """
+                UPDATE players
+                SET coins = coins + %s, dirty_tickets = dirty_tickets + %s
+                WHERE user_id = %s
+                """,
+                (reward_coins, reward_tickets, user_id),
+            )
+            
+            # Mark quest as redeemed
+            cur.execute(
+                """
+                UPDATE generated_quests
+                SET is_redeemed = TRUE
+                WHERE user_id = %s AND quest_id = %s
+                """,
+                (user_id, quest_id),
+            )
+            
+            return True
+
+
+def get_player_quest_history(user_id: int, limit: int = 10) -> list[dict]:
+    """
+    Get the player's recent quest history for display.
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT quest_id, name, template_id, difficulty,
+                       is_completed, is_redeemed, generated_at
+                FROM generated_quests
+                WHERE user_id = %s
+                ORDER BY generated_at DESC
+                LIMIT %s
+                """,
+                (user_id, limit),
+            )
+            return [
+                {
+                    "quest_id": row[0],
+                    "name": row[1],
+                    "template_id": row[2],
+                    "difficulty": row[3],
+                    "is_completed": row[4],
+                    "is_redeemed": row[5],
+                    "generated_at": row[6],
+                }
+                for row in cur.fetchall()
+            ]
+
