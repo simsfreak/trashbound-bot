@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, date
 from decimal import Decimal
 
 from db.database import get_conn
-from game.data import ZONES
+from game.data import ITEMS, ZONES
 
 
 def ensure_player(user_id: int, username: str) -> None:
@@ -99,6 +99,42 @@ def get_discovered_item_ids(user_id: int) -> set[str]:
                 (user_id,),
             )
             return {row[0] for row in cur.fetchall()}
+
+
+def get_equipped_items(user_id: int) -> list[dict[str, str]]:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT slot, item_id
+                FROM player_equipment
+                WHERE user_id = %s
+                ORDER BY slot
+                """,
+                (user_id,),
+            )
+            return [{"slot": row[0], "item_id": row[1]} for row in cur.fetchall()]
+
+
+def equip_item(user_id: int, item_id: str) -> bool:
+    item = ITEMS.get(item_id)
+    if not item or not item.get("equip_slot"):
+        return False
+
+    slot = item["equip_slot"]
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO player_equipment (user_id, slot, item_id)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (user_id, slot)
+                DO UPDATE SET item_id = EXCLUDED.item_id,
+                              equipped_at = NOW()
+                """,
+                (user_id, slot, item_id),
+            )
+    return True
 
 
 def remove_item_from_inventory(user_id: int, item_id: str, quantity: int = 1) -> bool:

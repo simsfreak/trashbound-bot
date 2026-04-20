@@ -115,6 +115,40 @@ def find_available_recipe(inventory_map: dict[str, int]) -> dict | None:
     return None
 
 
+def calculate_equipment_bonuses(equipment_rows: list[dict]) -> dict[str, float]:
+    xp_boost = 0.0
+    coin_boost = 0.0
+    drop_bonus = 0.0
+    for entry in equipment_rows:
+        if not isinstance(entry, dict):
+            continue
+        item = ITEMS.get(entry.get("item_id", ""))
+        if not item:
+            continue
+        effects = item.get("effects", {})
+        xp_boost += float(effects.get("xp_boost", 0))
+        coin_boost += float(effects.get("coin_boost", 0))
+        drop_bonus += float(effects.get("drop_bonus", 0))
+    return {
+        "xp_boost": xp_boost,
+        "coin_boost": coin_boost,
+        "drop_bonus": drop_bonus,
+    }
+
+
+def roll_dirty_draw_reward(ticket_count: int = 1) -> list[tuple[str, dict]]:
+    if ticket_count <= 0:
+        return []
+
+    weights = [entry.get("weight", 1) for entry in DIRTY_DRAW_POOL]
+    item_ids = [entry["item_id"] for entry in DIRTY_DRAW_POOL]
+    results: list[tuple[str, dict]] = []
+    for _ in range(ticket_count):
+        item_id = random.choices(item_ids, weights=weights, k=1)[0]
+        results.append((item_id, ITEMS.get(item_id, {})))
+    return results
+
+
 
 def perform_chaos_mix(inventory_rows: list[tuple[str, int]], extra_rare_bonus: float = 0.0) -> tuple[str, int] | None:
     common_ids: list[str] = []
