@@ -303,7 +303,7 @@ def generate_single_quest(difficulty_range: tuple = (1, 5)) -> dict:
 def _generate_quest_id() -> str:
     """Generate a unique quest ID."""
     import uuid
-    return str(uuid.uuid4())[:8]
+    return str(uuid.uuid4())
 
 
 def _generate_flavor_text(template: dict, zone: dict, time_period: str) -> str:
