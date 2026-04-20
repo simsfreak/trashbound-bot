@@ -173,6 +173,35 @@ def equip_item(user_id: int, item_id: str) -> bool:
     return True
 
 
+def unequip_item(user_id: int, slot: str) -> bool:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT item_id FROM player_equipment WHERE user_id = %s AND slot = %s",
+                (user_id, slot),
+            )
+            row = cur.fetchone()
+            if not row:
+                return False
+            item_id = row[0]
+
+            cur.execute(
+                "DELETE FROM player_equipment WHERE user_id = %s AND slot = %s",
+                (user_id, slot),
+            )
+            cur.execute(
+                """
+                INSERT INTO inventory (user_id, item_id, quantity)
+                VALUES (%s, %s, 1)
+                ON CONFLICT (user_id, item_id)
+                DO UPDATE SET quantity = inventory.quantity + 1,
+                              acquired_at = NOW()
+                """,
+                (user_id, item_id),
+            )
+    return True
+
+
 def remove_item_from_inventory(user_id: int, item_id: str, quantity: int = 1) -> bool:
     with get_conn() as conn:
         with conn.cursor() as cur:

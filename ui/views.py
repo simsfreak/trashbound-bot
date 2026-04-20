@@ -212,6 +212,7 @@ class EquipItemSelect(discord.ui.Select):
         super().__init__(placeholder="Choose gear to equip", min_values=1, max_values=1, options=options)
         self.owner_id = owner_id
         self.is_admin = is_admin
+        self.row = 0
 
     async def callback(self, interaction: discord.Interaction):
         if interaction.user.id != self.owner_id:
@@ -219,14 +220,67 @@ class EquipItemSelect(discord.ui.Select):
             return
 
         item_id = self.values[0]
+        item = ITEMS.get(item_id)
+        if not item or not item.get("equip_slot"):
+            await interaction.response.send_message("Could not equip that item. Make sure it is valid gear.", ephemeral=True)
+            return
+
+        current_equipment = queries.get_equipped_items(self.owner_id)
+        old_item_id = next(
+            (entry["item_id"] for entry in current_equipment if entry.get("slot") == item["equip_slot"]),
+            None,
+        )
+
         if not queries.equip_item(self.owner_id, item_id):
             await interaction.response.send_message("Could not equip that item. Make sure it is in your inventory.", ephemeral=True)
             return
 
         queries.progress_daily_quest(self.owner_id, "equip_item", 1)
 
+        embed = EquipmentView(self.owner_id, self.is_admin).build_embed(interaction)
+        success_text = f"{item.get('emoji', '✨')} **{item['name']}** equipped to {item['equip_slot'].title()} slot."
+        if old_item_id:
+            old_item = ITEMS.get(old_item_id, {"name": old_item_id, "emoji": "✨"})
+            success_text += f" Returned {old_item.get('emoji', '✨')} **{old_item['name']}** to inventory."
+        embed.description = f"{success_text}\n\n{embed.description}"
+
         await interaction.response.edit_message(
-            embed=EquipmentView(self.owner_id, self.is_admin).build_embed(interaction),
+            embed=embed,
+            view=EquipmentView(self.owner_id, self.is_admin),
+            attachments=[],
+        )
+
+
+class UnequipItemSelect(discord.ui.Select):
+    def __init__(self, owner_id: int, is_admin: bool, options: list[discord.SelectOption]):
+        super().__init__(placeholder="Choose gear to unequip", min_values=1, max_values=1, options=options)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+        self.row = 1
+
+    async def callback(self, interaction: discord.Interaction):
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This gear menu isn't yours.", ephemeral=True)
+            return
+
+        slot = self.values[0]
+        current_equipment = queries.get_equipped_items(self.owner_id)
+        old_item_id = next(
+            (entry["item_id"] for entry in current_equipment if entry.get("slot") == slot),
+            None,
+        )
+        if not old_item_id or not queries.unequip_item(self.owner_id, slot):
+            await interaction.response.send_message("Could not unequip that slot right now.", ephemeral=True)
+            return
+
+        old_item = ITEMS.get(old_item_id, {"name": old_item_id, "emoji": "✨"})
+        embed = EquipmentView(self.owner_id, self.is_admin).build_embed(interaction)
+        embed.description = (
+            f"{old_item.get('emoji', '✨')} **{old_item['name']}** unequipped from {slot.title()} and returned to inventory.\n\n{embed.description}"
+        )
+
+        await interaction.response.edit_message(
+            embed=embed,
             view=EquipmentView(self.owner_id, self.is_admin),
             attachments=[],
         )
@@ -254,7 +308,24 @@ class EquipmentView(discord.ui.View):
         if select_options:
             self.add_item(EquipItemSelect(owner_id, is_admin, select_options))
 
-        self.add_item(EquipmentBackButton(row=1))
+        current_equipment = queries.get_equipped_items(owner_id)
+        unequip_options = []
+        for entry in current_equipment:
+            slot = entry.get("slot")
+            item = ITEMS.get(entry.get("item_id"), {"name": entry.get("item_id"), "emoji": "✨"})
+            if slot:
+                unequip_options.append(
+                    discord.SelectOption(
+                        label=f"{item.get('emoji', '✨')} {item['name']}",
+                        description=f"Unequip from {slot.title()}",
+                        value=slot,
+                    )
+                )
+
+        if unequip_options:
+            self.add_item(UnequipItemSelect(owner_id, is_admin, unequip_options))
+
+        self.add_item(EquipmentBackButton(row=2))
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
@@ -267,12 +338,19 @@ class EquipmentView(discord.ui.View):
         current_equipment = queries.get_equipped_items(self.owner_id)
         inventory_map = queries.get_inventory_map(self.owner_id)
 
+        slot_map = {
+            entry.get("slot", ""): entry.get("item_id")
+            for entry in current_equipment
+            if isinstance(entry, dict) and entry.get("slot")
+        }
         gear_lines = []
-        for entry in current_equipment:
-            item = ITEMS.get(entry["item_id"], {"name": entry["item_id"], "emoji": "✨"})
-            gear_lines.append(f"{item.get('emoji', '✨')} **{item['name']}** — {entry.get('slot', 'Unknown').title()}")
-        if not gear_lines:
-            gear_lines = ["No gear equipped yet."]
+        for slot in EQUIP_SLOTS:
+            item_id = slot_map.get(slot)
+            if item_id:
+                item = ITEMS.get(item_id, {"name": item_id, "emoji": "✨"})
+                gear_lines.append(f"{item.get('emoji', '✨')} **{item['name']}** — {slot.title()}")
+            else:
+                gear_lines.append(f"▫️ **{slot.title()}** — Empty")
 
         available_lines = []
         for item_id, qty in inventory_map.items():
