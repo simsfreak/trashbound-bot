@@ -445,6 +445,12 @@ class GeneratedQuestView(discord.ui.View):
         self.is_admin = is_admin
         self.current_quest_index = 0
         self.quests = []
+        
+        # Get active quest to track state
+        self.active_quest_id = None
+        active_quest = queries.get_active_quest(owner_id)
+        if active_quest:
+            self.active_quest_id = active_quest["quest_id"]
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
@@ -654,6 +660,20 @@ class GeneratedQuestView(discord.ui.View):
             inline=False
         )
         
+        # Show quest state
+        if self.active_quest_id and quest.get("quest_id") == self.active_quest_id:
+            embed.add_field(
+                name="🟢 Status",
+                value="**This quest is currently active!**\nClick [❌ Abort Quest] to abandon it.",
+                inline=False
+            )
+        elif self.active_quest_id:
+            embed.add_field(
+                name="🔒 Status",
+                value="Another quest is currently active. Abort it first to accept this one.",
+                inline=False
+            )
+        
         # Quest counter
         embed.set_footer(text=f"Quest {self.current_quest_index + 1}/{len(self.quests)} • Click [🎲 Next] to see more")
         
@@ -683,29 +703,74 @@ class GeneratedQuestView(discord.ui.View):
             await interaction.response.edit_message(embed=embed, view=self, attachments=[])
             return
         
-        # Store this quest as the active one
-        quest["is_active"] = True
+        # Reject if another quest is active
+        if self.active_quest_id and quest.get("quest_id") != self.active_quest_id:
+            embed = discord.Embed(
+                title="🔒 Cannot Accept",
+                description="Another quest is currently active. Abort it first to accept a new quest.",
+                color=0xED4245,
+            )
+            await interaction.response.edit_message(embed=embed, view=self, attachments=[])
+            return
         
-        # Check requirement status
-        zone_match, time_match, feedback = self._get_requirement_status(interaction, quest)
-        
-        description = f"You've accepted **{quest['name']}**\n\n_{quest['description']}_\n\n💰 **Reward:** {quest['reward_coins']} coins"
-        
-        # Add warning if conditions not met
-        if not (zone_match and time_match):
-            description += f"\n\n⚠️ **Note:** Progress will only count when the following conditions are met:\n{feedback}"
-        
-        embed = discord.Embed(
-            title="✅ Quest Accepted!",
-            description=description,
-            color=0x57F287,
-        )
-        
-        # Clear the session since they picked a quest
-        if self.owner_id in _ACTIVE_QUEST_SESSIONS:
-            del _ACTIVE_QUEST_SESSIONS[self.owner_id]
-        
-        await interaction.response.edit_message(embed=embed, view=self, attachments=[])
+        # Set quest as active in the database
+        if queries.set_active_quest(interaction.user.id, quest.get("quest_id")):
+            self.active_quest_id = quest.get("quest_id")
+            
+            # Check requirement status
+            zone_match, time_match, feedback = self._get_requirement_status(interaction, quest)
+            
+            description = f"You've accepted **{quest['name']}**\n\n_{quest['description']}_\n\n💰 **Reward:** {quest['reward_coins']} coins"
+            
+            # Add warning if conditions not met
+            if not (zone_match and time_match):
+                description += f"\n\n⚠️ **Note:** Progress will only count when the following conditions are met:\n{feedback}"
+            else:
+                description += f"\n\n✅ **Conditions Met!** Your progress will count immediately."
+            
+            embed = discord.Embed(
+                title="✅ Quest Accepted!",
+                description=description,
+                color=0x57F287,
+            )
+            
+            # Clear the session since they picked a quest
+            if self.owner_id in _ACTIVE_QUEST_SESSIONS:
+                del _ACTIVE_QUEST_SESSIONS[self.owner_id]
+            
+            await interaction.response.edit_message(embed=embed, view=self, attachments=[])
+        else:
+            embed = discord.Embed(
+                title="❌ Error",
+                description="Failed to accept quest. Please try again.",
+                color=0xED4245,
+            )
+            await interaction.response.edit_message(embed=embed, view=self, attachments=[])
+
+    @discord.ui.button(label="❌ Abort Quest", style=discord.ButtonStyle.danger, row=0)
+    async def abort_quest_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Abort the currently active quest"""
+        if queries.abandon_quest(interaction.user.id):
+            self.active_quest_id = None
+            
+            embed = discord.Embed(
+                title="✋ Quest Abandoned",
+                description="You've abandoned your active quest. The Dive button has returned to normal.",
+                color=0xED4245,
+            )
+            
+            # Clear session
+            if self.owner_id in _ACTIVE_QUEST_SESSIONS:
+                del _ACTIVE_QUEST_SESSIONS[self.owner_id]
+            
+            await interaction.response.edit_message(embed=embed, view=self, attachments=[])
+        else:
+            embed = discord.Embed(
+                title="❌ Error",
+                description="No active quest to abandon.",
+                color=0xED4245,
+            )
+            await interaction.response.edit_message(embed=embed, view=self, attachments=[])
 
     @discord.ui.button(label="🔄 Refresh", style=discord.ButtonStyle.secondary, row=0)
     async def refresh_button(self, interaction: discord.Interaction, button: discord.ui.Button):
