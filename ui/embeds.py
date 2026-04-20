@@ -82,9 +82,6 @@ def profile_embed(
     equipment_map = {entry.get("slot", ""): entry.get("item_id") for entry in equipment if isinstance(entry, dict) and "item_id" in entry}
     lines = []
     for slot in EQUIP_SLOTS:
-
-    lines = []
-    for slot in slot_order:
         item_id = equipment_map.get(slot)
         if item_id:
             item = ITEMS.get(item_id, {"name": item_id, "emoji": "✨"})
