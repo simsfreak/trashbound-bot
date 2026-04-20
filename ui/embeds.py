@@ -75,16 +75,18 @@ def profile_embed(
                 lines.append(str(effect))
         embed.add_field(name="⏳ Active Effects", value="\n".join(lines), inline=False)
 
-    if equipment:
-        lines = []
-        for entry in equipment[:6]:
-            if isinstance(entry, dict) and "item_id" in entry:
-                item = ITEMS.get(entry["item_id"], {"name": entry["item_id"], "emoji": "✨"})
-                slot = entry.get("slot", "slot")
-                lines.append(f"{item.get('emoji', '✨')} **{item['name']}** — {slot.title()}")
-            else:
-                lines.append(str(entry))
-        embed.add_field(name="🧥 Equipped", value="\n".join(lines), inline=False)
+    slot_order = ["head", "body", "hands", "feet", "accessory"]
+    equipment_map = {entry.get("slot", ""): entry.get("item_id") for entry in equipment if isinstance(entry, dict) and "item_id" in entry}
+
+    lines = []
+    for slot in slot_order:
+        item_id = equipment_map.get(slot)
+        if item_id:
+            item = ITEMS.get(item_id, {"name": item_id, "emoji": "✨"})
+            lines.append(f"{item.get('emoji', '✨')} **{item['name']}** — {slot.title()}")
+        else:
+            lines.append(f"▫️ **{slot.title()}** — Empty")
+    embed.add_field(name="🧥 Equipped", value="\n".join(lines), inline=False)
 
     return embed
 
