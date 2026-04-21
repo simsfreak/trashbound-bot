@@ -74,9 +74,9 @@ def profile_embed(
     # ❤️ VITALS SECTION (Survival metrics)
     # ═════════════════════════════════════════════════════════════════
     vitals_lines = [
-        format_status_bar("Health", 80, 100, bar_size=8),
-        format_status_bar("Hunger", 70, 100, bar_size=8),
-        format_status_bar("Thirst", 50, 100, bar_size=8),
+        format_status_bar("Health", 80, 100, size=8),
+        format_status_bar("Hunger", 70, 100, size=8),
+        format_status_bar("Thirst", 50, 100, size=8),
     ]
     
     panel_lines.append(("❤️", "VITALS", vitals_lines))
