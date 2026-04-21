@@ -13,10 +13,11 @@ class ProfileCog(commands.Cog):
 
     @app_commands.command(name="profile", description="Open your main lobby")
     async def profile(self, interaction: discord.Interaction):
+        await interaction.response.defer()
         queries.ensure_player(interaction.user.id, interaction.user.name)
         is_admin = interaction.user.id in ADMIN_USER_IDS
         embed = build_profile_embed_for_user(interaction.user)
-        await interaction.response.send_message(embed=embed, view=ProfileView(interaction.user.id, is_admin))
+        await interaction.followup.send(embed=embed, view=ProfileView(interaction.user.id, is_admin))
 
 
 async def setup(bot: commands.Bot):
