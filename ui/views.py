@@ -70,6 +70,7 @@ async def show_profile(interaction: discord.Interaction, owner_id: int, is_admin
     await interaction.response.edit_message(
         embed=embed,
         view=ProfileView(owner_id, is_admin),
+        attachments=[],
     )
 
 
@@ -355,7 +356,7 @@ class ProfileView(discord.ui.View):
             view.page,
             view.total_pages,
         )
-        await interaction.response.edit_message(embed=embed, view=view)
+        await interaction.response.edit_message(embed=embed, view=view, attachments=[])
 
     @discord.ui.button(label="🧪 Mix", style=discord.ButtonStyle.success, row=0)
     async def mix_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -375,6 +376,7 @@ class ProfileView(discord.ui.View):
                     "No valid recipe yet.\n\nCollect more junk and try again.",
                 ),
                 view=ProfileView(self.owner_id, self.is_admin),
+                attachments=[],
             )
             return
 
@@ -397,19 +399,21 @@ class ProfileView(discord.ui.View):
                 ),
             ),
             view=ProfileView(self.owner_id, self.is_admin),
+            attachments=[],
         )
 
     @discord.ui.button(label="🗺️ Zones", style=discord.ButtonStyle.success, row=1)
     async def zones_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         unlocked = queries.get_unlocked_zone_ids(interaction.user.id)
         view = ZoneSelectorView(self.owner_id, self.is_admin, unlocked or ["back_alley"], index=0)
-        await interaction.response.edit_message(embed=view.build_embed(interaction), view=view)
+        await interaction.response.edit_message(embed=view.build_embed(interaction), view=view, attachments=[])
 
     @discord.ui.button(label="✨ Events", style=discord.ButtonStyle.danger, row=1)
     async def events_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.edit_message(
             embed=events_embed(),
             view=ProfileView(self.owner_id, self.is_admin),
+            attachments=[],
         )
 
     @discord.ui.button(label="🏛️ Museum", style=discord.ButtonStyle.secondary, row=1)
@@ -419,6 +423,7 @@ class ProfileView(discord.ui.View):
         await interaction.response.edit_message(
             embed=embed,
             view=MuseumHomeView(self.owner_id, self.is_admin),
+            attachments=[],
         )
 
     @discord.ui.button(label="❓ Help", style=discord.ButtonStyle.secondary, row=1)
@@ -426,6 +431,7 @@ class ProfileView(discord.ui.View):
         await interaction.response.edit_message(
             embed=help_embed(),
             view=ProfileView(self.owner_id, self.is_admin),
+            attachments=[],
         )
 
     @discord.ui.button(label="💌 Contact Admin", style=discord.ButtonStyle.secondary, row=2)
@@ -438,6 +444,7 @@ class ProfileView(discord.ui.View):
         await interaction.response.edit_message(
             embed=embed,
             view=ProfileView(self.owner_id, self.is_admin),
+            attachments=[],
         )
 
 
