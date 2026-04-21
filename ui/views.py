@@ -748,19 +748,19 @@ class PawnShopItemsView(discord.ui.View):
     async def buy_legendary_buffer(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.purchase_buffer(interaction, "Legendary Buffer", 75, 3200)
 
-    @discord.ui.button(label="🍀-🪙 600", style=discord.ButtonStyle.info, row=3)
+    @discord.ui.button(label="🍀-🪙 600", style=discord.ButtonStyle.secondary, row=3)
     async def buy_worn_amulet(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.purchase_amulet(interaction, "Worn Amulet", 10, 600)
 
-    @discord.ui.button(label="🌙-🪙 950", style=discord.ButtonStyle.info, row=3)
+    @discord.ui.button(label="🌙-🪙 950", style=discord.ButtonStyle.secondary, row=3)
     async def buy_polished_amulet(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.purchase_amulet(interaction, "Polished Amulet", 15, 950)
 
-    @discord.ui.button(label="🌠-🪙 1650", style=discord.ButtonStyle.info, row=4)
+    @discord.ui.button(label="🌠-🪙 1650", style=discord.ButtonStyle.secondary, row=4)
     async def buy_enchanted_amulet(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.purchase_amulet(interaction, "Enchanted Amulet", 25, 1650)
 
-    @discord.ui.button(label="👑-🪙 2750", style=discord.ButtonStyle.info, row=4)
+    @discord.ui.button(label="👑-🪙 2750", style=discord.ButtonStyle.secondary, row=4)
     async def buy_lucky_star(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self.purchase_amulet(interaction, "Lucky Star Amulet", 35, 2750)
 
