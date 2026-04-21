@@ -443,6 +443,9 @@ def museum_artifact_embed(item_id: str, discovered: bool) -> discord.Embed:
         embed.set_thumbnail(url=item["image"])
 
     return embed
+
+
+def museum_collections_embed(
     collections_data: dict[str, dict],
     discovered_item_ids: set[str],
     completed_collections: set[str],
