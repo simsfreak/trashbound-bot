@@ -43,98 +43,35 @@ def profile_embed(
     avatar_url,
     active_quest_info=None,
 ):
-    """
-    Build profile dashboard using MODE A (Dashboard).
-    
-    Sections:
-    - 📊 RESOURCES (caps, level, items)
-    - ❤️ VITALS (health, hunger, thirst, radiation, energy)
-    - 🛡️ EQUIPMENT (currently equipped gear)
-    - 📜 QUESTS (active and daily quests)
-    """
-    from game.icons import format_status_bar
-    
-    # Prepare panel content
-    panel_lines = []
-    
-    # ═════════════════════════════════════════════════════════════════
-    # 📊 RESOURCES SECTION
-    # ═════════════════════════════════════════════════════════════════
-    resources_lines = [
-        f"{get_icon('caps')} Caps: {player.get('coins', 0)}",
-        f"⭐ Level: {player.get('level', 1)} — {get_title_for_level(player.get('level', 1))}",
-        f"{get_icon('inventory')} Items: {inventory_count}",
-    ]
-    if dirty_tickets > 0:
-        resources_lines.append(f"🎟 Tickets: {dirty_tickets}")
-    
-    panel_lines.append(("📊", "RESOURCES", resources_lines))
-    
-    # ═════════════════════════════════════════════════════════════════
-    # ❤️ VITALS SECTION (Survival metrics)
-    # ═════════════════════════════════════════════════════════════════
-    vitals_lines = [
-        format_status_bar("Health", 80, 100, size=8),
-        format_status_bar("Hunger", 70, 100, size=8),
-        format_status_bar("Thirst", 50, 100, size=8),
-    ]
-    
-    panel_lines.append(("❤️", "VITALS", vitals_lines))
-    
-    # ═════════════════════════════════════════════════════════════════
-    # 🛡️ EQUIPMENT SECTION
-    # ═════════════════════════════════════════════════════════════════
-    slot_map = {e.get("slot", ""): e.get("item_id") for e in equipment if isinstance(e, dict) and e.get("slot")}
-    equip_lines = []
-    
-    for slot in EQUIP_SLOTS if EQUIP_SLOTS else ["head", "body", "hands", "feet", "accessory"]:
-        item_id = slot_map.get(slot)
-        if item_id:
-            item = ITEMS.get(item_id, {"name": item_id, "emoji": "✨"})
-            equip_lines.append(f"[{item.get('emoji', '✨')}] {slot.title():10} {item['name']}")
-        else:
-            equip_lines.append(f"[ ] {slot.title():10} Empty")
-    
-    panel_lines.append(("🛡️", "EQUIPMENT", equip_lines))
-    
-    # ═════════════════════════════════════════════════════════════════
-    # 📜 QUESTS SECTION
-    # ═════════════════════════════════════════════════════════════════
-    quest_lines = []
-    
-    if active_quest_info:
-        status_icon = active_quest_info.get("status", "🟡")
-        quest_lines.append(f"{status_icon} {active_quest_info['name']}")
-        quest_lines.append(f"  Zone: {active_quest_info['zone']}")
-        quest_lines.append(f"  Time: {active_quest_info['time_window']}")
-    else:
-        quest_lines.append("❌ No active quest")
-    
-    panel_lines.append(("📜", "QUESTS", quest_lines))
-    
-    # ═════════════════════════════════════════════════════════════════
-    # BUILD DASHBOARD PANEL
-    # ═════════════════════════════════════════════════════════════════
-    now = datetime.now()
-    description = f"📍 {now.strftime('%a, %b %d • %H:%M')}"
-    
-    panel_text = formatter.mode_a_dashboard(
-        title="WASTELAND PROFILE",
-        description=description,
-        sections=panel_lines,
-        footer_text="Use buttons below to navigate"
-    )
-    
-    # ═════════════════════════════════════════════════════════════════
-    # CREATE EMBED
-    # ═════════════════════════════════════════════════════════════════
+    """Build profile dashboard with basic format."""
     embed = discord.Embed(
         title=f"👤 {player['username']}",
-        description=f"```\n{panel_text}\n```",
         color=COLORS["primary"],
         timestamp=datetime.utcnow(),
     )
-
+    
+    # RESOURCES
+    embed.add_field(
+        name="📊 Resources",
+        value=(
+            f"{get_icon('caps')} **Caps:** {player.get('coins', 0)}\n"
+            f"⭐ **Level:** {player.get('level', 1)}\n"
+            f"{get_icon('inventory')} **Items:** {inventory_count}"
+        ),
+        inline=False
+    )
+    
+    # VITALS
+    embed.add_field(
+        name="❤️ Vitals",
+        value=(
+            f"Health: 80/100\n"
+            f"Hunger: 70/100\n"
+            f"Thirst: 50/100"
+        ),
+        inline=False
+    )
+    
     if avatar_url:
         embed.set_thumbnail(url=avatar_url)
     
