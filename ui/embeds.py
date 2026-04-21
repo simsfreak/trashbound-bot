@@ -8,7 +8,6 @@ from game.icons import get_icon, format_stat_line as format_stat_icon, format_st
 from game.neon_data import STATS, SURVIVAL_METRICS, PROGRESSION_TITLES, get_title_for_level
 from ui.panel_formatter import PanelFormatter, formatter
 from ui.ui_config import COLORS, RARITIES, PAGINATION
-from ui.profile_formatter import format_profile_display
 
 
 RARITY_COLORS = {
@@ -43,33 +42,69 @@ def profile_embed(
     avatar_url,
     active_quest_info=None,
 ):
-    """Build profile dashboard with basic format."""
+    """Build profile dashboard using new panel system (MODE A - DASHBOARD)."""
+    from datetime import datetime as dt
+    from ui.panel_formatter import PanelFormatter
+    
+    fmt = PanelFormatter(width=50)
+    
+    # Build panel sections
+    sections = []
+    
+    # HEADER
+    sections.append(fmt.header(f"👤 {player['username']}"))
+    
+    # STATS SECTION
+    sections.append(fmt.section_header("📊", "RESOURCES"))
+    sections.append(fmt.line(f"{get_icon('caps')} Caps        » {player.get('coins', 0)}"))
+    sections.append(fmt.line(f"⭐ Level        » {player.get('level', 1)}"))
+    sections.append(fmt.line(f"{get_icon('inventory')} Items      » {inventory_count}"))
+    sections.append(fmt.line(f"🎟  Tickets     » {dirty_tickets}"))
+    
+    sections.append(fmt.blank_line())
+    
+    # PROGRESS SECTION (XP Bar)
+    needed_xp = xp_to_next_level(player.get('level', 1))
+    current_xp = player.get('xp', 0)
+    if needed_xp > 0:
+        filled = int((current_xp / needed_xp) * 10)
+        bar = "█" * filled + "░" * (10 - filled)
+    else:
+        bar = "█" * 10
+    
+    sections.append(fmt.section_header("✨", "PROGRESS"))
+    sections.append(fmt.line(f"XP Progress"))
+    sections.append(fmt.line(f"{bar} {current_xp}/{needed_xp}"))
+    
+    sections.append(fmt.blank_line())
+    
+    # QUEST SECTION
+    sections.append(fmt.section_header("📜", "QUESTS"))
+    if active_quest_info:
+        status_icon = active_quest_info.get("status", "🟡")
+        sections.append(fmt.line(f"{status_icon} {active_quest_info['name']}"))
+        sections.append(fmt.line(f"📍 {active_quest_info['zone']}"))
+        sections.append(fmt.line(f"⏰ {active_quest_info['time_window']}"))
+    else:
+        sections.append(fmt.line("No active quest"))
+    
+    sections.append(fmt.blank_line())
+    
+    # RECENT DROP SECTION
+    sections.append(fmt.section_header("💎", "RECENT"))
+    if recent_finds:
+        sections.append(fmt.line(recent_finds[0][:44]))
+    else:
+        sections.append(fmt.line("None yet"))
+    
+    # FOOTER
+    sections.append(fmt.footer())
+    
+    panel_text = "\n".join(sections)
+    
     embed = discord.Embed(
-        title=f"👤 {player['username']}",
+        description=f"```\n{panel_text}\n```",
         color=COLORS["primary"],
-        timestamp=datetime.utcnow(),
-    )
-    
-    # RESOURCES
-    embed.add_field(
-        name="📊 Resources",
-        value=(
-            f"{get_icon('caps')} **Caps:** {player.get('coins', 0)}\n"
-            f"⭐ **Level:** {player.get('level', 1)}\n"
-            f"{get_icon('inventory')} **Items:** {inventory_count}"
-        ),
-        inline=False
-    )
-    
-    # VITALS
-    embed.add_field(
-        name="❤️ Vitals",
-        value=(
-            f"Health: 80/100\n"
-            f"Hunger: 70/100\n"
-            f"Thirst: 50/100"
-        ),
-        inline=False
     )
     
     if avatar_url:
@@ -80,10 +115,28 @@ def profile_embed(
 
 
 def dive_processing_embed(zone_name, text):
-    """Processing embed during a scavenge."""
+    """Processing embed during a scavenge - MODE C (Event)."""
+    from ui.panel_formatter import PanelFormatter
+    
+    fmt = PanelFormatter(width=50)
+    
+    sections = []
+    sections.append(fmt.header(f"🧭 SCAVENGING"))
+    sections.append(fmt.section_header("🗺️", f"{zone_name}"))
+    
+    # Split text into lines for panel
+    for line in text.split("\n"):
+        if line.strip():
+            sections.append(fmt.line(line[:44]))
+    
+    sections.append(fmt.blank_line())
+    sections.append(fmt.line("Searching...", align="center"))
+    sections.append(fmt.footer())
+    
+    panel_text = "\n".join(sections)
+    
     return discord.Embed(
-        title=f"{get_icon('scavenge')} Scavenging...",
-        description=f"**{zone_name}**\n\n{text}",
+        description=f"```\n{panel_text}\n```",
         color=COLORS["accent"],
     )
 
@@ -99,46 +152,31 @@ def dive_result_embed(
     avatar_url=None,
     attachment_filename=None,
 ):
-    """Embed for item loot result."""
+    """Embed for item loot result - MODE C (Event)."""
+    from ui.panel_formatter import PanelFormatter
+    
+    fmt = PanelFormatter(width=50)
+    
     item = ITEMS[item_id]
     rarity = item.get("rarity", "Common")
-
-    lines = [
-        f"{item.get('emoji', '✨')} **{item['name']}**",
-        f"{rarity}",
-    ]
-
+    
+    sections = []
+    sections.append(fmt.header("💎 LOOT FOUND"))
+    sections.append(fmt.section_header(item.get('emoji', '✨'), item['name'][:30]))
+    sections.append(fmt.line(f"Rarity: {rarity}"))
+    
     if item.get("flavor"):
-        lines.append(f"*{item['flavor']}*")
-
-    if event_text:
-        lines.append(event_text)
-    if bonus_text:
-        lines.append(bonus_text)
-    if reaction_text:
-        lines.append(f"_{reaction_text}_")
-    if leveled_up:
-        lines.append(f"⬆️ You leveled up to **Level {player['level']}**!")
-    if unlocked_zone_names:
-        lines.append(f"🔓 New zones unlocked: **{', '.join(unlocked_zone_names)}**")
-
-    embed = discord.Embed(
-        title=f"{get_icon('scavenge')} Loot Found!",
-        description="\n\n".join(lines),
-        color=RARITY_COLORS.get(rarity, COLORS["secondary"]),
-    )
-
-    if avatar_url:
-        embed.set_author(name=player["username"], icon_url=avatar_url)
-
-    if attachment_filename:
-        embed.set_thumbnail(url=f"attachment://{attachment_filename}")
-    elif isinstance(item.get("image"), str) and item["image"].startswith("http"):
-        embed.set_thumbnail(url=item["image"])
-
-    embed.add_field(name=f"{get_icon('caps')} Coins", value=str(player["coins"]), inline=True)
-    embed.add_field(name="⭐ Level", value=str(player["level"]), inline=True)
-    embed.add_field(name=f"{get_icon('scavenge')} Dives", value=str(player["total_dives"]), inline=True)
+        flavor_lines = item['flavor'].split("\n")
+        for fl in flavor_lines[:2]:
+            sections.append(fmt.line(f"*{fl[:42]}*"))
+    
+    sections.append(fmt.blank_line())
+    
+    # Rewards
+    sections.append(fmt.section_header("🎁", "REWARDS"))
+    sections.append(fmt.line(f"{get_icon('caps')} Coins      » {player['coins']}"))
+    sections.append(fmt.line(f"⭐ Level      » {player['level']}"))
+    sections.append(fmt.line(f"🧭 Dives      » {player['total_dives']}"))
     
     needed = xp_to_next_level(player.get("level", 1))
     current = player.get("xp", 0)
@@ -147,23 +185,66 @@ def dive_result_embed(
         bar = "█" * filled + "░" * (8 - filled)
     else:
         bar = "█" * 8
+    sections.append(fmt.line(f"✨ XP  {bar}"))
     
-    embed.add_field(name="✨ XP", value=f"{bar} {current}/{needed}", inline=False)
+    if leveled_up:
+        sections.append(fmt.blank_line())
+        sections.append(fmt.line("⬆️ LEVEL UP!", align="center"))
+    
+    if unlocked_zone_names:
+        sections.append(fmt.blank_line())
+        sections.append(fmt.section_header("🔓", "NEW ZONES"))
+        for zone in unlocked_zone_names[:2]:
+            sections.append(fmt.line(f"→ {zone[:38]}"))
+    
+    sections.append(fmt.footer())
+    
+    panel_text = "\n".join(sections)
+    
+    embed = discord.Embed(
+        description=f"```\n{panel_text}\n```",
+        color=RARITY_COLORS.get(rarity, COLORS["secondary"]),
+    )
+    
+    if avatar_url:
+        embed.set_author(name=player["username"], icon_url=avatar_url)
+    
+    if attachment_filename:
+        embed.set_thumbnail(url=f"attachment://{attachment_filename}")
+    elif isinstance(item.get("image"), str) and item["image"].startswith("http"):
+        embed.set_thumbnail(url=item["image"])
+    
     return embed
 
 
 def inventory_embed(username: str, lines: list[str], page: int, total_pages: int) -> discord.Embed:
-    """Inventory list using MODE B (List)."""
-    panel_text = formatter.mode_b_list(
-        title="INVENTORY",
-        category_label=f"{get_icon('inventory')} YOUR LOOT",
-        items=lines if lines else ["(empty)"],
-        page_info=f"Page {page + 1}/{total_pages}" if total_pages > 1 else None,
-        footer_text="Use buttons to navigate"
-    )
+    """Inventory list using MODE B (List) - New Panel System."""
+    from ui.panel_formatter import PanelFormatter
+    
+    fmt = PanelFormatter(width=50)
+    
+    sections = []
+    sections.append(fmt.header(f"🎒 {username}'s Vault"))
+    sections.append(fmt.section_header("📦", "LOOT"))
+    
+    if not lines:
+        sections.append(fmt.line("(empty)"))
+    else:
+        for line in lines[:8]:  # Show max 8 items per page in panel
+            # Truncate long item descriptions to fit
+            if len(line) > 44:
+                line = line[:41] + "..."
+            sections.append(fmt.line(line))
+    
+    if total_pages > 1:
+        sections.append(fmt.blank_line())
+        sections.append(fmt.line(f"Page {page + 1}/{total_pages}", align="center"))
+    
+    sections.append(fmt.footer())
+    
+    panel_text = "\n".join(sections)
     
     embed = discord.Embed(
-        title=f"{get_icon('inventory')} {username}'s Vault",
         description=f"```\n{panel_text}\n```",
         color=COLORS["accent"],
     )
@@ -173,138 +254,253 @@ def inventory_embed(username: str, lines: list[str], page: int, total_pages: int
 
 
 def zone_embed(player, zone_id, unlocked_zone_ids, zone_loot_lines, index, total):
-    """Zone selector embed."""
+    """Zone selector embed - MODE B (List)."""
+    from ui.panel_formatter import PanelFormatter
+    
+    fmt = PanelFormatter(width=50)
     zone = ZONES[zone_id]
     unlocked = zone_id in unlocked_zone_ids
     current = zone_id == player["current_zone_id"]
     
+    sections = []
+    sections.append(fmt.header(f"🗺️ Zone {index + 1}/{total}"))
+    
     if current:
-        status = f"{get_icon('success')} CURRENT ZONE"
+        sections.append(fmt.section_header("✅", f"{zone['name']} (CURRENT)"))
         status_color = COLORS["success"]
     elif unlocked:
-        status = f"✅ UNLOCKED"
+        sections.append(fmt.section_header("✅", zone['name']))
         status_color = COLORS["success"]
     else:
-        status = f"🔒 Unlocks at Level {zone['unlock_level']}"
+        sections.append(fmt.section_header("🔒", f"{zone['name']} (Level {zone['unlock_level']})"))
         status_color = COLORS["danger"]
-
+    
+    # Description
+    desc_lines = zone['description'].split("\n")
+    for desc in desc_lines[:2]:
+        if desc.strip():
+            sections.append(fmt.line(f"*{desc[:42]}*"))
+    
+    sections.append(fmt.blank_line())
+    sections.append(fmt.section_header("🧭", "Finds"))
+    
+    if zone_loot_lines:
+        for loot in zone_loot_lines[:4]:
+            sections.append(fmt.line(loot[:44]))
+    else:
+        sections.append(fmt.line("???"))
+    
+    sections.append(fmt.footer())
+    
+    panel_text = "\n".join(sections)
+    
     embed = discord.Embed(
-        title=f"{get_icon('map')} {zone['name']} ({index + 1}/{total})",
-        description=f"{status}\n\n*{zone['description']}*",
+        description=f"```\n{panel_text}\n```",
         color=status_color,
     )
-    embed.add_field(name=f"{get_icon('scavenge')} Possible Finds", value="\n".join(zone_loot_lines) if zone_loot_lines else "???", inline=False)
     return embed
 
 
 def mix_lab_embed(inventory_map, mix_lines):
-    """Crafting lab embed."""
+    """Crafting lab embed - MODE B (List)."""
+    from ui.panel_formatter import PanelFormatter
+    
+    fmt = PanelFormatter(width=50)
+    
+    sections = []
+    sections.append(fmt.header("⚒️ CRAFTING"))
+    sections.append(fmt.section_header("🔨", "RECIPES"))
+    
+    if not mix_lines:
+        sections.append(fmt.line("No recipes available"))
+    else:
+        for recipe in mix_lines[:6]:
+            sections.append(fmt.line(recipe[:44]))
+    
+    sections.append(fmt.footer())
+    
+    panel_text = "\n".join(sections)
+    
     return discord.Embed(
-        title=f"{get_icon('craft')} Crafting Lab",
-        description="Available recipes right now:\n" + ("\n".join(mix_lines) if mix_lines else "None"),
+        description=f"```\n{panel_text}\n```",
         color=COLORS["secondary"],
     )
 
 
 def mix_result_embed(title: str, result_text: str) -> discord.Embed:
-    """Crafting result embed."""
+    """Crafting result embed - MODE C (Event)."""
+    from ui.panel_formatter import PanelFormatter
+    
+    fmt = PanelFormatter(width=50)
+    
+    sections = []
+    sections.append(fmt.header("✨ CRAFTED"))
+    sections.append(fmt.section_header("🔨", title))
+    
+    for line in result_text.split("\n")[:4]:
+        if line.strip():
+            sections.append(fmt.line(line[:44]))
+    
+    sections.append(fmt.footer())
+    
+    panel_text = "\n".join(sections)
+    
     return discord.Embed(
-        title=f"{get_icon('craft')} {title}",
-        description=result_text,
+        description=f"```\n{panel_text}\n```",
         color=COLORS["secondary"]
     )
 
 
 def events_embed() -> discord.Embed:
-    """World events embed."""
+    """World events embed - MODE C (Event)."""
+    from ui.panel_formatter import PanelFormatter
+    
+    fmt = PanelFormatter(width=50)
+    
+    sections = []
+    sections.append(fmt.header("🌍 EVENTS"))
+    
+    live = get_live_events()
+    
+    if not live:
+        sections.append(fmt.section_header("🌫️", "STATUS"))
+        sections.append(fmt.line("No active events"))
+    else:
+        sections.append(fmt.section_header("✨", "ACTIVE EVENTS"))
+        for event in live[:3]:
+            sections.append(fmt.line(f"{event.get('emoji', '✨')} {event['name'][:35]}"))
+            desc = event.get("description", "")
+            if desc:
+                sections.append(fmt.line(f"  {desc[:40]}"))
+    
+    sections.append(fmt.footer())
+    
+    panel_text = "\n".join(sections)
+    
     embed = discord.Embed(
-        title=f"{get_icon('season')} World Events",
-        description="The wasteland is in flux.",
+        description=f"```\n{panel_text}\n```",
         color=COLORS["warning"]
     )
-    live = get_live_events()
-    if not live:
-        embed.add_field(name="🌫️ Right Now", value="No special event is live.", inline=False)
-    else:
-        for event in live:
-            embed.add_field(name=f"{event.get('emoji', get_icon('anomaly'))} {event['name']}", value=event.get("description", ""), inline=False)
     return embed
 
 
 def help_embed() -> discord.Embed:
-    """Help/tutorial embed."""
-    return discord.Embed(
-        title="❓ How to Survive the Wastes",
-        description="Scavenge resources, craft equipment, complete contracts, and survive.",
-        color=COLORS["info"]
-    )
-
-def pawn_shop_embed(bundle_item_ids: list[str]) -> discord.Embed:
-    """Pawn shop trading embed."""
-    from game.data import ITEMS
-
-    if not bundle_item_ids:
-        desc = f"{get_icon('shelter')} The pawn broker stares at you.\n\nYou have nothing to trade."
-    else:
-        lines = []
-        counts = {}
-        for item_id in bundle_item_ids:
-            counts[item_id] = counts.get(item_id, 0) + 1
-
-        for item_id, qty in counts.items():
-            item = ITEMS.get(item_id, {"name": item_id, "emoji": "✨"})
-            lines.append(f"{item.get('emoji','✨')} **{item['name']}** x{qty}")
-
-        desc = (
-            f"{get_icon('shelter')} *The pawn broker squints at your goods...*\n\n"
-            "**Your Offer:**\n"
-            + "\n".join(lines)
-            + "\n\nChoose your deal wisely."
-        )
-
+    """Help/tutorial embed - MODE B (List)."""
+    from ui.panel_formatter import PanelFormatter
+    
+    fmt = PanelFormatter(width=50)
+    
+    sections = []
+    sections.append(fmt.header("❓ HELP"))
+    sections.append(fmt.section_header("🧭", "BASICS"))
+    sections.append(fmt.line("Scavenge ruins for items"))
+    sections.append(fmt.line("Manage your inventory"))
+    sections.append(fmt.line("Complete contracts"))
+    sections.append(fmt.line("Survive the wastes"))
+    sections.append(fmt.blank_line())
+    sections.append(fmt.section_header("💡", "TIPS"))
+    sections.append(fmt.line("Better gear = better loot"))
+    sections.append(fmt.line("Collect all artifacts"))
+    sections.append(fmt.line("Complete daily quests"))
+    sections.append(fmt.footer())
+    
+    panel_text = "\n".join(sections)
+    
     embed = discord.Embed(
-        title=f"{get_icon('shelter')} Trade Hub",
-        description=desc,
-        color=COLORS["warning"],
+        description=f"```\n{panel_text}\n```",
+        color=COLORS["info"]
     )
     return embed
 
+def pawn_shop_embed(bundle_item_ids: list[str]) -> discord.Embed:
+    """Pawn shop trading embed - MODE B (List)."""
+    from ui.panel_formatter import PanelFormatter
+    
+    fmt = PanelFormatter(width=50)
+    
+    sections = []
+    sections.append(fmt.header("🏚️ PAWN SHOP"))
+    
+    if not bundle_item_ids:
+        sections.append(fmt.section_header("🛄", "STATUS"))
+        sections.append(fmt.line("You have nothing to trade."))
+    else:
+        sections.append(fmt.section_header("💼", "YOUR OFFER"))
+        counts = {}
+        for item_id in bundle_item_ids:
+            counts[item_id] = counts.get(item_id, 0) + 1
+        
+        for item_id, qty in list(counts.items())[:6]:
+            item = ITEMS.get(item_id, {"name": item_id, "emoji": "✨"})
+            sections.append(fmt.line(f"{item.get('emoji','✨')} {item['name']} x{qty}"))
+    
+    sections.append(fmt.blank_line())
+    sections.append(fmt.line("Choose your deal wisely.", align="center"))
+    sections.append(fmt.footer())
+    
+    panel_text = "\n".join(sections)
+    
+    return discord.Embed(
+        description=f"```\n{panel_text}\n```",
+        color=COLORS["warning"],
+    )
+
 
 def pawn_offer_result_embed(title: str, description: str) -> discord.Embed:
-    """Pawn trade result embed."""
+    """Pawn trade result embed - MODE C (Event)."""
+    from ui.panel_formatter import PanelFormatter
+    
+    fmt = PanelFormatter(width=50)
+    
+    sections = []
+    sections.append(fmt.header("💰 TRADE RESULT"))
+    sections.append(fmt.section_header("💸", title))
+    
+    for line in description.split("\n")[:4]:
+        if line.strip():
+            sections.append(fmt.line(line[:44]))
+    
+    sections.append(fmt.footer())
+    
+    panel_text = "\n".join(sections)
+    
     return discord.Embed(
-        title=f"{get_icon('caps')} {title}",
-        description=description,
+        description=f"```\n{panel_text}\n```",
         color=COLORS["success"],
     )
 
 def museum_home_embed(username: str, discovered_item_ids: set[str]) -> discord.Embed:
-    """Museum home showing collections."""
+    """Museum home showing collections - MODE B (List)."""
+    from ui.panel_formatter import PanelFormatter
+    
+    fmt = PanelFormatter(width=50)
+    
     total_discovered = len(discovered_item_ids)
     total_artifacts = sum(len(collection["item_ids"]) for collection in MUSEUM_COLLECTIONS.values())
-
-    embed = discord.Embed(
-        title="🏛️ Archive",
-        description=(
-            "Preserved history of the wasteland.\n\n"
-            f"**Curator:** {username}\n"
-            f"**Artifacts:** {total_discovered}/{total_artifacts} collected"
-        ),
-        color=COLORS["warning"],
-    )
-
-    for collection_id, collection in MUSEUM_COLLECTIONS.items():
+    
+    sections = []
+    sections.append(fmt.header("🏛️ ARCHIVE"))
+    sections.append(fmt.section_header("📚", f"Curator: {username}"))
+    sections.append(fmt.line(f"Artifacts: {total_discovered}/{total_artifacts}"))
+    sections.append(fmt.blank_line())
+    
+    sections.append(fmt.section_header("📦", "COLLECTIONS"))
+    
+    for collection_id, collection in list(MUSEUM_COLLECTIONS.items())[:5]:
         item_ids = collection["item_ids"]
         discovered = sum(1 for item_id in item_ids if item_id in discovered_item_ids)
         progress = f"{discovered}/{len(item_ids)}"
-        embed.add_field(
-            name=f"{collection['emoji']} {collection['name']}",
-            value=f"{collection['description']}\n**Progress:** {progress}",
-            inline=False,
-        )
-
-    embed.set_footer(text="Select a collection to view its items")
-    return embed
+        name_short = collection['name'][:35]
+        sections.append(fmt.line(f"{collection['emoji']} {name_short} {progress}"))
+    
+    sections.append(fmt.footer())
+    
+    panel_text = "\n".join(sections)
+    
+    return discord.Embed(
+        description=f"```\n{panel_text}\n```",
+        color=COLORS["warning"],
+    )
 
 
 def museum_collection_embed(
@@ -314,7 +510,11 @@ def museum_collection_embed(
     page: int,
     total_pages: int,
 ):
-    """Museum collection page."""
+    """Museum collection page - MODE B (List)."""
+    from ui.panel_formatter import PanelFormatter
+    
+    fmt = PanelFormatter(width=50)
+    
     collection = MUSEUM_COLLECTIONS[collection_id]
     item_ids = collection["item_ids"]
     per_page = 5
@@ -328,51 +528,69 @@ def museum_collection_embed(
         discovered = item_id in discovered_item_ids
         if discovered:
             rarity_icon = RARITIES.get(item.get("rarity", "Common"), {}).get("emoji", "✨")
-            lines.append(f"✅ {item.get('emoji', '✨')} {item['name']} [{rarity_icon}]")
+            lines.append(f"✅ {item.get('emoji', '✨')} {item['name'][:25]} [{rarity_icon}]")
         else:
             lines.append("❔ ???")
 
-    panel_text = formatter.mode_b_list(
-        title="COLLECTION",
-        category_label=f"{collection['emoji']} {collection['name']}",
-        items=lines,
-        page_info=f"Page {page + 1}/{total_pages}" if total_pages > 1 else None,
-    )
+    sections = []
+    sections.append(fmt.header(f"📦 {collection['emoji']}"))
+    sections.append(fmt.section_header("📚", collection['name'][:30]))
+    
+    for line in lines:
+        sections.append(fmt.line(line[:44]))
+    
+    if total_pages > 1:
+        sections.append(fmt.blank_line())
+        sections.append(fmt.line(f"Page {page + 1}/{total_pages}", align="center"))
+    
+    sections.append(fmt.footer())
+    
+    panel_text = "\n".join(sections)
 
     embed = discord.Embed(
-        title=f"{collection['emoji']} {collection['name']}",
         description=f"```\n{panel_text}\n```",
         color=COLORS["accent"],
     )
-    embed.add_field(name="ℹ️", value=collection["description"], inline=False)
     embed.set_footer(text=f"{username} • Page {page + 1}/{total_pages}")
     return embed
 
 
 def museum_artifact_embed(item_id: str, discovered: bool) -> discord.Embed:
-    """Museum artifact detail card."""
+    """Museum artifact detail card - MODE C (Event)."""
+    from ui.panel_formatter import PanelFormatter
+    
+    fmt = PanelFormatter(width=50)
+    
     item = ITEMS.get(item_id, {"name": item_id, "emoji": "✨", "rarity": "Unknown", "flavor": ""})
     lore = MUSEUM_ARTIFACT_TEXT.get(item_id, {})
 
+    sections = []
+    sections.append(fmt.header("🏛️ ARTIFACT"))
+    
     if discovered:
-        description = (
-            f"{item.get('emoji', '✨')} **{item['name']}**\n"
-            f"**Rarity:** {item.get('rarity', 'Unknown')} {RARITIES.get(item.get('rarity', 'Common'), {}).get('emoji', '')}\n"
-            f"**Status:** ✅ Collected\n\n"
-            f"*{lore.get('museum_text') or item.get('flavor', 'A relic of the old world.')}*"
-        )
+        sections.append(fmt.section_header(item.get('emoji', '✨'), item['name'][:30]))
+        sections.append(fmt.line(f"Rarity: {item.get('rarity', 'Unknown')}"))
+        sections.append(fmt.line("Status: ✅ Collected"))
+        sections.append(fmt.blank_line())
+        
+        text = lore.get('museum_text') or item.get('flavor', 'A relic.')
+        for line in text.split("\n")[:3]:
+            sections.append(fmt.line(f"*{line[:42]}*"))
         color = RARITY_COLORS.get(item.get("rarity", "Common"), COLORS["info"])
     else:
-        description = (
-            "❔ **Unknown Artifact**\n"
-            "**Status:** 🔒 Undiscovered\n\n"
-            "Its details remain obscured. Discover it in the wasteland to archive it."
-        )
+        sections.append(fmt.section_header("❔", "UNKNOWN"))
+        sections.append(fmt.line("Status: 🔒 Undiscovered"))
+        sections.append(fmt.blank_line())
+        sections.append(fmt.line("Discover this item in"))
+        sections.append(fmt.line("the wasteland to archive"))
         color = COLORS["danger"]
-
+    
+    sections.append(fmt.footer())
+    
+    panel_text = "\n".join(sections)
+    
     embed = discord.Embed(
-        title="🏛️ Artifact",
-        description=description,
+        description=f"```\n{panel_text}\n```",
         color=color,
     )
 
@@ -387,144 +605,163 @@ def museum_collections_embed(
     discovered_item_ids: set[str],
     completed_collections: set[str],
 ) -> discord.Embed:
-    """List all collections with progress."""
-    embed = discord.Embed(
-        title="📖 Collections",
-        description="Your museum archives. Complete collections for bonuses.",
-        color=0x9B59B6,
-        timestamp=datetime.utcnow(),
-    )
+    """List all collections with progress - MODE B (List)."""
+    from ui.panel_formatter import PanelFormatter
     
-    for collection_key, collection_data in collections_data.items():
+    fmt = PanelFormatter(width=50)
+    
+    sections = []
+    sections.append(fmt.header("📖 COLLECTIONS"))
+    sections.append(fmt.section_header("📚", "ALL ARCHIVES"))
+    
+    for collection_key, collection_data in list(collections_data.items())[:6]:
         required_items = set(collection_data.get("item_ids", []))
         discovered = len(required_items & discovered_item_ids)
         total = len(required_items)
         is_complete = collection_key in completed_collections
         
         emoji = collection_data.get("emoji", "📦")
-        name = collection_data.get("name", collection_key)
+        name = collection_data.get("name", collection_key)[:25]
         
         if is_complete:
-            status = f"{emoji} ✅ **{name}** (Complete)"
+            sections.append(fmt.line(f"{emoji} ✅ {name}"))
         else:
-            status = f"{emoji} **{name}**"
-        
-        progress_bar = "🟩" * discovered + "⬜" * (total - discovered)
-        value = f"{progress_bar}\n{discovered}/{total} items"
-        
-        embed.add_field(name=status, value=value, inline=False)
+            sections.append(fmt.line(f"{emoji} {name} {discovered}/{total}"))
+    
+    sections.append(fmt.footer())
+    
+    panel_text = "\n".join(sections)
+    
+    embed = discord.Embed(
+        description=f"```\n{panel_text}\n```",
+        color=0x9B59B6,
+        timestamp=datetime.utcnow(),
+    )
     
     return embed
 
 
 def admin_panel_embed(unread_count: int = 0) -> discord.Embed:
-    """Admin panel home."""
+    """Admin panel home - MODE A (Dashboard)."""
+    from ui.panel_formatter import PanelFormatter
+    
+    fmt = PanelFormatter(width=50)
+    
+    sections = []
+    sections.append(fmt.header("🛠️ ADMIN"))
+    sections.append(fmt.section_header("⚙️", "TOOLS"))
+    sections.append(fmt.line(f"📬 Messages ({unread_count} unread)"))
+    sections.append(fmt.line("🎁 Grant Tools"))
+    sections.append(fmt.line("🌍 Events"))
+    sections.append(fmt.blank_line())
+    sections.append(fmt.footer())
+    
+    panel_text = "\n".join(sections)
+    
     embed = discord.Embed(
-        title="🛠️ Admin Panel",
-        description="Admin tools and utilities.",
+        description=f"```\n{panel_text}\n```",
         color=0xED4245,
         timestamp=datetime.utcnow(),
-    )
-    
-    embed.add_field(
-        name="📬 Contact Messages",
-        value=f"📨 {unread_count} unread messages",
-        inline=False,
-    )
-    
-    embed.add_field(
-        name="🎁 Grant Tools",
-        value="Grant XP, Coins, Tickets, or Items to players.",
-        inline=False,
-    )
-    
-    embed.add_field(
-        name="🌍 Events",
-        value="Trigger or manage world events.",
-        inline=False,
     )
     
     return embed
 
 
 def admin_messages_embed(messages: list[dict], page: int = 1, per_page: int = 5) -> discord.Embed:
-    """List all contact messages."""
+    """List all contact messages - MODE B (List)."""
+    from ui.panel_formatter import PanelFormatter
+    
+    fmt = PanelFormatter(width=50)
+    
     total = len(messages)
     total_pages = (total + per_page - 1) // per_page
     start_idx = (page - 1) * per_page
     end_idx = min(start_idx + per_page, total)
     
-    embed = discord.Embed(
-        title="📬 Contact Messages",
-        description=f"Page {page}/{total_pages} ({total} total)",
-        color=0x5865F2,
-        timestamp=datetime.utcnow(),
-    )
+    sections = []
+    sections.append(fmt.header("📬 MESSAGES"))
+    sections.append(fmt.section_header("📧", f"Page {page}/{total_pages}"))
     
     for i, msg in enumerate(messages[start_idx:end_idx], 1):
         status_icon = "✉️" if msg["status"] == "open" else "✅"
-        username = msg.get("username", "Unknown")
-        subject = msg.get("subject", "No subject")
-        created_at = msg.get("created_at", "Unknown date")
-        
-        embed.add_field(
-            name=f"{status_icon} {i}. {username} — {subject}",
-            value=f"ID: {msg['id']} | {created_at.strftime('%Y-%m-%d %H:%M') if hasattr(created_at, 'strftime') else created_at}",
-            inline=False,
-        )
+        username = msg.get("username", "Unknown")[:20]
+        subject = msg.get("subject", "No subject")[:25]
+        sections.append(fmt.line(f"{status_icon} {i}. {username}"))
+        sections.append(fmt.line(f"   {subject}"))
+    
+    if total_pages > 1:
+        sections.append(fmt.blank_line())
+        sections.append(fmt.line(f"Page {page}/{total_pages}", align="center"))
+    
+    sections.append(fmt.footer())
+    
+    panel_text = "\n".join(sections)
+    
+    embed = discord.Embed(
+        description=f"```\n{panel_text}\n```",
+        color=0x5865F2,
+        timestamp=datetime.utcnow(),
+    )
     
     return embed
 
 
 def admin_message_detail_embed(message: dict) -> discord.Embed:
-    """Show full message details."""
+    """Show full message details - MODE C (Event)."""
+    from ui.panel_formatter import PanelFormatter
+    
+    fmt = PanelFormatter(width=50)
+    
+    sections = []
+    sections.append(fmt.header("📧 MESSAGE"))
+    sections.append(fmt.section_header("👤", f"From: {message.get('username', 'Unknown')[:25]}"))
+    sections.append(fmt.line(f"Subject: {message.get('subject', 'N/A')[:36]}"))
+    sections.append(fmt.blank_line())
+    sections.append(fmt.section_header("📝", "CONTENT"))
+    
+    msg_text = message.get("message", "")
+    for line in msg_text.split("\n")[:4]:
+        if line.strip():
+            sections.append(fmt.line(line[:44]))
+    
+    sections.append(fmt.footer())
+    
+    panel_text = "\n".join(sections)
+    
     embed = discord.Embed(
-        title=f"📧 Message from {message.get('username', 'Unknown')}",
-        description=f"**Subject:** {message.get('subject', 'No subject')}",
+        description=f"```\n{panel_text}\n```",
         color=0x5865F2,
         timestamp=datetime.utcnow(),
-    )
-    
-    embed.add_field(
-        name="Message",
-        value=message.get("message", "No message content"),
-        inline=False,
-    )
-    
-    embed.add_field(
-        name="User ID",
-        value=str(message.get("user_id", "Unknown")),
-        inline=True,
-    )
-    
-    embed.add_field(
-        name="Message ID",
-        value=str(message.get("id", "Unknown")),
-        inline=True,
-    )
-    
-    embed.add_field(
-        name="Status",
-        value=message.get("status", "unknown").title(),
-        inline=True,
     )
     
     return embed
 
 
 def admin_grant_success_embed(action: str, player_name: str, details: str) -> discord.Embed:
-    """Grant action success confirmation."""
+    """Grant action success confirmation - MODE C (Event)."""
+    from ui.panel_formatter import PanelFormatter
+    
+    fmt = PanelFormatter(width=50)
+    
+    sections = []
+    sections.append(fmt.header("✅ GRANTED"))
+    sections.append(fmt.section_header("✨", action))
+    sections.append(fmt.line(f"Player: {player_name[:30]}"))
+    sections.append(fmt.blank_line())
+    sections.append(fmt.section_header("📊", "DETAILS"))
+    
+    for line in details.split("\n"):
+        if line.strip():
+            sections.append(fmt.line(line[:44]))
+    
+    sections.append(fmt.footer())
+    
+    panel_text = "\n".join(sections)
+    
     embed = discord.Embed(
-        title="✅ Admin Action Completed",
-        description=f"**Action:** {action}\n**Player:** {player_name}",
+        description=f"```\n{panel_text}\n```",
         color=0x2ECC71,
         timestamp=datetime.utcnow(),
-    )
-    
-    embed.add_field(
-        name="Details",
-        value=details,
-        inline=False,
     )
     
     return embed
