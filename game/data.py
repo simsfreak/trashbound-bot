@@ -484,3 +484,37 @@ MUSEUM_ARTIFACT_TEXT = {
         "museum_text": "A sacred monument to the underground trash age.",
     },
 }
+
+# ═══════════════════════════════════════════════════════════════════
+# PAWN SHOP DATA
+# ═══════════════════════════════════════════════════════════════════
+
+PAWN_TICKETS = [
+    {"qty": 1, "price": 1000, "emoji": "🎟️"},
+    {"qty": 5, "price": 4500, "emoji": "🎟️"},
+    {"qty": 10, "price": 8500, "emoji": "🎟️"},
+]
+
+PAWN_BUFFERS = [
+    {"name": "Novice Buffer", "emoji": "🧃", "bonus": "+10% XP", "price": 250, "duration_hours": 2},
+    {"name": "Basic Buffer", "emoji": "🧪", "bonus": "+15% XP", "price": 400, "duration_hours": 2},
+    {"name": "Greater Buffer", "emoji": "🍵", "bonus": "+20% XP", "price": 575, "duration_hours": 2},
+    {"name": "Advanced Buffer", "emoji": "🧴", "bonus": "+25% XP", "price": 775, "duration_hours": 2},
+    {"name": "Elite Buffer", "emoji": "🧪💖", "bonus": "+35% XP", "price": 1150, "duration_hours": 2},
+    {"name": "Master Buffer", "emoji": "🌟", "bonus": "+50% XP", "price": 1850, "duration_hours": 2},
+    {"name": "Legendary Buffer", "emoji": "👑", "bonus": "+75% XP", "price": 3200, "duration_hours": 2},
+]
+
+PAWN_AMULETS = [
+    {"name": "Worn Amulet", "emoji": "🍀", "bonus": "+10% Luck", "price": 600, "duration_hours": 2},
+    {"name": "Polished Amulet", "emoji": "🌙", "bonus": "+15% Luck", "price": 950, "duration_hours": 2},
+    {"name": "Enchanted Amulet", "emoji": "🌠", "bonus": "+25% Luck", "price": 1650, "duration_hours": 2},
+    {"name": "Lucky Star Amulet", "emoji": "👑", "bonus": "+35% Luck", "price": 2750, "duration_hours": 2},
+]
+
+PAWN_SPECIALS = [
+    {"name": "Coming Soon", "emoji": "🪄", "description": "Mysterious rewards await..."},
+    {"name": "Coming Soon", "emoji": "🪄", "description": "Mysterious rewards await..."},
+    {"name": "Coming Soon", "emoji": "🪄", "description": "Mysterious rewards await..."},
+    {"name": "Coming Soon", "emoji": "🪄", "description": "Mysterious rewards await..."},
+]

@@ -343,3 +343,108 @@ def museum_artifact_embed(item_id: str, discovered: bool) -> discord.Embed:
         embed.set_thumbnail(url=image_path)
 
     return embed
+
+
+def pawn_shop_main_embed(username: str) -> discord.Embed:
+    embed = discord.Embed(
+        title="🎒 Pawn Shop 🎒",
+        description=(
+            f"WELCOME, SHADY **{username}** !\n\n"
+            f"💰 Spend wisely —\n"
+            f"🎟️ Browse to your heart's content —"
+        ),
+        color=0x8B4513,
+    )
+    embed.set_footer(text="Choose your shopping category below")
+    return embed
+
+
+def pawn_shop_tickets_embed() -> discord.Embed:
+    embed = discord.Embed(
+        title="🎟️ Dirty Tickets 🎟️",
+        description="🎟️ BUY TICKETS\n\n*Redeem your tickets in The Tavern",
+        color=0xDAA520,
+    )
+    embed.add_field(name="[🎟️] Dirty Ticket x1", value="🪙 1000", inline=False)
+    embed.add_field(name="[🎟️] Dirty Ticket x5", value="🪙 4500", inline=False)
+    embed.add_field(name="[🎟️] Dirty Ticket x10", value="🪙 8500", inline=False)
+    embed.set_footer(text="Choose a ticket bundle or go back")
+    return embed
+
+
+def pawn_shop_items_embed(page: int = 0) -> discord.Embed:
+    from game.data import PAWN_BUFFERS, PAWN_AMULETS
+    
+    embed = discord.Embed(
+        title="🏪 ITEMS SHOP 🏪",
+        description="⚗️ BUFFERS **All Effects last 2 Real Time hours\n",
+        color=0x9B59B6,
+    )
+    
+    # Add buffers
+    for buffer_item in PAWN_BUFFERS:
+        embed.add_field(
+            name=f"{buffer_item['emoji']} {buffer_item['name']}",
+            value=f"✨ {buffer_item['bonus']} 🪙 {buffer_item['price']}",
+            inline=False,
+        )
+    
+    embed.add_field(name="\u200b", value="🧿 AMULETS **All Effects last 2 Real Time hours", inline=False)
+    
+    # Add amulets
+    for amulet_item in PAWN_AMULETS:
+        embed.add_field(
+            name=f"{amulet_item['emoji']} {amulet_item['name']}",
+            value=f"💎 {amulet_item['bonus']} 🪙 {amulet_item['price']}",
+            inline=False,
+        )
+    
+    embed.set_footer(text="Click buttons below to purchase items")
+    return embed
+
+
+def pawn_shop_specials_embed() -> discord.Embed:
+    from game.data import PAWN_SPECIALS
+    
+    embed = discord.Embed(
+        title="🪄 Special Items 🪄",
+        description="Exclusive limited-time offers",
+        color=0xE91E63,
+    )
+    
+    for special in PAWN_SPECIALS:
+        embed.add_field(
+            name=f"{special['emoji']} {special['name']}",
+            value=special['description'],
+            inline=False,
+        )
+    
+    embed.set_footer(text="Check back soon for exclusive deals!")
+    return embed
+
+
+def pawn_shop_exchange_embed() -> discord.Embed:
+    embed = discord.Embed(
+        title="♻️ EXCHANGE LOOT ♻️",
+        description="Convert your junk into something better",
+        color=0x2ECC71,
+    )
+    
+    embed.add_field(
+        name="[♻️ ???] Trade Loot",
+        value="Trade suspicious loot - AT YOUR OWN RISK",
+        inline=False,
+    )
+    embed.add_field(
+        name="[♻️ ???] Trade All",
+        value="Trade ALL YOUR LOOTS for a random prize",
+        inline=False,
+    )
+    embed.add_field(
+        name="[♻️ ???] Sell Loot",
+        value="Sell your Loots - 20% disposal fee",
+        inline=False,
+    )
+    
+    embed.set_footer(text="Choose an exchange option or go back")
+    return embed

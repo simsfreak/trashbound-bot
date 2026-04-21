@@ -22,6 +22,11 @@ from ui.embeds import (
     inventory_embed,
     mix_result_embed,
     museum_home_embed,
+    pawn_shop_main_embed,
+    pawn_shop_tickets_embed,
+    pawn_shop_items_embed,
+    pawn_shop_specials_embed,
+    pawn_shop_exchange_embed,
     profile_embed,
     zone_embed,
 )
@@ -358,7 +363,7 @@ class ProfileView(discord.ui.View):
         )
         await interaction.response.edit_message(embed=embed, view=view, attachments=[])
 
-    @discord.ui.button(label="🧪 Mix", style=discord.ButtonStyle.success, row=0)
+    @discord.ui.button(label="🧪 The Tavern", style=discord.ButtonStyle.success, row=0)
     async def mix_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         inventory_rows = queries.get_inventory(interaction.user.id)
         inventory_map = {item_id: qty for item_id, qty in inventory_rows}
@@ -407,6 +412,15 @@ class ProfileView(discord.ui.View):
         unlocked = queries.get_unlocked_zone_ids(interaction.user.id)
         view = ZoneSelectorView(self.owner_id, self.is_admin, unlocked or ["back_alley"], index=0)
         await interaction.response.edit_message(embed=view.build_embed(interaction), view=view, attachments=[])
+
+    @discord.ui.button(label="🎒 Pawn Shop", style=discord.ButtonStyle.primary, row=1)
+    async def pawn_shop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = pawn_shop_main_embed(interaction.user.display_name)
+        await interaction.response.edit_message(
+            embed=embed,
+            view=PawnShopMainView(self.owner_id, self.is_admin),
+            attachments=[],
+        )
 
     @discord.ui.button(label="✨ Events", style=discord.ButtonStyle.danger, row=1)
     async def events_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -459,3 +473,232 @@ class AdminButton(discord.ui.Button):
             color=0xED4245,
         )
         await interaction.response.edit_message(embed=embed, view=self.view)
+
+
+class PawnShopMainView(discord.ui.View):
+    def __init__(self, owner_id: int, is_admin: bool):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This pawn shop isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="🎟️ Tickets", style=discord.ButtonStyle.primary, row=0)
+    async def tickets_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = pawn_shop_tickets_embed()
+        await interaction.response.edit_message(embed=embed, view=PawnShopTicketsView(self.owner_id, self.is_admin), attachments=[])
+
+    @discord.ui.button(label="🏪 Items", style=discord.ButtonStyle.primary, row=0)
+    async def items_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = pawn_shop_items_embed()
+        await interaction.response.edit_message(embed=embed, view=PawnShopItemsView(self.owner_id, self.is_admin), attachments=[])
+
+    @discord.ui.button(label="🪄 Specials", style=discord.ButtonStyle.primary, row=0)
+    async def specials_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = pawn_shop_specials_embed()
+        await interaction.response.edit_message(embed=embed, view=PawnShopSpecialsView(self.owner_id, self.is_admin), attachments=[])
+
+    @discord.ui.button(label="♻️ Exchange", style=discord.ButtonStyle.primary, row=1)
+    async def exchange_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = pawn_shop_exchange_embed()
+        await interaction.response.edit_message(embed=embed, view=PawnShopExchangeView(self.owner_id, self.is_admin), attachments=[])
+
+    @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=1)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await show_profile(interaction, self.owner_id, self.is_admin)
+
+
+class PawnShopTicketsView(discord.ui.View):
+    def __init__(self, owner_id: int, is_admin: bool):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This shop isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    async def purchase_ticket(self, interaction: discord.Interaction, qty: int, price: int):
+        player = queries.get_player(interaction.user.id)
+        if player["coins"] < price:
+            await interaction.response.send_message(
+                f"❌ You need 🪙 {price} but only have 🪙 {player['coins']}",
+                ephemeral=True,
+            )
+            return
+        
+        new_coins = player["coins"] - price
+        queries.update_player_progress(
+            user_id=interaction.user.id,
+            coins=new_coins,
+            xp=player["xp"],
+            level=player["level"],
+            current_title=player["current_title"],
+            total_dives=player["total_dives"],
+        )
+        
+        await interaction.response.send_message(
+            f"✅ Purchased 🎟️ Dirty Tickets x{qty} for 🪙 {price}!\n"
+            f"Remaining: 🪙 {new_coins}",
+            ephemeral=True,
+        )
+
+    @discord.ui.button(label="🎟️x1-🪙 1000", style=discord.ButtonStyle.success, row=0)
+    async def buy_1_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.purchase_ticket(interaction, 1, 1000)
+
+    @discord.ui.button(label="🎟️x5-🪙 4500", style=discord.ButtonStyle.success, row=0)
+    async def buy_5_tickets(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.purchase_ticket(interaction, 5, 4500)
+
+    @discord.ui.button(label="🎟️x10-🪙 8500", style=discord.ButtonStyle.success, row=1)
+    async def buy_10_tickets(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.purchase_ticket(interaction, 10, 8500)
+
+    @discord.ui.button(label="🏪 Back", style=discord.ButtonStyle.secondary, row=1)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = pawn_shop_main_embed(interaction.user.display_name)
+        await interaction.response.edit_message(embed=embed, view=PawnShopMainView(self.owner_id, self.is_admin), attachments=[])
+
+
+class PawnShopItemsView(discord.ui.View):
+    def __init__(self, owner_id: int, is_admin: bool):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This shop isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    async def purchase_item(self, interaction: discord.Interaction, item_name: str, price: int):
+        player = queries.get_player(interaction.user.id)
+        if player["coins"] < price:
+            await interaction.response.send_message(
+                f"❌ You need 🪙 {price} but only have 🪙 {player['coins']}",
+                ephemeral=True,
+            )
+            return
+        
+        new_coins = player["coins"] - price
+        queries.update_player_progress(
+            user_id=interaction.user.id,
+            coins=new_coins,
+            xp=player["xp"],
+            level=player["level"],
+            current_title=player["current_title"],
+            total_dives=player["total_dives"],
+        )
+        
+        await interaction.response.send_message(
+            f"✅ Purchased **{item_name}** for 🪙 {price}!\n"
+            f"Effect lasts 2 real time hours. Remaining: 🪙 {new_coins}",
+            ephemeral=True,
+        )
+
+    @discord.ui.button(label="🧃-🪙 250", style=discord.ButtonStyle.success, row=0)
+    async def buy_novice_buffer(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.purchase_item(interaction, "Novice Buffer (+10% XP)", 250)
+
+    @discord.ui.button(label="🧪-🪙 400", style=discord.ButtonStyle.success, row=0)
+    async def buy_basic_buffer(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.purchase_item(interaction, "Basic Buffer (+15% XP)", 400)
+
+    @discord.ui.button(label="🍵-🪙 575", style=discord.ButtonStyle.success, row=0)
+    async def buy_greater_buffer(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.purchase_item(interaction, "Greater Buffer (+20% XP)", 575)
+
+    @discord.ui.button(label="🧴-🪙 775", style=discord.ButtonStyle.success, row=1)
+    async def buy_advanced_buffer(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.purchase_item(interaction, "Advanced Buffer (+25% XP)", 775)
+
+    @discord.ui.button(label="🧪💖-🪙 1150", style=discord.ButtonStyle.success, row=1)
+    async def buy_elite_buffer(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.purchase_item(interaction, "Elite Buffer (+35% XP)", 1150)
+
+    @discord.ui.button(label="🌟-🪙 1850", style=discord.ButtonStyle.success, row=2)
+    async def buy_master_buffer(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.purchase_item(interaction, "Master Buffer (+50% XP)", 1850)
+
+    @discord.ui.button(label="👑-🪙 3200", style=discord.ButtonStyle.success, row=2)
+    async def buy_legendary_buffer(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.purchase_item(interaction, "Legendary Buffer (+75% XP)", 3200)
+
+    @discord.ui.button(label="🍀-🪙 600", style=discord.ButtonStyle.info, row=3)
+    async def buy_worn_amulet(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.purchase_item(interaction, "Worn Amulet (+10% Luck)", 600)
+
+    @discord.ui.button(label="🌙-🪙 950", style=discord.ButtonStyle.info, row=3)
+    async def buy_polished_amulet(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.purchase_item(interaction, "Polished Amulet (+15% Luck)", 950)
+
+    @discord.ui.button(label="🌠-🪙 1650", style=discord.ButtonStyle.info, row=4)
+    async def buy_enchanted_amulet(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.purchase_item(interaction, "Enchanted Amulet (+25% Luck)", 1650)
+
+    @discord.ui.button(label="👑-🪙 2750", style=discord.ButtonStyle.info, row=4)
+    async def buy_lucky_star(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.purchase_item(interaction, "Lucky Star Amulet (+35% Luck)", 2750)
+
+    @discord.ui.button(label="🏪 Back", style=discord.ButtonStyle.secondary, row=4)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = pawn_shop_main_embed(interaction.user.display_name)
+        await interaction.response.edit_message(embed=embed, view=PawnShopMainView(self.owner_id, self.is_admin), attachments=[])
+
+
+class PawnShopSpecialsView(discord.ui.View):
+    def __init__(self, owner_id: int, is_admin: bool):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This shop isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="🏪 Back", style=discord.ButtonStyle.secondary, row=0)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = pawn_shop_main_embed(interaction.user.display_name)
+        await interaction.response.edit_message(embed=embed, view=PawnShopMainView(self.owner_id, self.is_admin), attachments=[])
+
+
+class PawnShopExchangeView(discord.ui.View):
+    def __init__(self, owner_id: int, is_admin: bool):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This shop isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="♻️ Trade Loot", style=discord.ButtonStyle.danger, row=0)
+    async def trade_loot_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message(
+            "🚧 Trade Loot feature coming soon!\nTrade suspicious items at your own risk.",
+            ephemeral=True,
+        )
+
+    @discord.ui.button(label="♻️ Sell Loot", style=discord.ButtonStyle.danger, row=0)
+    async def sell_loot_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message(
+            "🚧 Sell Loot feature coming soon!\n20% disposal fee will be applied.",
+            ephemeral=True,
+        )
+
+    @discord.ui.button(label="🏪 Back", style=discord.ButtonStyle.secondary, row=1)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = pawn_shop_main_embed(interaction.user.display_name)
+        await interaction.response.edit_message(embed=embed, view=PawnShopMainView(self.owner_id, self.is_admin), attachments=[])
