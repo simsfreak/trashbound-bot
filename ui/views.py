@@ -1806,12 +1806,9 @@ class ProfileView(discord.ui.View):
         self.add_item(dive_btn)
         
         # ═════════════════════════════════════════════════════════════════
-        # ROOT NAVIGATION BUTTONS (Rows 1-3)
-        # 8 core buttons: Scavenge, Inventory, Craft, Shelter, Network,
-        #                 Contracts, Map, Story
+        # NOTE: ProfileView uses explicit @discord.ui.button decorators
+        # instead of root navigation buttons to avoid duplicate items.
         # ═════════════════════════════════════════════════════════════════
-        for nav_button in get_root_nav_buttons(row=1):
-            self.add_item(nav_button)
 
         if is_admin:
             self.add_item(AdminButton(row=4))
