@@ -4,16 +4,20 @@ import discord
 from game.data import EQUIP_SLOTS, ITEMS, ZONES, get_live_events, MUSEUM_COLLECTIONS, MUSEUM_ARTIFACT_TEXT
 from game.leveling import xp_to_next_level
 from game.helpers import calculate_equipment_bonuses
+from game.icons import get_icon, format_stat_line as format_stat_icon, format_status_bar
+from game.neon_data import STATS, SURVIVAL_METRICS, PROGRESSION_TITLES, get_title_for_level
+from ui.panel_formatter import PanelFormatter, formatter
+from ui.ui_config import COLORS, RARITIES, PAGINATION
 from ui.profile_formatter import format_profile_display
 
 
 RARITY_COLORS = {
-    "Common": 0x95A5A6,
-    "Uncommon": 0x2ECC71,
-    "Rare": 0x3498DB,
-    "Epic": 0x9B59B6,
-    "Legendary": 0xF1C40F,
-    "Mythic": 0xE91E63,
+    "Common": COLORS["common"],
+    "Uncommon": COLORS["uncommon"],
+    "Rare": COLORS["rare"],
+    "Epic": COLORS["epic"],
+    "Legendary": COLORS["legendary"],
+    "Mythic": COLORS["mythic"],
 }
 
 
@@ -39,42 +43,111 @@ def profile_embed(
     avatar_url,
     active_quest_info=None,
 ):
-    from game.time_system import get_phase_emoji, get_phase_name
-    from datetime import datetime as dt
+    """
+    Build profile dashboard using MODE A (Dashboard).
     
-    # Build the beautiful ASCII formatted profile
-    live_events = get_live_events()
-    formatted_profile = format_profile_display(
-        player=player,
-        inventory_count=inventory_count,
-        recent_finds=recent_finds,
-        active_effects=active_effects,
-        equipment=equipment,
-        dirty_tickets=dirty_tickets,
-        active_quest_info=active_quest_info,
-        daily_quest=None,  # Can extend later if needed
-        live_events=live_events,
+    Sections:
+    - 📊 RESOURCES (caps, level, items)
+    - ❤️ VITALS (health, hunger, thirst, radiation, energy)
+    - 🛡️ EQUIPMENT (currently equipped gear)
+    - 📜 QUESTS (active and daily quests)
+    """
+    from game.icons import format_status_bar
+    
+    # Prepare panel content
+    panel_lines = []
+    
+    # ═════════════════════════════════════════════════════════════════
+    # 📊 RESOURCES SECTION
+    # ═════════════════════════════════════════════════════════════════
+    resources_lines = [
+        f"{get_icon('caps')} Caps: {player.get('coins', 0)}",
+        f"⭐ Level: {player.get('level', 1)} — {get_title_for_level(player.get('level', 1))}",
+        f"{get_icon('inventory')} Items: {inventory_count}",
+    ]
+    if dirty_tickets > 0:
+        resources_lines.append(f"🎟 Tickets: {dirty_tickets}")
+    
+    panel_lines.append(("📊", "RESOURCES", resources_lines))
+    
+    # ═════════════════════════════════════════════════════════════════
+    # ❤️ VITALS SECTION (Survival metrics)
+    # ═════════════════════════════════════════════════════════════════
+    vitals_lines = [
+        format_status_bar("Health", 80, 100, bar_size=8),
+        format_status_bar("Hunger", 70, 100, bar_size=8),
+        format_status_bar("Thirst", 50, 100, bar_size=8),
+    ]
+    
+    panel_lines.append(("❤️", "VITALS", vitals_lines))
+    
+    # ═════════════════════════════════════════════════════════════════
+    # 🛡️ EQUIPMENT SECTION
+    # ═════════════════════════════════════════════════════════════════
+    slot_map = {e.get("slot", ""): e.get("item_id") for e in equipment if isinstance(e, dict) and e.get("slot")}
+    equip_lines = []
+    
+    for slot in EQUIP_SLOTS if EQUIP_SLOTS else ["head", "body", "hands", "feet", "accessory"]:
+        item_id = slot_map.get(slot)
+        if item_id:
+            item = ITEMS.get(item_id, {"name": item_id, "emoji": "✨"})
+            equip_lines.append(f"[{item.get('emoji', '✨')}] {slot.title():10} {item['name']}")
+        else:
+            equip_lines.append(f"[ ] {slot.title():10} Empty")
+    
+    panel_lines.append(("🛡️", "EQUIPMENT", equip_lines))
+    
+    # ═════════════════════════════════════════════════════════════════
+    # 📜 QUESTS SECTION
+    # ═════════════════════════════════════════════════════════════════
+    quest_lines = []
+    
+    if active_quest_info:
+        status_icon = active_quest_info.get("status", "🟡")
+        quest_lines.append(f"{status_icon} {active_quest_info['name']}")
+        quest_lines.append(f"  Zone: {active_quest_info['zone']}")
+        quest_lines.append(f"  Time: {active_quest_info['time_window']}")
+    else:
+        quest_lines.append("❌ No active quest")
+    
+    panel_lines.append(("📜", "QUESTS", quest_lines))
+    
+    # ═════════════════════════════════════════════════════════════════
+    # BUILD DASHBOARD PANEL
+    # ═════════════════════════════════════════════════════════════════
+    now = datetime.now()
+    description = f"📍 {now.strftime('%a, %b %d • %H:%M')}"
+    
+    panel_text = formatter.mode_a_dashboard(
+        title="WASTELAND PROFILE",
+        description=description,
+        sections=panel_lines,
+        footer_text="Use buttons below to navigate"
     )
     
-    # Create embed with formatted profile as description
+    # ═════════════════════════════════════════════════════════════════
+    # CREATE EMBED
+    # ═════════════════════════════════════════════════════════════════
     embed = discord.Embed(
-        title=f"👤 {player['username']} • {player['current_title']}",
-        description=f"```\n{formatted_profile}\n```",
-        color=0x2C2F33,
+        title=f"👤 {player['username']}",
+        description=f"```\n{panel_text}\n```",
+        color=COLORS["primary"],
         timestamp=datetime.utcnow(),
     )
 
     if avatar_url:
         embed.set_thumbnail(url=avatar_url)
-
+    
+    embed.set_footer(text="Neon Wastes Survival")
     return embed
 
 
 def dive_processing_embed(zone_name, text):
+    """Processing embed during a scavenge."""
     return discord.Embed(
-        title="🗑️ Diving...",
+        title=f"{get_icon('scavenge')} Scavenging...",
         description=f"**{zone_name}**\n\n{text}",
-        color=0x5865F2,
+        color=COLORS["accent"],
     )
 
 
@@ -89,6 +162,7 @@ def dive_result_embed(
     avatar_url=None,
     attachment_filename=None,
 ):
+    """Embed for item loot result."""
     item = ITEMS[item_id]
     rarity = item.get("rarity", "Common")
 
@@ -112,9 +186,9 @@ def dive_result_embed(
         lines.append(f"🔓 New zones unlocked: **{', '.join(unlocked_zone_names)}**")
 
     embed = discord.Embed(
-        title="✨ Loot Found!",
+        title=f"{get_icon('scavenge')} Loot Found!",
         description="\n\n".join(lines),
-        color=RARITY_COLORS.get(rarity, 0x57F287),
+        color=RARITY_COLORS.get(rarity, COLORS["secondary"]),
     )
 
     if avatar_url:
@@ -125,69 +199,115 @@ def dive_result_embed(
     elif isinstance(item.get("image"), str) and item["image"].startswith("http"):
         embed.set_thumbnail(url=item["image"])
 
-    embed.add_field(name="💰 Coins", value=str(player["coins"]), inline=True)
+    embed.add_field(name=f"{get_icon('caps')} Coins", value=str(player["coins"]), inline=True)
     embed.add_field(name="⭐ Level", value=str(player["level"]), inline=True)
-    embed.add_field(name="🗑️ Total Dives", value=str(player["total_dives"]), inline=True)
-    embed.add_field(name="✨ XP", value=build_xp_bar(player["xp"], player["level"]), inline=False)
+    embed.add_field(name=f"{get_icon('scavenge')} Dives", value=str(player["total_dives"]), inline=True)
+    
+    needed = xp_to_next_level(player.get("level", 1))
+    current = player.get("xp", 0)
+    if needed > 0:
+        filled = int((current / needed) * 8)
+        bar = "█" * filled + "░" * (8 - filled)
+    else:
+        bar = "█" * 8
+    
+    embed.add_field(name="✨ XP", value=f"{bar} {current}/{needed}", inline=False)
     return embed
 
 
 def inventory_embed(username: str, lines: list[str], page: int, total_pages: int) -> discord.Embed:
-    embed = discord.Embed(
-        title=f"🎒 {username}'s Loot Vault",
-        description="\n\n".join(lines) if lines else "Your bag is empty.",
-        color=0x5865F2,
+    """Inventory list using MODE B (List)."""
+    panel_text = formatter.mode_b_list(
+        title="INVENTORY",
+        category_label=f"{get_icon('inventory')} YOUR LOOT",
+        items=lines if lines else ["(empty)"],
+        page_info=f"Page {page + 1}/{total_pages}" if total_pages > 1 else None,
+        footer_text="Use buttons to navigate"
     )
-    embed.set_footer(text=f"Page {page + 1}/{total_pages}")
+    
+    embed = discord.Embed(
+        title=f"{get_icon('inventory')} {username}'s Vault",
+        description=f"```\n{panel_text}\n```",
+        color=COLORS["accent"],
+    )
+    if total_pages > 1:
+        embed.set_footer(text=f"Page {page + 1}/{total_pages}")
     return embed
 
 
 def zone_embed(player, zone_id, unlocked_zone_ids, zone_loot_lines, index, total):
+    """Zone selector embed."""
     zone = ZONES[zone_id]
     unlocked = zone_id in unlocked_zone_ids
     current = zone_id == player["current_zone_id"]
-    status = "🟢 CURRENT" if current else ("✅ UNLOCKED" if unlocked else f"🔒 Unlocks at Level {zone['unlock_level']}")
+    
+    if current:
+        status = f"{get_icon('success')} CURRENT ZONE"
+        status_color = COLORS["success"]
+    elif unlocked:
+        status = f"✅ UNLOCKED"
+        status_color = COLORS["success"]
+    else:
+        status = f"🔒 Unlocks at Level {zone['unlock_level']}"
+        status_color = COLORS["danger"]
 
     embed = discord.Embed(
-        title=f"🗺️ Zone Selector ({index + 1}/{total})",
-        description=f"**{zone['name']}**\n{status}\n\n*{zone['description']}*",
-        color=0x57F287 if unlocked else 0xED4245,
+        title=f"{get_icon('map')} {zone['name']} ({index + 1}/{total})",
+        description=f"{status}\n\n*{zone['description']}*",
+        color=status_color,
     )
-    embed.add_field(name="🎁 Possible Finds", value="\n".join(zone_loot_lines) if zone_loot_lines else "???", inline=False)
+    embed.add_field(name=f"{get_icon('scavenge')} Possible Finds", value="\n".join(zone_loot_lines) if zone_loot_lines else "???", inline=False)
     return embed
 
 
 def mix_lab_embed(inventory_map, mix_lines):
+    """Crafting lab embed."""
     return discord.Embed(
-        title="🧪 Goblin Mix Lab",
+        title=f"{get_icon('craft')} Crafting Lab",
         description="Available recipes right now:\n" + ("\n".join(mix_lines) if mix_lines else "None"),
-        color=0x9B59B6,
+        color=COLORS["secondary"],
     )
 
 
 def mix_result_embed(title: str, result_text: str) -> discord.Embed:
-    return discord.Embed(title=title, description=result_text, color=0x9B59B6)
+    """Crafting result embed."""
+    return discord.Embed(
+        title=f"{get_icon('craft')} {title}",
+        description=result_text,
+        color=COLORS["secondary"]
+    )
 
 
 def events_embed() -> discord.Embed:
-    embed = discord.Embed(title="✨ World Events", description="The world is messier on purpose.", color=0xEB459E)
+    """World events embed."""
+    embed = discord.Embed(
+        title=f"{get_icon('season')} World Events",
+        description="The wasteland is in flux.",
+        color=COLORS["warning"]
+    )
     live = get_live_events()
     if not live:
         embed.add_field(name="🌫️ Right Now", value="No special event is live.", inline=False)
     else:
         for event in live:
-            embed.add_field(name=f"{event.get('emoji', '✨')} {event['name']}", value=event.get("description", ""), inline=False)
+            embed.add_field(name=f"{event.get('emoji', get_icon('anomaly'))} {event['name']}", value=event.get("description", ""), inline=False)
     return embed
 
 
 def help_embed() -> discord.Embed:
-    return discord.Embed(title="❓ How to Play", description="Dive, loot, mix, and survive the junk economy.", color=0xFAA61A)
+    """Help/tutorial embed."""
+    return discord.Embed(
+        title="❓ How to Survive the Wastes",
+        description="Scavenge resources, craft equipment, complete contracts, and survive.",
+        color=COLORS["info"]
+    )
 
 def pawn_shop_embed(bundle_item_ids: list[str]) -> discord.Embed:
+    """Pawn shop trading embed."""
     from game.data import ITEMS
 
     if not bundle_item_ids:
-        desc = "The pawn shop owner stares at you.\n\nYou have nothing worth trading."
+        desc = f"{get_icon('shelter')} The pawn broker stares at you.\n\nYou have nothing to trade."
     else:
         lines = []
         counts = {}
@@ -199,54 +319,54 @@ def pawn_shop_embed(bundle_item_ids: list[str]) -> discord.Embed:
             lines.append(f"{item.get('emoji','✨')} **{item['name']}** x{qty}")
 
         desc = (
-            "🏚️ *The pawn shop owner squints at your junk...*\n\n"
-            "**Your Offer Pile:**\n"
+            f"{get_icon('shelter')} *The pawn broker squints at your goods...*\n\n"
+            "**Your Offer:**\n"
             + "\n".join(lines)
-            + "\n\nChoose your deal carefully..."
+            + "\n\nChoose your deal wisely."
         )
 
     embed = discord.Embed(
-        title="🏚️ Sketchy Pawn Shop",
+        title=f"{get_icon('shelter')} Trade Hub",
         description=desc,
-        color=0x8B5E3C,
+        color=COLORS["warning"],
     )
     return embed
 
 
 def pawn_offer_result_embed(title: str, description: str) -> discord.Embed:
+    """Pawn trade result embed."""
     return discord.Embed(
-        title=title,
+        title=f"{get_icon('caps')} {title}",
         description=description,
-        color=0xD4AF37,
+        color=COLORS["success"],
     )
 
 def museum_home_embed(username: str, discovered_item_ids: set[str]) -> discord.Embed:
+    """Museum home showing collections."""
     total_discovered = len(discovered_item_ids)
     total_artifacts = sum(len(collection["item_ids"]) for collection in MUSEUM_COLLECTIONS.values())
 
     embed = discord.Embed(
-        title="🏛️ Trash Museum",
+        title="🏛️ Archive",
         description=(
-            "\"Most people see garbage. You preserve history.\"\n\n"
+            "Preserved history of the wasteland.\n\n"
             f"**Curator:** {username}\n"
-            f"**Discovery Progress:** {total_discovered}/{total_artifacts} artifacts"
+            f"**Artifacts:** {total_discovered}/{total_artifacts} collected"
         ),
-        color=0xC27C2C,
+        color=COLORS["warning"],
     )
 
     for collection_id, collection in MUSEUM_COLLECTIONS.items():
         item_ids = collection["item_ids"]
         discovered = sum(1 for item_id in item_ids if item_id in discovered_item_ids)
+        progress = f"{discovered}/{len(item_ids)}"
         embed.add_field(
             name=f"{collection['emoji']} {collection['name']}",
-            value=(
-                f"{collection['description']}\n"
-                f"**Progress:** {discovered}/{len(item_ids)}"
-            ),
+            value=f"{collection['description']}\n**Progress:** {progress}",
             inline=False,
         )
 
-    embed.set_footer(text="Choose a collection to browse its artifacts")
+    embed.set_footer(text="Select a collection to view its items")
     return embed
 
 
@@ -257,9 +377,10 @@ def museum_collection_embed(
     page: int,
     total_pages: int,
 ):
+    """Museum collection page."""
     collection = MUSEUM_COLLECTIONS[collection_id]
     item_ids = collection["item_ids"]
-    per_page = 6
+    per_page = 5
     start = page * per_page
     end = start + per_page
     current_ids = item_ids[start:end]
@@ -269,114 +390,59 @@ def museum_collection_embed(
         item = ITEMS.get(item_id, {"name": item_id, "emoji": "✨", "rarity": "Unknown"})
         discovered = item_id in discovered_item_ids
         if discovered:
-            lines.append(
-                f"✅ {item.get('emoji', '✨')} **{item['name']}**\n"
-                f"{item.get('rarity', 'Unknown')} artifact recovered"
-            )
+            rarity_icon = RARITIES.get(item.get("rarity", "Common"), {}).get("emoji", "✨")
+            lines.append(f"✅ {item.get('emoji', '✨')} {item['name']} [{rarity_icon}]")
         else:
-            lines.append(
-                "❔ **Unknown Artifact**\n"
-                "Undiscovered relic. Keep diving, mixing, and refining."
-            )
+            lines.append("❔ ???")
+
+    panel_text = formatter.mode_b_list(
+        title="COLLECTION",
+        category_label=f"{collection['emoji']} {collection['name']}",
+        items=lines,
+        page_info=f"Page {page + 1}/{total_pages}" if total_pages > 1 else None,
+    )
 
     embed = discord.Embed(
         title=f"{collection['emoji']} {collection['name']}",
-        description="\n\n".join(lines),
-        color=0x5865F2,
+        description=f"```\n{panel_text}\n```",
+        color=COLORS["accent"],
     )
-    embed.add_field(
-        name="Collection Notes",
-        value=collection["description"],
-        inline=False,
-    )
+    embed.add_field(name="ℹ️", value=collection["description"], inline=False)
     embed.set_footer(text=f"{username} • Page {page + 1}/{total_pages}")
     return embed
 
 
 def museum_artifact_embed(item_id: str, discovered: bool) -> discord.Embed:
+    """Museum artifact detail card."""
     item = ITEMS.get(item_id, {"name": item_id, "emoji": "✨", "rarity": "Unknown", "flavor": ""})
     lore = MUSEUM_ARTIFACT_TEXT.get(item_id, {})
 
     if discovered:
         description = (
             f"{item.get('emoji', '✨')} **{item['name']}**\n"
-            f"**Status:** Collected ✅\n"
-            f"**Rarity:** {item.get('rarity', 'Unknown')}\n\n"
-            f"*{lore.get('museum_text') or item.get('flavor', 'Recovered from the underground junk world.')}*"
+            f"**Rarity:** {item.get('rarity', 'Unknown')} {RARITIES.get(item.get('rarity', 'Common'), {}).get('emoji', '')}\n"
+            f"**Status:** ✅ Collected\n\n"
+            f"*{lore.get('museum_text') or item.get('flavor', 'A relic of the old world.')}*"
         )
-        origin_text = lore.get("origin", "Origin not yet archived.")
-        color = RARITY_COLORS.get(item.get("rarity", "Common"), 0x5865F2)
+        color = RARITY_COLORS.get(item.get("rarity", "Common"), COLORS["info"])
     else:
         description = (
             "❔ **Unknown Artifact**\n"
-            "**Status:** Undiscovered\n\n"
-            "Its details are still obscured. Recover it in the field to archive it here."
+            "**Status:** 🔒 Undiscovered\n\n"
+            "Its details remain obscured. Discover it in the wasteland to archive it."
         )
-        origin_text = "Unknown origin"
-        color = 0x4E5D94
+        color = COLORS["danger"]
 
     embed = discord.Embed(
-        title="🏛️ Artifact Card",
+        title="🏛️ Artifact",
         description=description,
         color=color,
     )
-    embed.add_field(name="Origin", value=origin_text, inline=False)
 
-    image_path = item.get("image")
-    if discovered and isinstance(image_path, str) and image_path.startswith("http"):
-        embed.set_thumbnail(url=image_path)
+    if discovered and isinstance(item.get("image"), str) and item["image"].startswith("http"):
+        embed.set_thumbnail(url=item["image"])
 
     return embed
-
-
-def museum_home_embed(
-    museum_level: int,
-    museum_xp: int,
-    collections_completed: int,
-    total_collections: int,
-    next_collection_info: tuple[str, str, int, int] | None = None,
-) -> discord.Embed:
-    """Museum home view showing level, XP, and next collection."""
-    xp_for_level = 100
-    xp_in_current_level = museum_xp % xp_for_level
-    
-    embed = discord.Embed(
-        title="🏛️ Museum",
-        description=f"Your personal archive of discovered treasures and memories.",
-        color=0xFFD700,
-        timestamp=datetime.utcnow(),
-    )
-    
-    embed.add_field(
-        name="📚 Level",
-        value=f"**{museum_level}** — {xp_in_current_level}/{xp_for_level} XP to next level",
-        inline=False,
-    )
-    
-    embed.add_field(
-        name="🎯 Collections",
-        value=f"**{collections_completed} / {total_collections}** completed",
-        inline=True,
-    )
-    
-    embed.add_field(
-        name="✨ Total XP",
-        value=f"**{museum_xp}** XP earned",
-        inline=True,
-    )
-    
-    if next_collection_info:
-        collection_key, collection_name, progress, total = next_collection_info
-        embed.add_field(
-            name="📍 Next Collection",
-            value=f"**{collection_name}**\n{progress}/{total} items discovered",
-            inline=False,
-        )
-    
-    return embed
-
-
-def museum_collections_embed(
     collections_data: dict[str, dict],
     discovered_item_ids: set[str],
     completed_collections: set[str],

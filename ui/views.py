@@ -50,6 +50,9 @@ from game.helpers import (
 )
 from game.leveling import apply_xp
 from game.quest_system import can_use_quest_dive, handle_dive_completion
+from game.icons import get_icon
+from ui.ui_config import COLORS
+from ui.nav_buttons import get_root_nav_buttons
 
 SLOT_EMOJIS = {
     "head": "🧢",
@@ -1778,6 +1781,10 @@ class ProfileView(discord.ui.View):
         self.owner_id = owner_id
         self.is_admin = is_admin
 
+        # ═════════════════════════════════════════════════════════════════
+        # PRIMARY ACTION BUTTONS (Row 0)
+        # ═════════════════════════════════════════════════════════════════
+        
         # Create dynamic dive button based on quest state
         is_quest_dive = can_use_quest_dive(owner_id)
         
@@ -1786,7 +1793,7 @@ class ProfileView(discord.ui.View):
             label = "📜 Quest Dive"
             style = discord.ButtonStyle.success  # Green for quest active
         else:
-            label = "🗑️ Dive"
+            label = f"{get_icon('scavenge')} Dive"
             style = discord.ButtonStyle.primary  # Blue for normal
         
         # Create button programmatically to make it dynamic
@@ -1797,9 +1804,17 @@ class ProfileView(discord.ui.View):
         )
         dive_btn.callback = self.dive_button
         self.add_item(dive_btn)
+        
+        # ═════════════════════════════════════════════════════════════════
+        # ROOT NAVIGATION BUTTONS (Rows 1-3)
+        # 8 core buttons: Scavenge, Inventory, Craft, Shelter, Network,
+        #                 Contracts, Map, Story
+        # ═════════════════════════════════════════════════════════════════
+        for nav_button in get_root_nav_buttons(row=1):
+            self.add_item(nav_button)
 
         if is_admin:
-            self.add_item(AdminButton(row=2))
+            self.add_item(AdminButton(row=4))
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
