@@ -1,6 +1,7 @@
 import asyncio
 import math
 import discord
+from datetime import datetime
 
 from db import queries
 from game.data import ITEMS, MIX_RECIPES, ZONES, MUSEUM_COLLECTIONS
@@ -34,9 +35,28 @@ from ui.modals import ContactAdminModal
 
 
 def _safe_active_effects(user_id: int):
-    if hasattr(queries, "get_active_effects"):
-        return queries.get_active_effects(user_id)
-    return []
+    """Get active effects with remaining time."""
+    from datetime import datetime
+    effects = queries.get_active_effects(user_id)
+    result = []
+    for effect in effects:
+        if isinstance(effect, dict) and "expires_at" in effect:
+            expires_at = effect["expires_at"]
+            if isinstance(expires_at, str):
+                # Parse ISO format string
+                expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+            
+            remaining = max(None, expires_at - datetime.utcnow())
+            if remaining and remaining.total_seconds() > 0:
+                total_seconds = int(remaining.total_seconds())
+                hours, rem = divmod(total_seconds, 3600)
+                minutes, _seconds = divmod(rem, 60)
+                time_str = f"{hours}h {minutes}m" if hours else f"{minutes}m"
+                result.append({
+                    "label": effect.get("label", "Effect"),
+                    "expires_at": time_str,
+                })
+    return result
 
 
 def _safe_equipment(user_id: int):
@@ -242,6 +262,26 @@ class ProfileView(discord.ui.View):
             return False
         return True
 
+    def _build_dive_bonus_text(self, user_id: int, bonus_coins: int, bonus_xp: int, xp_multiplier: float, luck_bonus: float) -> str | None:
+        """Build bonus text showing all active effects during a dive."""
+        parts = []
+        
+        # Event/random bonuses
+        if bonus_coins or bonus_xp:
+            parts.append(f"🎉 Event Bonus: +{bonus_coins} coins, +{bonus_xp} XP")
+        
+        # XP buffer
+        if xp_multiplier > 1.0:
+            xp_boost_pct = int((xp_multiplier - 1.0) * 100)
+            parts.append(f"⚡ XP Buffer Active: +{xp_boost_pct}% XP")
+        
+        # Luck amulet
+        if luck_bonus > 0:
+            luck_pct = int(luck_bonus * 100)
+            parts.append(f"🍀 Luck Amulet Active: +{luck_pct}% Rarity Chance")
+        
+        return "\n".join(parts) if parts else None
+
     @discord.ui.button(label="🗑️ Dive", style=discord.ButtonStyle.primary, row=0)
     async def dive_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         import os
@@ -268,8 +308,9 @@ class ProfileView(discord.ui.View):
         )
         await asyncio.sleep(1.0)
 
-        # Roll result
-        item_id, item = roll_item_for_zone(player["current_zone_id"])
+        # Roll result with luck bonus
+        luck_bonus = queries.get_luck_bonus(interaction.user.id)
+        item_id, item = roll_item_for_zone(player["current_zone_id"], rare_bonus=luck_bonus)
         event = maybe_roll_dive_event()
 
         bonus_coins = 0
@@ -283,6 +324,11 @@ class ProfileView(discord.ui.View):
 
         gained_coins = int(item["coins"]) + bonus_coins
         gained_xp = int(item["xp"]) + bonus_xp
+
+        # Apply active XP buffer if available
+        xp_multiplier = queries.get_xp_multiplier(interaction.user.id)
+        if xp_multiplier > 1.0:
+            gained_xp = int(gained_xp * xp_multiplier)
 
         new_xp, new_level, leveled_up = apply_xp(
             player["xp"],
@@ -333,7 +379,7 @@ class ProfileView(discord.ui.View):
             leveled_up=leveled_up,
             reaction_text=get_random_dive_reaction(),
             event_text=event_text,
-            bonus_text=(f"🎉 Bonus: +{bonus_coins} coins, +{bonus_xp} XP" if (bonus_coins or bonus_xp) else None),
+            bonus_text=self._build_dive_bonus_text(interaction.user.id, bonus_coins, bonus_xp, xp_multiplier, luck_bonus),
             unlocked_zone_names=unlocked_zone_names or None,
             avatar_url=_avatar_url(interaction.user),
             attachment_filename=attachment_name,
@@ -579,7 +625,7 @@ class PawnShopItemsView(discord.ui.View):
             return False
         return True
 
-    async def purchase_item(self, interaction: discord.Interaction, item_name: str, price: int):
+    async def purchase_buffer(self, interaction: discord.Interaction, buffer_name: str, bonus_pct: float, price: int):
         player = queries.get_player(interaction.user.id)
         if player["coins"] < price:
             await interaction.response.send_message(
@@ -588,6 +634,17 @@ class PawnShopItemsView(discord.ui.View):
             )
             return
         
+        # Check if they already have an active XP buffer
+        existing_effect = queries.get_active_effect(interaction.user.id, "xp_buffer")
+        if existing_effect:
+            await interaction.response.send_message(
+                f"⏳ You already have **{existing_effect['label']}** active!\n"
+                f"It expires in 2 hours. You cannot stack buffers.",
+                ephemeral=True,
+            )
+            return
+        
+        # Deduct coins
         new_coins = player["coins"] - price
         queries.update_player_progress(
             user_id=interaction.user.id,
@@ -598,55 +655,114 @@ class PawnShopItemsView(discord.ui.View):
             total_dives=player["total_dives"],
         )
         
+        # Add effect (1.0 + bonus_pct as multiplier)
+        multiplier = 1.0 + (bonus_pct / 100.0)
+        queries.add_active_effect(
+            user_id=interaction.user.id,
+            effect_id="xp_buffer",
+            label=f"{buffer_name} ({bonus_pct:.0f}% XP)",
+            multiplier=multiplier,
+            duration_hours=2,
+            source_item_id=None,
+        )
+        
         await interaction.response.send_message(
-            f"✅ Purchased **{item_name}** for 🪙 {price}!\n"
-            f"Effect lasts 2 real time hours. Remaining: 🪙 {new_coins}",
+            f"✅ Activated **{buffer_name}**!\n"
+            f"⚡ +{bonus_pct:.0f}% XP for 2 real-time hours\n"
+            f"Remaining coins: 🪙 {new_coins}",
+            ephemeral=True,
+        )
+
+    async def purchase_amulet(self, interaction: discord.Interaction, amulet_name: str, luck_bonus: float, price: int):
+        player = queries.get_player(interaction.user.id)
+        if player["coins"] < price:
+            await interaction.response.send_message(
+                f"❌ You need 🪙 {price} but only have 🪙 {player['coins']}",
+                ephemeral=True,
+            )
+            return
+        
+        # Check if they already have an active Luck amulet
+        existing_effect = queries.get_active_effect(interaction.user.id, "luck_amulet")
+        if existing_effect:
+            await interaction.response.send_message(
+                f"⏳ You already have **{existing_effect['label']}** active!\n"
+                f"It expires in 2 hours. You cannot stack amulets.",
+                ephemeral=True,
+            )
+            return
+        
+        # Deduct coins
+        new_coins = player["coins"] - price
+        queries.update_player_progress(
+            user_id=interaction.user.id,
+            coins=new_coins,
+            xp=player["xp"],
+            level=player["level"],
+            current_title=player["current_title"],
+            total_dives=player["total_dives"],
+        )
+        
+        # Add effect (luck_bonus is stored directly as the percentage)
+        queries.add_active_effect(
+            user_id=interaction.user.id,
+            effect_id="luck_amulet",
+            label=f"{amulet_name} (+{luck_bonus:.0f}% Luck)",
+            multiplier=luck_bonus / 100.0,  # Store as decimal multiplier
+            duration_hours=2,
+            source_item_id=None,
+        )
+        
+        await interaction.response.send_message(
+            f"✅ Activated **{amulet_name}**!\n"
+            f"🍀 +{luck_bonus:.0f}% rarity chance for 2 real-time hours\n"
+            f"Remaining coins: 🪙 {new_coins}",
             ephemeral=True,
         )
 
     @discord.ui.button(label="🧃-🪙 250", style=discord.ButtonStyle.success, row=0)
     async def buy_novice_buffer(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.purchase_item(interaction, "Novice Buffer (+10% XP)", 250)
+        await self.purchase_buffer(interaction, "Novice Buffer", 10, 250)
 
     @discord.ui.button(label="🧪-🪙 400", style=discord.ButtonStyle.success, row=0)
     async def buy_basic_buffer(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.purchase_item(interaction, "Basic Buffer (+15% XP)", 400)
+        await self.purchase_buffer(interaction, "Basic Buffer", 15, 400)
 
     @discord.ui.button(label="🍵-🪙 575", style=discord.ButtonStyle.success, row=0)
     async def buy_greater_buffer(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.purchase_item(interaction, "Greater Buffer (+20% XP)", 575)
+        await self.purchase_buffer(interaction, "Greater Buffer", 20, 575)
 
     @discord.ui.button(label="🧴-🪙 775", style=discord.ButtonStyle.success, row=1)
     async def buy_advanced_buffer(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.purchase_item(interaction, "Advanced Buffer (+25% XP)", 775)
+        await self.purchase_buffer(interaction, "Advanced Buffer", 25, 775)
 
     @discord.ui.button(label="🧪💖-🪙 1150", style=discord.ButtonStyle.success, row=1)
     async def buy_elite_buffer(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.purchase_item(interaction, "Elite Buffer (+35% XP)", 1150)
+        await self.purchase_buffer(interaction, "Elite Buffer", 35, 1150)
 
     @discord.ui.button(label="🌟-🪙 1850", style=discord.ButtonStyle.success, row=2)
     async def buy_master_buffer(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.purchase_item(interaction, "Master Buffer (+50% XP)", 1850)
+        await self.purchase_buffer(interaction, "Master Buffer", 50, 1850)
 
     @discord.ui.button(label="👑-🪙 3200", style=discord.ButtonStyle.success, row=2)
     async def buy_legendary_buffer(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.purchase_item(interaction, "Legendary Buffer (+75% XP)", 3200)
+        await self.purchase_buffer(interaction, "Legendary Buffer", 75, 3200)
 
     @discord.ui.button(label="🍀-🪙 600", style=discord.ButtonStyle.info, row=3)
     async def buy_worn_amulet(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.purchase_item(interaction, "Worn Amulet (+10% Luck)", 600)
+        await self.purchase_amulet(interaction, "Worn Amulet", 10, 600)
 
     @discord.ui.button(label="🌙-🪙 950", style=discord.ButtonStyle.info, row=3)
     async def buy_polished_amulet(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.purchase_item(interaction, "Polished Amulet (+15% Luck)", 950)
+        await self.purchase_amulet(interaction, "Polished Amulet", 15, 950)
 
     @discord.ui.button(label="🌠-🪙 1650", style=discord.ButtonStyle.info, row=4)
     async def buy_enchanted_amulet(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.purchase_item(interaction, "Enchanted Amulet (+25% Luck)", 1650)
+        await self.purchase_amulet(interaction, "Enchanted Amulet", 25, 1650)
 
     @discord.ui.button(label="👑-🪙 2750", style=discord.ButtonStyle.info, row=4)
     async def buy_lucky_star(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await self.purchase_item(interaction, "Lucky Star Amulet (+35% Luck)", 2750)
+        await self.purchase_amulet(interaction, "Lucky Star Amulet", 35, 2750)
 
     @discord.ui.button(label="🏪 Back", style=discord.ButtonStyle.secondary, row=4)
     async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):

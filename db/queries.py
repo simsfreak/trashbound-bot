@@ -265,3 +265,80 @@ def get_equipped_items(user_id: int) -> list[dict]:
                 (user_id,),
             )
             return [{"slot": row[0], "item_id": row[1]} for row in cur.fetchall()]
+
+
+def add_active_effect(
+    user_id: int,
+    effect_id: str,
+    label: str,
+    multiplier: float,
+    duration_hours: int,
+    source_item_id: str = None,
+) -> None:
+    """Add an active effect to the player. Replaces existing effect of same type if present."""
+    from datetime import datetime, timedelta
+    
+    expires_at = datetime.utcnow() + timedelta(hours=duration_hours)
+    
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            # Remove any existing effect of the same type
+            cur.execute(
+                """
+                DELETE FROM active_effects
+                WHERE user_id = %s AND effect_id = %s
+                """,
+                (user_id, effect_id),
+            )
+            
+            # Add the new effect
+            cur.execute(
+                """
+                INSERT INTO active_effects (user_id, effect_id, label, multiplier, expires_at, source_item_id)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (user_id, effect_id, label, multiplier, expires_at, source_item_id),
+            )
+
+
+def get_active_effect(user_id: int, effect_id: str) -> dict | None:
+    """Get a specific active effect if it exists and hasn't expired."""
+    from datetime import datetime
+    
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, effect_id, label, multiplier, expires_at
+                FROM active_effects
+                WHERE user_id = %s AND effect_id = %s AND expires_at > NOW()
+                """,
+                (user_id, effect_id),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            
+            return {
+                "id": row[0],
+                "effect_id": row[1],
+                "label": row[2],
+                "multiplier": row[3],
+                "expires_at": row[4],
+            }
+
+
+def get_xp_multiplier(user_id: int) -> float:
+    """Get the current XP multiplier from active effects."""
+    effect = get_active_effect(user_id, "xp_buffer")
+    if effect:
+        return float(effect["multiplier"])
+    return 1.0
+
+
+def get_luck_bonus(user_id: int) -> float:
+    """Get the current luck bonus from active effects (as percentage)."""
+    effect = get_active_effect(user_id, "luck_amulet")
+    if effect:
+        return float(effect["multiplier"])
+    return 0.0
