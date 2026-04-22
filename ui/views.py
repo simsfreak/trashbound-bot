@@ -468,50 +468,10 @@ class ProfileView(discord.ui.View):
 
     @discord.ui.button(label="🍻 The Tavern", style=discord.ButtonStyle.success, row=0)
     async def tavern_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        from ui.embeds import tavern_main_embed
         embed = tavern_main_embed(interaction.user.display_name)
         await interaction.response.edit_message(
             embed=embed,
             view=TavernMainView(self.owner_id, self.is_admin),
-            attachments=[],
-        )
-
-        matched_recipe = None
-        for recipe in MIX_RECIPES:
-            if all(inventory_map.get(item_id, 0) >= qty for item_id, qty in recipe["ingredients"].items()):
-                matched_recipe = recipe
-                break
-
-        if not matched_recipe:
-            await interaction.response.edit_message(
-                embed=mix_result_embed(
-                    "🧪 Mix Result",
-                    "No valid recipe yet.\n\nCollect more junk and try again.",
-                ),
-                view=ProfileView(self.owner_id, self.is_admin),
-                attachments=[],
-            )
-            return
-
-        for ingredient_id, qty in matched_recipe["ingredients"].items():
-            queries.remove_item_from_inventory(interaction.user.id, ingredient_id, qty)
-
-        result_item_id = matched_recipe["result_item_id"]
-        result_qty = matched_recipe["result_qty"]
-        queries.add_item_to_inventory(interaction.user.id, result_item_id, result_qty)
-
-        result_item = ITEMS[result_item_id]
-        await interaction.response.edit_message(
-            embed=mix_result_embed(
-                "🧪 Mix Result",
-                (
-                    f"You mixed some suspicious junk together and made:\n\n"
-                    f"{result_item.get('emoji', '✨')} **{result_item['name']}** x{result_qty}\n"
-                    f"🎖️ {result_item['rarity']}\n"
-                    f"*{result_item.get('flavor', 'A strange creation.')}*"
-                ),
-            ),
-            view=ProfileView(self.owner_id, self.is_admin),
             attachments=[],
         )
 
