@@ -54,16 +54,18 @@ class ZoneSelectorView(discord.ui.View):
     
     async def _enter_zone(self, interaction: discord.Interaction, zone_id: str):
         """Enter a zone - check if unlocked, then show zone page."""
+        await interaction.response.defer()
+        
         player = queries.get_player(interaction.user.id)
         zone = ZONES_META.get(zone_id)
         
         if not zone:
-            await interaction.response.send_message("❌ Zone not found.", ephemeral=True)
+            await interaction.followup.send("❌ Zone not found.", ephemeral=True)
             return
         
         # Check if unlocked
         if player["level"] < zone["unlock_level"]:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"🔒 **{zone['name']}** unlocks at Level {zone['unlock_level']}\n"
                 f"You're currently Level {player['level']}",
                 ephemeral=True,
@@ -80,7 +82,7 @@ class ZoneSelectorView(discord.ui.View):
             # Show zone main page with mission data if it exists
             embed = zone_info_embed(zone_id, player["level"], active_zone)
             view = ZoneMainPageView(self.owner_id, self.is_admin, zone_id)
-            await interaction.response.edit_message(embed=embed, view=view, attachments=[])
+            await interaction.edit_original_response(embed=embed, view=view, attachments=[])
     
     async def _show_active_zone(self, interaction: discord.Interaction, zone_id: str, zone_event: dict):
         """Show active zone with mission progress."""
@@ -95,7 +97,7 @@ class ZoneSelectorView(discord.ui.View):
         
         embed = zone_active_embed(zone_id, zone_event, time_remaining)
         view = ZoneActiveView(self.owner_id, self.is_admin, zone_id)
-        await interaction.response.edit_message(embed=embed, view=view, attachments=[])
+        await interaction.edit_original_response(embed=embed, view=view, attachments=[])
 
 
 class ZoneMainPageView(discord.ui.View):
@@ -132,19 +134,22 @@ class ZoneMainPageView(discord.ui.View):
     
     @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=1)
     async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
         player = queries.get_player(interaction.user.id)
         embed = zone_selector_embed(player["level"])
         view = ZoneSelectorView(self.owner_id, self.is_admin)
-        await interaction.response.edit_message(embed=embed, view=view, attachments=[])
+        await interaction.edit_original_response(embed=embed, view=view, attachments=[])
     
     async def _start_mission(self, interaction: discord.Interaction, difficulty: str):
         """Start a new zone mission."""
+        await interaction.response.defer()
+        
         player = queries.get_player(interaction.user.id)
         
         # Check if already has active zone
         active_zone = queries.get_zone_event(interaction.user.id)
         if active_zone:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 "❌ You already have an active zone session!\n"
                 "Complete or abandon it before starting a new one.",
                 ephemeral=True,
@@ -159,7 +164,7 @@ class ZoneMainPageView(discord.ui.View):
         embed = zone_active_embed(self.zone_id, mission, 3600)  # 1 hour = 3600 sec
         view = ZoneActiveView(self.owner_id, self.is_admin, self.zone_id)
         
-        await interaction.response.edit_message(embed=embed, view=view, attachments=[])
+        await interaction.edit_original_response(embed=embed, view=view, attachments=[])
 
 
 class ZoneActiveView(discord.ui.View):
@@ -179,6 +184,8 @@ class ZoneActiveView(discord.ui.View):
     @discord.ui.button(label="🎣 Cast", style=discord.ButtonStyle.primary, row=0)
     async def activity_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Generic activity button - dynamically labeled for each zone."""
+        await interaction.response.defer()
+        
         zone = ZONES_META.get(self.zone_id)
         activity_verb = zone.get("activity_verb", "Activity")
         
@@ -186,7 +193,7 @@ class ZoneActiveView(discord.ui.View):
         cooldown_check = await check_zone_cooldown(interaction.user.id, self.zone_id)
         if cooldown_check["on_cooldown"]:
             embed = zone_cooldown_embed(self.zone_id, cooldown_check["remaining_sec"])
-            await interaction.response.edit_message(embed=embed, view=self, attachments=[])
+            await interaction.edit_original_response(embed=embed, view=self, attachments=[])
             return
         
         # Check if active zone is still valid
@@ -199,7 +206,7 @@ class ZoneActiveView(discord.ui.View):
                 color=0xED4245,
             )
             view = ZoneExpiredView(self.owner_id, self.is_admin, self.zone_id)
-            await interaction.response.edit_message(embed=embed, view=view, attachments=[])
+            await interaction.edit_original_response(embed=embed, view=view, attachments=[])
             return
         
         # Perform activity
@@ -215,7 +222,7 @@ class ZoneActiveView(discord.ui.View):
                 description=result["stage1_message"],
                 color=0x5865F2,
             )
-            await interaction.response.edit_message(embed=embed, view=None, attachments=[])
+            await interaction.edit_original_response(embed=embed, view=None, attachments=[])
             await asyncio.sleep(1.0)
             
             embed = discord.Embed(
@@ -241,14 +248,16 @@ class ZoneActiveView(discord.ui.View):
                 description=result["final_message"],
                 color=0xED4245,
             )
-            await interaction.response.edit_message(embed=embed, view=self, attachments=[])
+            await interaction.edit_original_response(embed=embed, view=self, attachments=[])
     
     @discord.ui.button(label="✅ Complete", style=discord.ButtonStyle.success, row=1)
     async def complete_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Complete zone session and claim rewards."""
+        await interaction.response.defer()
+        
         active_zone = await get_active_zone_session(interaction.user.id, self.zone_id)
         if not active_zone:
-            await interaction.response.send_message("No active zone session.", ephemeral=True)
+            await interaction.followup.send("No active zone session.", ephemeral=True)
             return
         
         rewards = await complete_zone_session(interaction.user.id, self.zone_id)
@@ -256,14 +265,15 @@ class ZoneActiveView(discord.ui.View):
         
         # Back to zone selector
         view = BackToZoneSelector(self.owner_id, self.is_admin)
-        await interaction.response.edit_message(embed=embed, view=view, attachments=[])
+        await interaction.edit_original_response(embed=embed, view=view, attachments=[])
     
     @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=1)
     async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
         player = queries.get_player(interaction.user.id)
-        embed = zone_selector_embed(player["level"], player.get("current_zone_id"))
+        embed = zone_selector_embed(player["level"])
         view = ZoneSelectorView(self.owner_id, self.is_admin)
-        await interaction.response.edit_message(embed=embed, view=view, attachments=[])
+        await interaction.edit_original_response(embed=embed, view=view, attachments=[])
 
 
 class ZoneExpiredView(discord.ui.View):
@@ -282,22 +292,25 @@ class ZoneExpiredView(discord.ui.View):
     
     @discord.ui.button(label="✅ Complete Mission", style=discord.ButtonStyle.success, row=0)
     async def complete_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
+        
         active_zone = await get_active_zone_session(interaction.user.id, self.zone_id)
         if active_zone:
             rewards = await complete_zone_session(interaction.user.id, self.zone_id)
             embed = zone_completion_embed(self.zone_id, active_zone, rewards)
             view = BackToZoneSelector(self.owner_id, self.is_admin)
-            await interaction.response.edit_message(embed=embed, view=view, attachments=[])
+            await interaction.edit_original_response(embed=embed, view=view, attachments=[])
     
     @discord.ui.button(label="❌ Abandon", style=discord.ButtonStyle.danger, row=0)
     async def abandon_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
+        
         queries.complete_zone_event(interaction.user.id, self.zone_id)
-        await interaction.response.send_message("Mission abandoned.", ephemeral=True)
         
         player = queries.get_player(interaction.user.id)
         embed = zone_selector_embed(player["level"])
         view = ZoneSelectorView(self.owner_id, self.is_admin)
-        await interaction.response.edit_message(embed=embed, view=view, attachments=[])
+        await interaction.edit_original_response(embed=embed, view=view, attachments=[])
 
 
 class BackToZoneSelector(discord.ui.View):
@@ -315,10 +328,11 @@ class BackToZoneSelector(discord.ui.View):
     
     @discord.ui.button(label="🗺️ Back to Zones", style=discord.ButtonStyle.primary, row=0)
     async def back_zones(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
         player = queries.get_player(interaction.user.id)
         embed = zone_selector_embed(player["level"])
         view = ZoneSelectorView(self.owner_id, self.is_admin)
-        await interaction.response.edit_message(embed=embed, view=view, attachments=[])
+        await interaction.edit_original_response(embed=embed, view=view, attachments=[])
     
     @discord.ui.button(label="🏠 Back to Profile", style=discord.ButtonStyle.secondary, row=0)
     async def back_profile(self, interaction: discord.Interaction, button: discord.ui.Button):
