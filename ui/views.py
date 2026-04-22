@@ -468,7 +468,7 @@ class ProfileView(discord.ui.View):
     @discord.ui.button(label="🗺️ Zones", style=discord.ButtonStyle.success, row=1)
     async def zones_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         player = queries.get_player(interaction.user.id)
-        embed = zone_selector_embed(player["level"], player.get("current_zone_id"))
+        embed = zone_selector_embed(player["level"])
         await interaction.response.edit_message(
             embed=embed,
             view=ZoneSelectorNewView(self.owner_id, self.is_admin),

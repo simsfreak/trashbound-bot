@@ -319,7 +319,7 @@ class BackToZoneSelector(discord.ui.View):
     @discord.ui.button(label="🗺️ Back to Zones", style=discord.ButtonStyle.primary, row=0)
     async def back_zones(self, interaction: discord.Interaction, button: discord.ui.Button):
         player = queries.get_player(interaction.user.id)
-        embed = zone_selector_embed(player["level"], player.get("current_zone_id"))
+        embed = zone_selector_embed(player["level"])
         view = ZoneSelectorView(self.owner_id, self.is_admin)
         await interaction.response.edit_message(embed=embed, view=view, attachments=[])
     
