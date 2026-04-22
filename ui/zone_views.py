@@ -134,7 +134,7 @@ class ZoneMainPageView(discord.ui.View):
     @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=1)
     async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         player = queries.get_player(interaction.user.id)
-        embed = zone_selector_embed(player["level"], player.get("current_zone_id"))
+        embed = zone_selector_embed(player["level"])
         view = ZoneSelectorView(self.owner_id, self.is_admin)
         await interaction.response.edit_message(embed=embed, view=view, attachments=[])
     
@@ -230,7 +230,8 @@ class ZoneActiveView(discord.ui.View):
             
             # Success result
             item = result.get("item", {})
-            embed = zone_harvest_embed(item.get("id"), 1)
+            rarity = result.get("rarity", "Common")
+            embed = zone_harvest_embed(self.zone_id, item.get("id"), rarity)
             await interaction.edit_original_response(embed=embed, view=self, attachments=[])
             
             # Update mission progress
@@ -297,7 +298,7 @@ class ZoneExpiredView(discord.ui.View):
         await interaction.response.send_message("Mission abandoned.", ephemeral=True)
         
         player = queries.get_player(interaction.user.id)
-        embed = zone_selector_embed(player["level"], player.get("current_zone_id"))
+        embed = zone_selector_embed(player["level"])
         view = ZoneSelectorView(self.owner_id, self.is_admin)
         await interaction.response.edit_message(embed=embed, view=view, attachments=[])
 
