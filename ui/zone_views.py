@@ -28,7 +28,6 @@ class ZoneSelectorView(discord.ui.View):
     
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("This zone selector isn't yours.", ephemeral=True)
             return False
         return True
     
@@ -110,7 +109,7 @@ class ZoneMainPageView(discord.ui.View):
     
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("This zone isn't yours.", ephemeral=True)
+
             return False
         return True
     
@@ -174,7 +173,6 @@ class ZoneActiveView(discord.ui.View):
     
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("This zone isn't yours.", ephemeral=True)
             return False
         return True
     
@@ -279,7 +277,6 @@ class ZoneExpiredView(discord.ui.View):
     
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("This zone isn't yours.", ephemeral=True)
             return False
         return True
     

@@ -220,10 +220,6 @@ class ProfileView(discord.ui.View):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
-            await interaction.response.send_message(
-                "This menu isn't yours. Open your own with /profile.",
-                ephemeral=True,
-            )
             return False
         return True
 

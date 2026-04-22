@@ -16,7 +16,6 @@ class TavernMainView(discord.ui.View):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("This tavern isn't yours.", ephemeral=True)
             return False
         return True
 
@@ -77,7 +76,6 @@ class TavernFoodShopView(discord.ui.View):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("This shop isn't yours.", ephemeral=True)
             return False
         return True
 
@@ -166,7 +164,6 @@ class TavernTicketRedeemView(discord.ui.View):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("These tickets aren't yours.", ephemeral=True)
             return False
         return True
 
