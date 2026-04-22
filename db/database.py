@@ -153,6 +153,15 @@ SCHEMA_STATEMENTS = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS zone_actions (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL REFERENCES players(user_id) ON DELETE CASCADE,
+        zone_id TEXT NOT NULL,
+        last_action_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        UNIQUE (user_id, zone_id)
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS player_relics (
         id SERIAL PRIMARY KEY,
         user_id BIGINT NOT NULL REFERENCES players(user_id) ON DELETE CASCADE,
