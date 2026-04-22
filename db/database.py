@@ -192,12 +192,25 @@ SCHEMA_STATEMENTS = [
 
 @contextmanager
 def get_conn():
-    conn = psycopg.connect(DATABASE_URL)
+    print(f"[CONN] Creating connection to {DATABASE_URL[:20]}...")
     try:
-        yield conn
-        conn.commit()
-    finally:
-        conn.close()
+        conn = psycopg.connect(DATABASE_URL, autocommit=False)
+        print(f"[CONN] Connection created successfully")
+        print(f"[CONN] Psycopg version: {psycopg.__version__}")
+        try:
+            yield conn
+            print(f"[CONN] Committing transaction...")
+            conn.commit()
+            print(f"[CONN] Commit successful")
+        finally:
+            print(f"[CONN] Closing connection...")
+            conn.close()
+            print(f"[CONN] Connection closed")
+    except Exception as e:
+        print(f"\n[CONN ERROR] Connection failed: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 

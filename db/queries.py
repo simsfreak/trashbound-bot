@@ -29,34 +29,41 @@ def ensure_player(user_id: int, username: str) -> None:
 
 def get_player(user_id: int) -> dict | None:
     print(f"[DB] get_player called with user_id={user_id} (type: {type(user_id)})")
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT user_id, username, coins, xp, level, current_zone_id, current_title, total_dives, hunger, last_dive_at
-                FROM players
-                WHERE user_id = %s
-                """,
-                (user_id,),
-            )
-            print(f"[DB] Query executed successfully")
-            row = cur.fetchone()
-            if not row:
-                print(f"[DB] No player found")
-                return None
-            print(f"[DB] Player found: {row}")
-            return {
-                "user_id": row[0],
-                "username": row[1],
-                "coins": row[2],
-                "xp": row[3],
-                "level": row[4],
-                "current_zone_id": row[5],
-                "current_title": row[6],
-                "total_dives": row[7],
-                "hunger": row[8] if row[8] is not None else 100,
-                "last_dive_at": row[9],
-            }
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                print(f"[DB] About to execute SELECT on players table")
+                cur.execute(
+                    """
+                    SELECT user_id, username, coins, xp, level, current_zone_id, current_title, total_dives, hunger, last_dive_at
+                    FROM players
+                    WHERE user_id = %s
+                    """,
+                    (user_id,),
+                )
+                print(f"[DB] Query executed successfully")
+                row = cur.fetchone()
+                if not row:
+                    print(f"[DB] No player found")
+                    return None
+                print(f"[DB] Player found: {row}")
+                return {
+                    "user_id": row[0],
+                    "username": row[1],
+                    "coins": row[2],
+                    "xp": row[3],
+                    "level": row[4],
+                    "current_zone_id": row[5],
+                    "current_title": row[6],
+                    "total_dives": row[7],
+                    "hunger": row[8] if row[8] is not None else 100,
+                    "last_dive_at": row[9],
+                }
+    except Exception as e:
+        print(f"\n[DB ERROR] get_player failed: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 def add_item_to_inventory(user_id: int, item_id: str, quantity: int = 1) -> None:
@@ -510,35 +517,41 @@ def feed_player(user_id: int, hunger_restored: int) -> int:
 def get_zone_event(user_id: int, zone_id: str) -> dict | None:
     """Get active zone event for a user."""
     print(f"[DB] get_zone_event called with user_id={user_id} (type: {type(user_id)}), zone_id={zone_id} (type: {type(zone_id)})")
-    with get_conn() as conn:
-        with conn.cursor() as cur:
-            print(f"[DB] Executing zone_events query...")
-            cur.execute(
-                """
-                SELECT id, zone_id, difficulty, is_active, mission_target_item_id,
-                       mission_target_qty, mission_progress, timer_end_at
-                FROM zone_events
-                WHERE user_id = %s AND zone_id = %s
-                """,
-                (user_id, zone_id),
-            )
-            print(f"[DB] Zone query executed successfully")
-            row = cur.fetchone()
-            if not row:
-                print(f"[DB] No zone event found")
-                return None
-            
-            print(f"[DB] Zone event found: {row}")
-            return {
-                "id": row[0],
-                "zone_id": row[1],
-                "difficulty": row[2],
-                "is_active": row[3],
-                "mission_target_item_id": row[4],
-                "mission_target_qty": row[5],
-                "mission_progress": row[6],
-                "timer_end_at": row[7],
-            }
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                print(f"[DB] About to execute SELECT on zone_events table")
+                cur.execute(
+                    """
+                    SELECT id, zone_id, difficulty, is_active, mission_target_item_id,
+                           mission_target_qty, mission_progress, timer_end_at
+                    FROM zone_events
+                    WHERE user_id = %s AND zone_id = %s
+                    """,
+                    (user_id, zone_id),
+                )
+                print(f"[DB] Zone query executed successfully")
+                row = cur.fetchone()
+                if not row:
+                    print(f"[DB] No zone event found")
+                    return None
+                
+                print(f"[DB] Zone event found: {row}")
+                return {
+                    "id": row[0],
+                    "zone_id": row[1],
+                    "difficulty": row[2],
+                    "is_active": row[3],
+                    "mission_target_item_id": row[4],
+                    "mission_target_qty": row[5],
+                    "mission_progress": row[6],
+                    "timer_end_at": row[7],
+                }
+    except Exception as e:
+        print(f"\n[DB ERROR] get_zone_event failed: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 def start_zone_event(user_id: int, zone_id: str, difficulty: str = "Medium") -> dict:
