@@ -268,7 +268,6 @@ async def start_zone_session(user_id: int, zone_id: str, difficulty: str = "Medi
     db_queries.start_zone_event(
         user_id=user_id,
         zone_id=zone_id,
-        mission_data=mission,
         difficulty=difficulty,
     )
     
@@ -330,6 +329,9 @@ async def complete_zone_session(user_id: int, zone_id: str) -> dict:
         user_id,
         coins=player["coins"] + rewards["coins"],
         xp=player["xp"] + rewards["xp"],
+        level=player["level"],
+        current_title=player["current_title"],
+        total_dives=player["total_dives"],
     )
     
     # Complete the zone event
