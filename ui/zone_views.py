@@ -78,8 +78,8 @@ class ZoneSelectorView(discord.ui.View):
             # Resume active zone
             await self._show_active_zone(interaction, zone_id, active_zone)
         else:
-            # Show zone main page
-            embed = zone_info_embed(zone_id, player["level"])
+            # Show zone main page with mission data if it exists
+            embed = zone_info_embed(zone_id, player["level"], active_zone)
             view = ZoneMainPageView(self.owner_id, self.is_admin, zone_id)
             await interaction.response.edit_message(embed=embed, view=view, attachments=[])
     
