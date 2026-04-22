@@ -33,23 +33,59 @@ class ZoneSelectorView(discord.ui.View):
     
     @discord.ui.button(label="🎣 Fishing", style=discord.ButtonStyle.primary, row=0)
     async def fishing_zone_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        print(f"DEBUG: Fishing button clicked by {interaction.user.id}")
-        await self._enter_zone(interaction, "fishing")
+        try:
+            print(f"DEBUG: Fishing button clicked by {interaction.user.id}")
+            await self._enter_zone(interaction, "fishing")
+        except Exception as e:
+            print(f"ERROR IN FISHING BUTTON: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+            try:
+                await interaction.response.send_message(f"🎣 Fishing Error: {str(e)}", ephemeral=True)
+            except:
+                await interaction.followup.send(f"🎣 Fishing Error: {str(e)}", ephemeral=True)
     
     @discord.ui.button(label="🌿 Botany", style=discord.ButtonStyle.primary, row=0)
     async def botany_zone_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        print(f"DEBUG: Botany button clicked by {interaction.user.id}")
-        await self._enter_zone(interaction, "botany")
+        try:
+            print(f"DEBUG: Botany button clicked by {interaction.user.id}")
+            await self._enter_zone(interaction, "botany")
+        except Exception as e:
+            print(f"ERROR IN BOTANY BUTTON: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+            try:
+                await interaction.response.send_message(f"🌿 Botany Error: {str(e)}", ephemeral=True)
+            except:
+                await interaction.followup.send(f"🌿 Botany Error: {str(e)}", ephemeral=True)
     
     @discord.ui.button(label="🏺 Archaeology", style=discord.ButtonStyle.primary, row=0)
     async def archaeology_zone_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        print(f"DEBUG: Archaeology button clicked by {interaction.user.id}")
-        await self._enter_zone(interaction, "archaeology")
+        try:
+            print(f"DEBUG: Archaeology button clicked by {interaction.user.id}")
+            await self._enter_zone(interaction, "archaeology")
+        except Exception as e:
+            print(f"ERROR IN ARCHAEOLOGY BUTTON: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+            try:
+                await interaction.response.send_message(f"🏺 Archaeology Error: {str(e)}", ephemeral=True)
+            except:
+                await interaction.followup.send(f"🏺 Archaeology Error: {str(e)}", ephemeral=True)
     
     @discord.ui.button(label="♻️ Scavenge", style=discord.ButtonStyle.primary, row=1)
     async def scavenge_zone_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        print(f"DEBUG: Scavenge button clicked by {interaction.user.id}")
-        await self._enter_zone(interaction, "scavenge")
+        try:
+            print(f"DEBUG: Scavenge button clicked by {interaction.user.id}")
+            await self._enter_zone(interaction, "scavenge")
+        except Exception as e:
+            print(f"ERROR IN SCAVENGE BUTTON: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+            try:
+                await interaction.response.send_message(f"♻️ Scavenge Error: {str(e)}", ephemeral=True)
+            except:
+                await interaction.followup.send(f"♻️ Scavenge Error: {str(e)}", ephemeral=True)
     
     @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=1)
     async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
