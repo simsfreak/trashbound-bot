@@ -28,6 +28,7 @@ def ensure_player(user_id: int, username: str) -> None:
 
 
 def get_player(user_id: int) -> dict | None:
+    print(f"[DB] get_player called with user_id={user_id} (type: {type(user_id)})")
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -38,9 +39,12 @@ def get_player(user_id: int) -> dict | None:
                 """,
                 (user_id,),
             )
+            print(f"[DB] Query executed successfully")
             row = cur.fetchone()
             if not row:
+                print(f"[DB] No player found")
                 return None
+            print(f"[DB] Player found: {row}")
             return {
                 "user_id": row[0],
                 "username": row[1],
@@ -505,8 +509,10 @@ def feed_player(user_id: int, hunger_restored: int) -> int:
 
 def get_zone_event(user_id: int, zone_id: str) -> dict | None:
     """Get active zone event for a user."""
+    print(f"[DB] get_zone_event called with user_id={user_id} (type: {type(user_id)}), zone_id={zone_id} (type: {type(zone_id)})")
     with get_conn() as conn:
         with conn.cursor() as cur:
+            print(f"[DB] Executing zone_events query...")
             cur.execute(
                 """
                 SELECT id, zone_id, difficulty, is_active, mission_target_item_id,
@@ -516,10 +522,13 @@ def get_zone_event(user_id: int, zone_id: str) -> dict | None:
                 """,
                 (user_id, zone_id),
             )
+            print(f"[DB] Zone query executed successfully")
             row = cur.fetchone()
             if not row:
+                print(f"[DB] No zone event found")
                 return None
             
+            print(f"[DB] Zone event found: {row}")
             return {
                 "id": row[0],
                 "zone_id": row[1],

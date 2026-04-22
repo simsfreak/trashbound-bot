@@ -70,8 +70,10 @@ class ZoneSelectorView(discord.ui.View):
         
         try:
             print(f"DEBUG: In try block")
+            print(f"DEBUG: About to call get_player with user_id={interaction.user.id}")
             player = queries.get_player(interaction.user.id)
             print(f"DEBUG: Got player: {player}")
+            print(f"DEBUG: About to get ZONES_META for zone_id={zone_id}")
             zone = ZONES_META.get(zone_id)
             print(f"DEBUG: Got zone: {zone}")
             
@@ -100,7 +102,13 @@ class ZoneSelectorView(discord.ui.View):
                 view = ZoneMainPageView(self.owner_id, self.is_admin, zone_id)
                 await interaction.edit_original_response(embed=embed, view=view, attachments=[])
         except Exception as e:
-            print(f"Error in _enter_zone: {e}")
+            print(f"\n{'='*60}")
+            print(f"ERROR in _enter_zone:")
+            print(f"  Exception type: {type(e).__name__}")
+            print(f"  Exception message: {str(e)}")
+            print(f"  Zone ID: {zone_id}")
+            print(f"  User ID: {interaction.user.id} (type: {type(interaction.user.id)})")
+            print(f"{'='*60}\n")
             import traceback
             traceback.print_exc()
             await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
