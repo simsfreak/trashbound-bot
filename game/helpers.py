@@ -1,7 +1,7 @@
 import random
 from datetime import datetime, timedelta
 
-from game.data import ITEMS, MIX_RECIPES, ZONES, get_live_events
+from game.data import ITEMS, MIX_RECIPES, ZONES, get_live_events, DROP_RATES
 from game.rarities import RARITY_BADGES, RARITY_FX
 
 DIVE_STARTERS = [
@@ -72,17 +72,16 @@ def roll_item_for_zone(zone_id: str, rare_bonus: float = 0.0) -> tuple[str, dict
     weighted_pool: list[tuple[str, dict]] = []
     for item_id, item_data in items:
         rarity = item_data["rarity"]
-        base_weight = {
-            "Common": 70,
-            "Uncommon": 18,
-            "Rare": 8,
-            "Epic": 3,
-            "Legendary": 1,
-            "Mythic": 0.2,
-        }.get(rarity, 1)
+        # Use DROP_RATES percentages (already normalized to 100%)
+        base_weight = DROP_RATES.get(rarity, 1.0)
+        
+        # Apply rare_bonus to higher rarities
         if rarity in {"Rare", "Epic", "Legendary", "Mythic"}:
             base_weight *= 1 + rare_bonus
-        weighted_pool.extend([(item_id, item_data)] * max(1, int(round(base_weight))))
+        
+        # Convert percentage to count in pool (scale by 100 for precision)
+        weighted_count = max(1, int(round(base_weight * 100)))
+        weighted_pool.extend([(item_id, item_data)] * weighted_count)
 
     return random.choice(weighted_pool)
 
