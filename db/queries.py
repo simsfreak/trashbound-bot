@@ -342,3 +342,103 @@ def get_luck_bonus(user_id: int) -> float:
     if effect:
         return float(effect["multiplier"])
     return 0.0
+
+
+# ═══════════════════════════════════════════════════════════════════
+# EXCLUSIVE COLLECTIBLES QUERIES
+# ═══════════════════════════════════════════════════════════════════
+
+def get_exclusive_inventory(user_id: int) -> list[dict]:
+    """Get all exclusive items owned by a player."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT exclusive_id, acquired_at, equipped
+                FROM exclusive_inventory
+                WHERE user_id = %s
+                ORDER BY acquired_at DESC
+                """,
+                (user_id,),
+            )
+            return [
+                {
+                    "exclusive_id": row[0],
+                    "acquired_at": row[1].isoformat() if row[1] else None,
+                    "equipped": row[2],
+                }
+                for row in cur.fetchall()
+            ]
+
+
+def add_exclusive_to_inventory(user_id: int, exclusive_id: str) -> None:
+    """Add an exclusive item to a player's inventory."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO exclusive_inventory (user_id, exclusive_id)
+                VALUES (%s, %s)
+                ON CONFLICT (user_id, exclusive_id) DO NOTHING
+                """,
+                (user_id, exclusive_id),
+            )
+
+
+def get_exclusive_counts(user_id: int) -> dict:
+    """Get counts of exclusive items by category."""
+    from game.data import EXCLUSIVE_ITEMS
+    
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT exclusive_id
+                FROM exclusive_inventory
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            owned_ids = [row[0] for row in cur.fetchall()]
+    
+    # Count by category
+    counts = {"Toys": 0, "Dogs": 0, "Cats": 0, "Wings": 0}
+    for exclusive_id in owned_ids:
+        if exclusive_id in EXCLUSIVE_ITEMS:
+            category = EXCLUSIVE_ITEMS[exclusive_id].get("category")
+            if category in counts:
+                counts[category] += 1
+    
+    return counts
+
+
+def get_exclusives_by_category(user_id: int, category: str) -> list[dict]:
+    """Get all exclusive items in a specific category owned by a player."""
+    from game.data import EXCLUSIVE_ITEMS
+    
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT exclusive_id, acquired_at
+                FROM exclusive_inventory
+                WHERE user_id = %s
+                ORDER BY acquired_at DESC
+                """,
+                (user_id,),
+            )
+            owned = [row[0] for row in cur.fetchall()]
+    
+    # Filter by category
+    result = []
+    for exclusive_id in owned:
+        if exclusive_id in EXCLUSIVE_ITEMS:
+            item = EXCLUSIVE_ITEMS[exclusive_id]
+            if item.get("category") == category:
+                result.append({
+                    "exclusive_id": exclusive_id,
+                    "name": item.get("name"),
+                    "flavor": item.get("flavor"),
+                })
+    
+    return result

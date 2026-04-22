@@ -30,6 +30,10 @@ from ui.embeds import (
     pawn_shop_exchange_embed,
     profile_embed,
     zone_embed,
+    exclusive_inventory_main_embed,
+    exclusive_category_embed,
+    exclusive_detail_embed,
+    exclusive_reward_embed,
 )
 from ui.modals import ContactAdminModal
 
@@ -494,6 +498,17 @@ class ProfileView(discord.ui.View):
             attachments=[],
         )
 
+    @discord.ui.button(label="🧸 Exclusive Rares🪽", style=discord.ButtonStyle.primary, row=2)
+    async def exclusive_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        exclusive_counts = queries.get_exclusive_counts(interaction.user.id)
+        from ui.embeds import exclusive_inventory_main_embed
+        embed = exclusive_inventory_main_embed(interaction.user.display_name, exclusive_counts)
+        await interaction.response.edit_message(
+            embed=embed,
+            view=ExclusiveMainView(self.owner_id, self.is_admin),
+            attachments=[],
+        )
+
     @discord.ui.button(label="💌 Contact Admin", style=discord.ButtonStyle.secondary, row=2)
     async def contact_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(ContactAdminModal())
@@ -786,6 +801,187 @@ class PawnShopSpecialsView(discord.ui.View):
     async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = pawn_shop_main_embed(interaction.user.display_name)
         await interaction.response.edit_message(embed=embed, view=PawnShopMainView(self.owner_id, self.is_admin), attachments=[])
+
+
+# ═══════════════════════════════════════════════════════════════════
+# EXCLUSIVE COLLECTIBLES VIEWS
+# ═══════════════════════════════════════════════════════════════════
+
+class ExclusiveMainView(discord.ui.View):
+    """Main view for exclusive inventory showing all categories."""
+    def __init__(self, owner_id: int, is_admin: bool):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This collection isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="🧸 Toys", style=discord.ButtonStyle.primary, row=0)
+    async def toys_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        items = queries.get_exclusives_by_category(interaction.user.id, "Toys")
+        from ui.embeds import exclusive_category_embed
+        
+        # Calculate pagination
+        page_size = 5
+        total_pages = max(1, (len(items) + page_size - 1) // page_size)
+        
+        embed = exclusive_category_embed(
+            interaction.user.display_name,
+            "Toys",
+            items[:page_size],
+            0,
+            total_pages,
+            "🧸",
+        )
+        await interaction.response.edit_message(
+            embed=embed,
+            view=ExclusiveCategoryView(self.owner_id, self.is_admin, "Toys", items, 0),
+            attachments=[],
+        )
+
+    @discord.ui.button(label="🐶 Dogs", style=discord.ButtonStyle.primary, row=0)
+    async def dogs_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        items = queries.get_exclusives_by_category(interaction.user.id, "Dogs")
+        from ui.embeds import exclusive_category_embed
+        
+        page_size = 5
+        total_pages = max(1, (len(items) + page_size - 1) // page_size)
+        
+        embed = exclusive_category_embed(
+            interaction.user.display_name,
+            "Dogs",
+            items[:page_size],
+            0,
+            total_pages,
+            "🐶",
+        )
+        await interaction.response.edit_message(
+            embed=embed,
+            view=ExclusiveCategoryView(self.owner_id, self.is_admin, "Dogs", items, 0),
+            attachments=[],
+        )
+
+    @discord.ui.button(label="🐱 Cats", style=discord.ButtonStyle.primary, row=1)
+    async def cats_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        items = queries.get_exclusives_by_category(interaction.user.id, "Cats")
+        from ui.embeds import exclusive_category_embed
+        
+        page_size = 5
+        total_pages = max(1, (len(items) + page_size - 1) // page_size)
+        
+        embed = exclusive_category_embed(
+            interaction.user.display_name,
+            "Cats",
+            items[:page_size],
+            0,
+            total_pages,
+            "🐱",
+        )
+        await interaction.response.edit_message(
+            embed=embed,
+            view=ExclusiveCategoryView(self.owner_id, self.is_admin, "Cats", items, 0),
+            attachments=[],
+        )
+
+    @discord.ui.button(label="🪽 Wings", style=discord.ButtonStyle.primary, row=1)
+    async def wings_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        items = queries.get_exclusives_by_category(interaction.user.id, "Wings")
+        from ui.embeds import exclusive_category_embed
+        
+        page_size = 5
+        total_pages = max(1, (len(items) + page_size - 1) // page_size)
+        
+        embed = exclusive_category_embed(
+            interaction.user.display_name,
+            "Wings",
+            items[:page_size],
+            0,
+            total_pages,
+            "🪽",
+        )
+        await interaction.response.edit_message(
+            embed=embed,
+            view=ExclusiveCategoryView(self.owner_id, self.is_admin, "Wings", items, 0),
+            attachments=[],
+        )
+
+    @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=2)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await show_profile(interaction, self.owner_id, self.is_admin)
+
+
+class ExclusiveCategoryView(discord.ui.View):
+    """View for browsing exclusive items in a specific category with pagination."""
+    def __init__(self, owner_id: int, is_admin: bool, category: str, items: list[dict], page: int = 0):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+        self.category = category
+        self.items = items
+        self.page = page
+        self.page_size = 5
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This collection isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    @property
+    def total_pages(self) -> int:
+        return max(1, (len(self.items) + self.page_size - 1) // self.page_size)
+
+    def current_page_items(self) -> list[dict]:
+        start = self.page * self.page_size
+        end = start + self.page_size
+        return self.items[start:end]
+
+    @discord.ui.button(label="⬅️ Prev", style=discord.ButtonStyle.secondary, row=0)
+    async def prev_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.page > 0:
+            self.page -= 1
+        from ui.embeds import exclusive_category_embed
+        category_emoji = {"Toys": "🧸", "Dogs": "🐶", "Cats": "🐱", "Wings": "🪽"}.get(self.category, "✨")
+        embed = exclusive_category_embed(
+            interaction.user.display_name,
+            self.category,
+            self.current_page_items(),
+            self.page,
+            self.total_pages,
+            category_emoji,
+        )
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(label="➡️ Next", style=discord.ButtonStyle.secondary, row=0)
+    async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.page < self.total_pages - 1:
+            self.page += 1
+        from ui.embeds import exclusive_category_embed
+        category_emoji = {"Toys": "🧸", "Dogs": "🐶", "Cats": "🐱", "Wings": "🪽"}.get(self.category, "✨")
+        embed = exclusive_category_embed(
+            interaction.user.display_name,
+            self.category,
+            self.current_page_items(),
+            self.page,
+            self.total_pages,
+            category_emoji,
+        )
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.primary, row=1)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        exclusive_counts = queries.get_exclusive_counts(interaction.user.id)
+        from ui.embeds import exclusive_inventory_main_embed
+        embed = exclusive_inventory_main_embed(interaction.user.display_name, exclusive_counts)
+        await interaction.response.edit_message(
+            embed=embed,
+            view=ExclusiveMainView(self.owner_id, self.is_admin),
+            attachments=[],
+        )
 
 
 class PawnShopExchangeView(discord.ui.View):

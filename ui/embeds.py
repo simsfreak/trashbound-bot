@@ -1,7 +1,7 @@
 from datetime import datetime
 import discord
 
-from game.data import ITEMS, ZONES, get_live_events, MUSEUM_COLLECTIONS, MUSEUM_ARTIFACT_TEXT
+from game.data import ITEMS, ZONES, get_live_events, MUSEUM_COLLECTIONS, MUSEUM_ARTIFACT_TEXT, EXCLUSIVE_ITEMS
 from game.leveling import xp_to_next_level
 
 
@@ -135,11 +135,6 @@ def dive_result_embed(
 
     if avatar_url:
         embed.set_author(name=player["username"], icon_url=avatar_url)
-
-    if attachment_filename:
-        embed.set_thumbnail(url=f"attachment://{attachment_filename}")
-    elif isinstance(item.get("image"), str) and item["image"].startswith("http"):
-        embed.set_thumbnail(url=item["image"])
 
     embed.add_field(name="💰 Coins", value=str(player["coins"]), inline=True)
     embed.add_field(name="⭐ Level", value=str(player["level"]), inline=True)
@@ -338,10 +333,6 @@ def museum_artifact_embed(item_id: str, discovered: bool) -> discord.Embed:
     )
     embed.add_field(name="Origin", value=origin_text, inline=False)
 
-    image_path = item.get("image")
-    if discovered and isinstance(image_path, str) and image_path.startswith("http"):
-        embed.set_thumbnail(url=image_path)
-
     return embed
 
 
@@ -447,4 +438,115 @@ def pawn_shop_exchange_embed() -> discord.Embed:
     )
     
     embed.set_footer(text="Choose an exchange option or go back")
+    return embed
+
+
+# ═══════════════════════════════════════════════════════════════════
+# EXCLUSIVE COLLECTIBLES EMBEDS
+# ═══════════════════════════════════════════════════════════════════
+
+def exclusive_inventory_main_embed(username: str, exclusive_counts: dict) -> discord.Embed:
+    """Main exclusive inventory embed showing all categories with counts."""
+    embed = discord.Embed(
+        title=f"🧸 {username}'s Exclusive Rares Collection 🧸",
+        description="Your personal collection of exclusive collectibles. Choose a category to view items.",
+        color=0xFF69B4,
+    )
+    
+    total = sum(exclusive_counts.values())
+    embed.add_field(
+        name="📊 Collection Overview",
+        value=(
+            f"🧸 **Toys:** {exclusive_counts.get('Toys', 0)} items\n"
+            f"🐶 **Dogs:** {exclusive_counts.get('Dogs', 0)} items\n"
+            f"🐱 **Cats:** {exclusive_counts.get('Cats', 0)} items\n"
+            f"🪽 **Wings:** {exclusive_counts.get('Wings', 0)} items\n"
+            f"**Total:** {total} exclusives"
+        ),
+        inline=False,
+    )
+    
+    embed.set_footer(text="Click a category button to browse your collection")
+    return embed
+
+
+def exclusive_category_embed(
+    username: str,
+    category: str,
+    items: list[dict],
+    page: int,
+    total_pages: int,
+    category_emoji: str = "✨",
+) -> discord.Embed:
+    """Embed showing paginated exclusive items in a category."""
+    embed = discord.Embed(
+        title=f"{category_emoji} {username}'s {category} Collection",
+        description=f"Showing page {page + 1} of {total_pages}",
+        color=0xFF69B4,
+    )
+    
+    if items:
+        for item in items:
+            exclusive_id = item.get("exclusive_id", "unknown")
+            name = item.get("name", exclusive_id)
+            flavor = item.get("flavor", "A rare and precious collectible.")
+            embed.add_field(name=name, value=flavor, inline=False)
+    else:
+        embed.description = "You don't have any items in this category yet!"
+    
+    embed.set_footer(text=f"Page {page + 1}/{total_pages} • {category_emoji} {category}")
+    return embed
+
+
+def exclusive_detail_embed(exclusive_item: dict) -> discord.Embed:
+    """Embed showing detailed information about a single exclusive item."""
+    name = exclusive_item.get("name", "Unknown Exclusive")
+    category = exclusive_item.get("category", "Unknown")
+    flavor = exclusive_item.get("flavor", "A mysterious exclusive collectible.")
+    
+    category_emoji = {
+        "Toys": "🧸",
+        "Dogs": "🐶",
+        "Cats": "🐱",
+        "Wings": "🪽",
+    }.get(category, "✨")
+    
+    embed = discord.Embed(
+        title=f"{category_emoji} {name}",
+        description=flavor,
+        color=0xFF69B4,
+    )
+    
+    embed.add_field(name="Category", value=category, inline=True)
+    embed.add_field(name="Rarity", value="Exclusive", inline=True)
+    
+    embed.set_footer(text="Use buttons to view more items or equip this exclusive")
+    return embed
+
+
+def exclusive_reward_embed(exclusive_item: dict) -> discord.Embed:
+    """Embed for revealing a newly acquired exclusive reward."""
+    name = exclusive_item.get("name", "Unknown Exclusive")
+    category = exclusive_item.get("category", "Unknown")
+    flavor = exclusive_item.get("flavor", "A mysterious exclusive collectible.")
+    
+    category_emoji = {
+        "Toys": "🧸",
+        "Dogs": "🐶",
+        "Cats": "🐱",
+        "Wings": "🪽",
+    }.get(category, "✨")
+    
+    embed = discord.Embed(
+        title="✨ EXCLUSIVE REWARD! ✨",
+        description=(
+            f"🎉 You've obtained a new exclusive!\n\n"
+            f"{category_emoji} **{name}**\n"
+            f"*{flavor}*\n\n"
+            f"Added to your collection!"
+        ),
+        color=0xFFD700,
+    )
+    
+    embed.set_footer(text="Check your Exclusive Rares collection to view it!")
     return embed

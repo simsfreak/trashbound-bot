@@ -40,12 +40,10 @@ ZONES = {
     },
 }
 
-# ═══════════════════════════════════════════════════════════════════
-# 300 ITEMS - COMPLETELY REWORKED (EMOJI ONLY, NO PNG IMAGES)
-# ═══════════════════════════════════════════════════════════════════
+# 300 ITEMS - COMPLETELY REWORKED (EMOJI ONLY, NO IMAGES)
 ITEMS = {}
 
-# COMMON ITEMS (60) - Basic trash everyone finds
+# COMMON ITEMS (60)
 _common_items = [
     ("crushed_soda_can", "🥤 Crushed Soda Can", "3 coins", "Flat and thirsty."),
     ("damp_newspaper", "📰 Damp Newspaper", "2 coins", "Still somewhat readable."),
@@ -97,16 +95,16 @@ _common_items = [
     ("small_pebble", "🪨 Small Pebble", "1 coin", "Rocky reject."),
     ("tape_scrap", "📦 Tape Scrap", "1 coin", "Still sticky."),
     ("safety_pin", "🧷 Safety Pin", "1 coin", "Secured nothing."),
-    ("sticky_drink_pouch", "🧃 Sticky Drink Pouch", "2 coins", "Adhesive packaging."),
-    ("damp_napkin_ball", "🧻 Damp Napkin Ball", "1 coin", "Crumpled moisture."),
-    ("cracked_lotion_pump", "🧴 Cracked Lotion Pump", "2 coins", "Broken dispenser."),
-    ("inside_out_sock", "🧦 Inside-Out Sock", "1 coin", "Textile reversal."),
-    ("splinter_bundle", "🪵 Splinter Bundle", "2 coins", "Painful collection."),
-    ("bent_safety_pin", "🧷 Bent Safety Pin", "1 coin", "Compromised security."),
-    ("frosted_plastic_lid", "🧊 Frosted Plastic Lid", "1 coin", "Icy covering."),
-    ("flattened_snack_box", "📦 Flattened Snack Box", "1 coin", "Compressed cardboard."),
-    ("greasy_soap_chunk", "🧼 Greasy Soap Chunk", "2 coins", "Oily cleanser."),
-    ("leaking_battery_shell", "🪫 Leaking Battery Shell", "1 coin", "Hazardous container."),
+    ("rust_dust", "🧯 Rust Dust Pile", "1 coin", "Oxidized dreams."),
+    ("plastic_fragment", "🧴 Plastic Fragment", "1 coin", "Brittle shard."),
+    ("paper_scrap", "🧻 Paper Scrap", "1 coin", "Worthless parchment."),
+    ("puzzle_piece", "🧩 Puzzle Piece", "1 coin", "Part of something lost."),
+    ("stuffing_fluff", "🧸 Stuffing Fluff", "1 coin", "Polyester dreams."),
+    ("rubber_glove_tip", "🧤 Rubber Glove Tip", "1 coin", "Fingertip of utility."),
+    ("bark_strip", "🪵 Bark Strip", "1 coin", "Tree skin scrap."),
+    ("grease_rag", "🧼 Grease Smear Rag", "1 coin", "Barely a rag anymore."),
+    ("ice_wrapper", "🧊 Ice Wrapper", "1 coin", "Frosty packaging."),
+    ("drink_seal_film", "🧃 Drink Seal Film", "1 coin", "Protective nothing."),
 ]
 
 for item_id, name, coins_text, flavor in _common_items:
@@ -118,7 +116,7 @@ for item_id, name, coins_text, flavor in _common_items:
         "flavor": flavor,
     }
 
-# UNCOMMON ITEMS (80) - Mid-tier finds
+# UNCOMMON ITEMS (80)
 _uncommon_items = [
     ("polished_coin", "🪙 Polished Coin", "8 coins", "Shiny with intent."),
     ("half_full_bottle", "🧴 Half-Full Bottle", "5 coins", "Hydration potential."),
@@ -166,7 +164,7 @@ _uncommon_items = [
     ("clip_bundle", "🧷 Clip Bundle", "6 coins", "Organized chaos."),
     ("soft_paper_roll", "🧻 Soft Paper Roll", "5 coins", "Premium texture."),
     ("music_disc", "📀 Music Disc", "9 coins", "Data preserved."),
-    ("soap_stack", "🧼 Soap Stack", "7 coins", "Multiple bars."),
+    ("soap_block", "🧼 Soap Block", "6 coins", "Industrial strength."),
     ("clean_bottle", "🧴 Clean Bottle", "5 coins", "Usable container."),
     ("magnet_ring", "🧲 Magnet Ring", "8 coins", "Circular pull."),
     ("coin_bundle", "🪙 Coin Bundle", "15 coins", "Significant collection."),
@@ -179,6 +177,7 @@ _uncommon_items = [
     ("plush_doll", "🧸 Plush Doll", "7 coins", "Huggable companion."),
     ("feather_stack", "🪶 Feather Stack", "6 coins", "Layered softness."),
     ("clip_set", "🧷 Clip Set", "6 coins", "Organized holding."),
+    ("soap_stack", "🧼 Soap Stack", "7 coins", "Multiple bars."),
     ("polished_coin_stack", "🪙 Polished Coin Stack", "18 coins", "Gleaming fortune."),
     ("ribbon_roll", "🎀 Ribbon Roll", "8 coins", "Decorative material."),
     ("bottle_collection", "🧴 Bottle Collection", "9 coins", "Plastic treasury."),
@@ -186,21 +185,6 @@ _uncommon_items = [
     ("magnet_collection", "🧲 Magnet Collection", "10 coins", "Attractive force."),
     ("puzzle_collection", "🧩 Puzzle Collection", "9 coins", "Many pieces."),
     ("plush_collection", "🧸 Plush Collection", "10 coins", "Soft squad."),
-    ("sealed_mystery_drink", "🧃 Sealed Mystery Drink", "8 coins", "Unknown beverage."),
-    ("half_clean_bottle", "🧴 Half-Clean Bottle", "6 coins", "Partially sanitized."),
-    ("mismatched_sock_pair", "🧦 Mismatched Sock Pair", "7 coins", "Unlikely couple."),
-    ("smooth_driftwood", "🪵 Smooth Driftwood Piece", "8 coins", "Wave-worn wood."),
-    ("reinforced_clip", "🧷 Reinforced Clip", "7 coins", "Heavy-duty fastener."),
-    ("clean_soap_bar", "🧼 Clean Soap Bar", "6 coins", "Unused luxury."),
-    ("worn_coin_stack", "🪙 Worn Coin Stack", "10 coins", "Weathered fortune."),
-    ("packed_supply_box", "📦 Packed Supply Box", "9 coins", "Full container."),
-    ("strong_pull_magnet", "🧲 Strong Pull Magnet", "10 coins", "Powerful attraction."),
-    ("cooling_gel_pack", "🧊 Cooling Gel Pack", "8 coins", "Temperature control."),
-    ("repaired_plush_toy", "🧸 Repaired Plush Toy", "8 coins", "Restored companion."),
-    ("linked_puzzle_set", "🧩 Linked Puzzle Set", "9 coins", "Connected pieces."),
-    ("utility_gloves", "🧤 Utility Gloves", "8 coins", "Practical protection."),
-    ("pressurized_canister", "🧃 Pressurized Canister", "7 coins", "Sealed pressure."),
-    ("polished_feather", "🪶 Polished Feather", "6 coins", "Refined plume."),
 ]
 
 for item_id, name, coins_text, flavor in _uncommon_items:
@@ -212,7 +196,7 @@ for item_id, name, coins_text, flavor in _uncommon_items:
         "flavor": flavor,
     }
 
-# RARE ITEMS (80)
+# RARE ITEMS (80) - Weird lucky finds
 _rare_items = [
     ("ratfang_token", "🦷 Ratfang Token", "15 coins", "Proof of alley citizenship."),
     ("velvet_rust_ribbon", "🎀 Velvet Rust Ribbon", "18 coins", "Fancy decay."),
@@ -274,21 +258,6 @@ _rare_items = [
     ("elixir_bottle", "🧃 Elixir Bottle", "24 coins", "Magical draught."),
     ("gravity_magnet", "🧲 Gravity Magnet", "23 coins", "Pulling force."),
     ("final_piece", "🧩 Final Piece", "20 coins", "Completion fragment."),
-    ("echoing_coin", "🪙 Echoing Coin", "18 coins", "Resonant wealth."),
-    ("alleywatch_charm", "🧿 Alleywatch Charm", "20 coins", "Guardian sphere."),
-    ("tangle_fate_thread", "🧵 Tangle of Fate Thread", "19 coins", "Complex destiny."),
-    ("glow_residue_bottle", "🧴 Glow Residue Bottle", "21 coins", "Luminous container."),
-    ("murmur_feather", "🪶 Murmur Feather", "18 coins", "Whispering plume."),
-    ("flicker_magnet_core", "🧲 Flicker Magnet Core", "20 coins", "Fluctuating pull."),
-    ("hollow_eyed_plush", "🧸 Hollow-Eyed Plush", "17 coins", "Empty gaze toy."),
-    ("missing_corner_piece", "🧩 Missing Corner Piece", "19 coins", "Incomplete fragment."),
-    ("whisperbranch", "🪵 Whisperbranch", "21 coins", "Murmuring timber."),
-    ("luckbound_pin", "🧷 Luckbound Pin", "20 coins", "Fortune fastener."),
-    ("memory_foam_soap", "🧼 Memory Foam Soap", "19 coins", "Remembering cleanser."),
-    ("fizzing_elixir_can", "🧃 Fizzing Elixir Can", "22 coins", "Bubbling magic."),
-    ("twinflip_coin", "🪙 Twinflip Coin", "23 coins", "Double-sided wealth."),
-    ("gutter_eye_bead", "🧿 Gutter Eye Bead", "21 coins", "Street-watching orb."),
-    ("driftwing_feather", "🪶 Driftwing Feather", "20 coins", "Wandering plume."),
 ]
 
 for item_id, name, coins_text, flavor in _rare_items:
@@ -300,7 +269,7 @@ for item_id, name, coins_text, flavor in _rare_items:
         "flavor": flavor,
     }
 
-# EPIC ITEMS (50)
+# EPIC ITEMS (50) - Beautiful junk relics
 _epic_items = [
     ("rustbound_crown_frag", "👑 Rustbound Crown Fragment", "60 coins", "Majestic oxidation."),
     ("voidglass_shard", "🌌 Voidglass Shard", "65 coins", "Bottomless fragment."),
@@ -351,7 +320,6 @@ _epic_items = [
     ("harmony_feather", "🪶 Harmony Feather", "72 coins", "Balanced plume."),
     ("core_magnet_elite", "🧲 Elite Core Magnet", "77 coins", "Premium pull."),
     ("victory_plush", "🧸 Victory Plush", "73 coins", "Winning companion."),
-    ("voidblink_eye", "🧿 Voidblink Eye", "75 coins", "Blinking void orb."),
 ]
 
 for item_id, name, coins_text, flavor in _epic_items:
@@ -363,7 +331,7 @@ for item_id, name, coins_text, flavor in _epic_items:
         "flavor": flavor,
     }
 
-# LEGENDARY ITEMS (36)
+# LEGENDARY ITEMS (30) - Myth-level garbage miracles
 _legendary_items = [
     ("crown_of_dump_king", "👑 Crown of the Dump King", "200 coins", "Absolute garbage royalty."),
     ("heart_of_void_pile", "🌌 Heart of the Void Pile", "220 coins", "Boundless darkness core."),
@@ -391,17 +359,10 @@ _legendary_items = [
     ("core_of_pulling_fate", "🧲 Core of Pulling Fate", "237 coins", "Destiny attraction."),
     ("heart_of_companions", "🧸 Heart of Companions", "224 coins", "Friendship essence."),
     ("piece_of_everything", "🧩 Piece of Everything", "228 coins", "Universal component."),
-    ("liquid_infinity", "🧃 Liquid Infinity", "242 coins", "Boundless potion."),
+    ("liquid_infinity", "🧴 Liquid Infinity", "242 coins", "Boundless potion."),
     ("fate_anchor", "🧷 Fate Anchor", "230 coins", "Destiny's lock."),
-    ("throne_of_scraps_frag", "👑 Throne of Scraps (Fragment)", "240 coins", "Regal discard piece."),
-    ("core_of_endless_heap", "🌌 Core of the Endless Heap", "245 coins", "Infinite dump center."),
-    ("prime_coin_of_fortune", "🪙 Prime Coin of Fortune", "250 coins", "Ultimate wealth."),
-    ("watching_thing", "🧿 The Watching Thing", "255 coins", "Omniscient entity."),
-    ("fortune_spiral_coin", "🪙 Fortune Spiral Coin", "80 coins", "Swirling wealth."),
-    ("pulsecore_magnet", "🧲 Pulsecore Magnet", "78 coins", "Heartbeat attraction."),
-    ("distilled_luck_vial", "🧴 Distilled Luck Vial", "82 coins", "Pure fortune."),
-    ("skyfract_feather", "🪶 Skyfract Feather", "79 coins", "Sky-broken plume."),
-    ("fragment_of_pattern", "🧩 Fragment of Pattern", "76 coins", "Design shard."),
+    ("cleansing_origin", "🧼 Cleansing Origin", "226 coins", "Purity source."),
+    ("frozen_eternity", "🧊 Frozen Eternity", "244 coins", "Forever crystallized."),
 ]
 
 for item_id, name, coins_text, flavor in _legendary_items:
@@ -413,52 +374,73 @@ for item_id, name, coins_text, flavor in _legendary_items:
         "flavor": flavor,
     }
 
-MIX_RECIPES = [
-    {
-        "key": "iron_gloves_recipe",
-        "name": "Forge Iron Gloves",
-        "ingredients": {"scrap_metal": 2},
-        "result_item_id": "iron_gloves",
-        "result_qty": 1,
-        "description": "🔩 Scrap Metal x2 → 🧤 Iron Gloves x1",
-    },
-    {
-        "key": "sole_stompers_recipe",
-        "name": "Sole Stompers",
-        "ingredients": {"old_shoe": 2},
-        "result_item_id": "sole_stompers",
-        "result_qty": 1,
-        "description": "👟 Old Shoe x2 → 🥾 Sole Stompers x1",
-    },
-    {
-        "key": "glitch_charm_recipe",
-        "name": "Glitch Charm",
-        "ingredients": {"scrap_metal": 1, "broken_phone": 1},
-        "result_item_id": "glitch_charm",
-        "result_qty": 1,
-        "description": "🔩 Scrap Metal x1 + 📱 Broken Phone x1 → 📿 Glitch Charm x1",
-    },
-    {
-        "key": "golden_potion_recipe",
-        "name": "Golden Potion",
-        "ingredients": {"mystery_box": 1, "scrap_metal": 2},
-        "result_item_id": "golden_potion",
-        "result_qty": 1,
-        "description": "🎁 Mystery Box x1 + 🔩 Scrap Metal x2 → 🧃 Golden Potion x1",
-    },
-    {
-        "key": "rat_king_recipe",
-        "name": "Rat King Sigil",
-        "ingredients": {"trash_crown": 1, "mystery_box": 1},
-        "result_item_id": "rat_king_sigil",
-        "result_qty": 1,
-        "description": "👑 Trash Crown x1 + 🎁 Mystery Box x1 → 🐀 Rat King Sigil x1",
-    },
+# REMAINING COMMON + UNCOMMON + RARE + EPIC + LEGENDARY (items 251-300)
+_remaining_items = [
+    ("sticky_drink_pouch", "🧃 Sticky Drink Pouch", "Common", "2 coins", "Adhesive packaging."),
+    ("damp_napkin_ball", "🧻 Damp Napkin Ball", "Common", "1 coin", "Crumpled moisture."),
+    ("cracked_lotion_pump", "🧴 Cracked Lotion Pump", "Common", "2 coins", "Broken dispenser."),
+    ("inside_out_sock", "🧦 Inside-Out Sock", "Common", "1 coin", "Textile reversal."),
+    ("splinter_bundle", "🪵 Splinter Bundle", "Common", "2 coins", "Painful collection."),
+    ("bent_safety_pin", "🧷 Bent Safety Pin", "Common", "1 coin", "Compromised security."),
+    ("frosted_plastic_lid", "🧊 Frosted Plastic Lid", "Common", "1 coin", "Icy covering."),
+    ("flattened_snack_box", "📦 Flattened Snack Box", "Common", "1 coin", "Compressed cardboard."),
+    ("greasy_soap_chunk", "🧼 Greasy Soap Chunk", "Common", "2 coins", "Oily cleanser."),
+    ("leaking_battery_shell", "🪫 Leaking Battery Shell", "Common", "1 coin", "Hazardous container."),
+    ("sealed_mystery_drink", "🧃 Sealed Mystery Drink", "Uncommon", "8 coins", "Unknown beverage."),
+    ("half_clean_bottle", "🧴 Half-Clean Bottle", "Uncommon", "6 coins", "Partially sanitized."),
+    ("mismatched_sock_pair", "🧦 Mismatched Sock Pair", "Uncommon", "7 coins", "Unlikely couple."),
+    ("smooth_driftwood", "🪵 Smooth Driftwood Piece", "Uncommon", "8 coins", "Wave-worn wood."),
+    ("reinforced_clip", "🧷 Reinforced Clip", "Uncommon", "7 coins", "Heavy-duty fastener."),
+    ("clean_soap_bar", "🧼 Clean Soap Bar", "Uncommon", "6 coins", "Unused luxury."),
+    ("worn_coin_stack", "🪙 Worn Coin Stack", "Uncommon", "10 coins", "Weathered fortune."),
+    ("packed_supply_box", "📦 Packed Supply Box", "Uncommon", "9 coins", "Full container."),
+    ("strong_pull_magnet", "🧲 Strong Pull Magnet", "Uncommon", "10 coins", "Powerful attraction."),
+    ("cooling_gel_pack", "🧊 Cooling Gel Pack", "Uncommon", "8 coins", "Temperature control."),
+    ("repaired_plush_toy", "🧸 Repaired Plush Toy", "Uncommon", "8 coins", "Restored companion."),
+    ("linked_puzzle_set", "🧩 Linked Puzzle Set", "Uncommon", "9 coins", "Connected pieces."),
+    ("utility_gloves", "🧤 Utility Gloves", "Uncommon", "8 coins", "Practical protection."),
+    ("pressurized_canister", "🧃 Pressurized Canister", "Uncommon", "7 coins", "Sealed pressure."),
+    ("polished_feather", "🪶 Polished Feather", "Uncommon", "6 coins", "Refined plume."),
+    ("echoing_coin", "🪙 Echoing Coin", "Rare", "18 coins", "Resonant wealth."),
+    ("alleywatch_charm", "🧿 Alleywatch Charm", "Rare", "20 coins", "Guardian sphere."),
+    ("tangle_fate_thread", "🧵 Tangle of Fate Thread", "Rare", "19 coins", "Complex destiny."),
+    ("glow_residue_bottle", "🧴 Glow Residue Bottle", "Rare", "21 coins", "Luminous container."),
+    ("murmur_feather", "🪶 Murmur Feather", "Rare", "18 coins", "Whispering plume."),
+    ("flicker_magnet_core", "🧲 Flicker Magnet Core", "Rare", "20 coins", "Fluctuating pull."),
+    ("hollow_eyed_plush", "🧸 Hollow-Eyed Plush", "Rare", "17 coins", "Empty gaze toy."),
+    ("missing_corner_piece", "🧩 Missing Corner Piece", "Rare", "19 coins", "Incomplete fragment."),
+    ("whisperbranch", "🪵 Whisperbranch", "Rare", "21 coins", "Murmuring timber."),
+    ("luckbound_pin", "🧷 Luckbound Pin", "Rare", "20 coins", "Fortune fastener."),
+    ("memory_foam_soap", "🧼 Memory Foam Soap", "Rare", "19 coins", "Remembering cleanser."),
+    ("fizzing_elixir_can", "🧃 Fizzing Elixir Can", "Rare", "22 coins", "Bubbling magic."),
+    ("twinflip_coin", "🪙 Twinflip Coin", "Rare", "23 coins", "Double-sided wealth."),
+    ("gutter_eye_bead", "🧿 Gutter Eye Bead", "Rare", "21 coins", "Street-watching orb."),
+    ("driftwing_feather", "🪶 Driftwing Feather", "Rare", "20 coins", "Wandering plume."),
+    ("voidblink_eye", "🧿 Voidblink Eye", "Epic", "75 coins", "Blinking void orb."),
+    ("fortune_spiral_coin", "🪙 Fortune Spiral Coin", "Epic", "80 coins", "Swirling wealth."),
+    ("pulsecore_magnet", "🧲 Pulsecore Magnet", "Epic", "78 coins", "Heartbeat attraction."),
+    ("distilled_luck_vial", "🧴 Distilled Luck Vial", "Epic", "82 coins", "Pure fortune."),
+    ("skyfract_feather", "🪶 Skyfract Feather", "Epic", "79 coins", "Sky-broken plume."),
+    ("fragment_of_pattern", "🧩 Fragment of Pattern", "Epic", "76 coins", "Design shard."),
+    ("throne_of_scraps_frag", "👑 Throne of Scraps (Fragment)", "Legendary", "240 coins", "Regal discard piece."),
+    ("core_of_endless_heap", "🌌 Core of the Endless Heap", "Legendary", "245 coins", "Infinite dump center."),
+    ("prime_coin_of_fortune", "🪙 Prime Coin of Fortune", "Legendary", "250 coins", "Ultimate wealth."),
+    ("watching_thing", "🧿 The Watching Thing", "Legendary", "255 coins", "Omniscient entity."),
 ]
 
+for item_id, name, rarity, coins_text, flavor in _remaining_items:
+    ITEMS[item_id] = {
+        "name": name,
+        "rarity": rarity,
+        "coins": int(coins_text.split()[0]),
+        "xp": {"Common": 1, "Uncommon": 2, "Rare": 5, "Epic": 10, "Legendary": 20}[rarity],
+        "flavor": flavor,
+    }
+
 # ═══════════════════════════════════════════════════════════════════
-# EXCLUSIVE COLLECTIBLES (36 ITEMS, 4 CATEGORIES)
+# EXCLUSIVE COLLECTIBLES (4 CATEGORIES)
 # ═══════════════════════════════════════════════════════════════════
+
 EXCLUSIVE_ITEMS = {
     "plush_bun": {"name": "🧸 Plush Bun", "category": "Toys", "flavor": "Squishy with endless charm."},
     "ribbon_bear": {"name": "🎀 Ribbon Bear", "category": "Toys", "flavor": "Tied with the finest bow."},
@@ -496,271 +478,6 @@ EXCLUSIVE_ITEMS = {
     "frost_wings": {"name": "❄️ Frost Wings", "category": "Wings", "flavor": "Crystalline majesty."},
 }
 
-WEEKEND_EVENTS = [
-    {
-        "key": "rat_kings_blessing",
-        "name": "Rat King's Blessing",
-        "emoji": "🐀",
-        "type": "weekend",
-        "profile_line": "Rats are hoarding shiny nonsense all weekend.",
-        "description": "Bonus extra-item chance. The alley is squeaking with greed.",
-        "coin_multiplier": 1.0,
-        "xp_multiplier": 1.0,
-        "extra_item_chance": 0.20,
-        "rare_bonus": 0.03,
-        "event_item_id": None,
-    },
-    {
-        "key": "gold_rush",
-        "name": "Gold Rush Weekend",
-        "emoji": "💰",
-        "type": "weekend",
-        "profile_line": "Coins are hitting different right now.",
-        "description": "+50% coins on all dives this weekend.",
-        "coin_multiplier": 1.5,
-        "xp_multiplier": 1.0,
-        "extra_item_chance": 0.0,
-        "rare_bonus": 0.02,
-        "event_item_id": None,
-    },
-    {
-        "key": "unstable_mix",
-        "name": "Unstable Mix Weekend",
-        "emoji": "🧪",
-        "type": "weekend",
-        "profile_line": "The bench is hissing. Good sign honestly.",
-        "description": "Mixing gets a little more chaotic and a little more rewarding.",
-        "coin_multiplier": 1.0,
-        "xp_multiplier": 1.0,
-        "extra_item_chance": 0.10,
-        "rare_bonus": 0.05,
-        "event_item_id": None,
-    },
-    {
-        "key": "dumpster_fire",
-        "name": "Dumpster Fire",
-        "emoji": "🔥",
-        "type": "weekend",
-        "profile_line": "Everything is mildly on fire and wildly profitable.",
-        "description": "+30% XP. Small chance to find Burned Scrap.",
-        "coin_multiplier": 1.0,
-        "xp_multiplier": 1.3,
-        "extra_item_chance": 0.0,
-        "rare_bonus": 0.03,
-        "event_item_id": "burned_scrap",
-    },
-]
-
-SEASONAL_EVENTS = [
-    {
-        "key": "cursed_trash",
-        "name": "Cursed Trash",
-        "emoji": "🎃",
-        "type": "seasonal",
-        "months": [10],
-        "profile_line": "The dumpsters are whispering again.",
-        "description": "Spooky pulls and cursed flavor all month.",
-        "coin_multiplier": 1.0,
-        "xp_multiplier": 1.15,
-        "extra_item_chance": 0.05,
-        "rare_bonus": 0.04,
-        "event_item_id": None,
-    },
-    {
-        "key": "frozen_finds",
-        "name": "Frozen Finds",
-        "emoji": "❄️",
-        "type": "seasonal",
-        "months": [12, 1],
-        "profile_line": "The loot is cold but weirdly premium.",
-        "description": "Icy pulls, calmer chaos, and occasional Frozen Phone drops.",
-        "coin_multiplier": 1.0,
-        "xp_multiplier": 1.1,
-        "extra_item_chance": 0.05,
-        "rare_bonus": 0.05,
-        "event_item_id": "frozen_phone",
-    },
-    {
-        "key": "broken_reality",
-        "name": "Broken Reality",
-        "emoji": "🃏",
-        "type": "seasonal",
-        "months": [4],
-        "profile_line": "Nothing feels correct and that kind of rules.",
-        "description": "Luck spikes, labels feel cursed, and loot tables get goofy.",
-        "coin_multiplier": 1.0,
-        "xp_multiplier": 1.0,
-        "extra_item_chance": 0.10,
-        "rare_bonus": 0.06,
-        "event_item_id": None,
-    },
-]
-
-HELP_TEXT = (
-    "• **Dive** runs a multi-step scavenging sequence with random chaos.\n"
-    "• **Loot** lets you inspect items and use potions / equip crafted gear.\n"
-    "• **Mix** opens the goblin lab with fixed recipes and chaos mixing.\n"
-    "• **Zones** is an interactive map where you can set your active zone.\n"
-    "• **Events** shows the live weekend and seasonal world modifiers."
-)
-
-
-
-def get_active_weekend_event(now: datetime | None = None) -> dict | None:
-    now = now or datetime.utcnow()
-    if now.weekday() not in {4, 5, 6}:
-        return None
-    return WEEKEND_EVENTS[now.isocalendar().week % len(WEEKEND_EVENTS)]
-
-
-
-def get_active_seasonal_event(now: datetime | None = None) -> dict | None:
-    now = now or datetime.utcnow()
-    for event in SEASONAL_EVENTS:
-        if now.month in event["months"]:
-            return event
-    return None
-
-
-
-def get_live_events(now: datetime | None = None) -> list[dict]:
-    now = now or datetime.utcnow()
-    live: list[dict] = []
-    weekend = get_active_weekend_event(now)
-    seasonal = get_active_seasonal_event(now)
-    if weekend:
-        live.append(weekend)
-    if seasonal:
-        live.append(seasonal)
-    return live
-
-MUSEUM_COLLECTIONS = {
-    "basic_treasures": {
-        "name": "Basic Treasures",
-        "emoji": "🧩",
-        "description": "The humble scraps that started every great alley career.",
-        "item_ids": [
-            "crushed_soda_can",
-            "damp_newspaper",
-            "lost_sock",
-            "moldy_bread",
-            "bent_toothbrush",
-            "torn_cardboard",
-            "empty_shampoo",
-            "tissue_bundle",
-        ],
-    },
-    "uncommon_finds": {
-        "name": "Uncommon Finds",
-        "emoji": "⭐",
-        "description": "Decent discoveries from the mid-tier locations.",
-        "item_ids": [
-            "polished_coin",
-            "half_full_bottle",
-            "patched_plush",
-            "reinforced_box",
-            "steel_clip",
-            "sealed_juice_pack",
-            "metal_spoon",
-            "playable_cd",
-        ],
-    },
-    "rare_relics": {
-        "name": "Rare Relics",
-        "emoji": "🌟",
-        "description": "Weird lucky finds with celestial significance.",
-        "item_ids": [
-            "ratfang_token",
-            "velvet_rust_ribbon",
-            "mooncap_charm",
-            "gilded_drain_key",
-            "cracked_halo_shard",
-            "saints_soda_tab",
-            "mothglass_pendant",
-            "music_box_tooth",
-        ],
-    },
-    "epic_artifacts": {
-        "name": "Epic Artifacts",
-        "emoji": "👑",
-        "description": "Beautiful junk relics of legendary magnitude.",
-        "item_ids": [
-            "rustbound_crown_frag",
-            "voidglass_shard",
-            "embercore_bottle",
-            "all_seeing_bead",
-            "kings_lost_coin",
-            "fateweaver_thread",
-            "celestial_feather",
-            "core_singularity_magnet",
-        ],
-    },
-    "legendary_treasures": {
-        "name": "Legendary Treasures",
-        "emoji": "💎",
-        "description": "Myth-level garbage miracles of absolute power.",
-        "item_ids": [
-            "crown_of_dump_king",
-            "heart_of_void_pile",
-            "eternal_ember_relic",
-            "fallen_halo_core",
-            "infinite_coin_bloom",
-            "eye_of_lost_things",
-            "wing_of_forgotten",
-            "gravity_well_core",
-        ],
-    },
-}
-
-MUSEUM_ARTIFACT_TEXT = {
-    "crushed_soda_can": {
-        "origin": "Usually recovered from beginner dives in the Back Alley.",
-        "museum_text": "A discarded classic. Every scrapper remembers their first one.",
-    },
-    "polished_coin": {
-        "origin": "Commonly pulled from alleys and apartment bins.",
-        "museum_text": "The backbone of the junk economy.",
-    },
-    "ratfang_token": {
-        "origin": "Recovered from household piles and unstable mixes.",
-        "museum_text": "Proof of alley citizenship and rat respect.",
-    },
-}
-
-# ═══════════════════════════════════════════════════════════════════
-# DROP TABLE SYSTEM
-# ═══════════════════════════════════════════════════════════════════
-DROP_RATES = {
-    "Common": 0.65,
-    "Uncommon": 0.25,
-    "Rare": 0.08,
-    "Epic": 0.018,
-    "Legendary": 0.002,
-}
-
-# ═══════════════════════════════════════════════════════════════════
-# EXCLUSIVE GACHA WEIGHTS
-# ═══════════════════════════════════════════════════════════════════
-EXCLUSIVE_WEIGHTS = {
-    "Toys": 0.40,
-    "Dogs": 0.25,
-    "Cats": 0.25,
-    "Wings": 0.10,
-}
-
-# ═══════════════════════════════════════════════════════════════════
-# HELPER FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════
-def get_random_exclusive():
-    """Randomly select an exclusive item based on category weights."""
-    category = random.choices(
-        list(EXCLUSIVE_WEIGHTS.keys()),
-        weights=list(EXCLUSIVE_WEIGHTS.values())
-    )[0]
-    
-    category_items = [item for item in EXCLUSIVE_ITEMS.values() if item["category"] == category]
-    return random.choice(category_items) if category_items else None
-
 # ═══════════════════════════════════════════════════════════════════
 # PAWN SHOP DATA
 # ═══════════════════════════════════════════════════════════════════
@@ -794,3 +511,54 @@ PAWN_SPECIALS = [
     {"name": "Coming Soon", "emoji": "🪄", "description": "Mysterious rewards await..."},
     {"name": "Coming Soon", "emoji": "🪄", "description": "Mysterious rewards await..."},
 ]
+
+# DROP TABLE SYSTEM
+DROP_RATES = {
+    "Common": 0.65,
+    "Uncommon": 0.25,
+    "Rare": 0.08,
+    "Epic": 0.018,
+    "Legendary": 0.002,
+}
+
+# EXCLUSIVE GACHA WEIGHTS
+EXCLUSIVE_WEIGHTS = {
+    "Toys": 0.40,
+    "Dogs": 0.25,
+    "Cats": 0.25,
+    "Wings": 0.10,
+}
+
+def get_random_exclusive():
+    """Randomly select an exclusive item based on category weights."""
+    category = random.choices(
+        list(EXCLUSIVE_WEIGHTS.keys()),
+        weights=list(EXCLUSIVE_WEIGHTS.values())
+    )[0]
+    
+    category_items = [item for item in EXCLUSIVE_ITEMS.values() if item["category"] == category]
+    return random.choice(category_items) if category_items else None
+
+def get_active_weekend_event(now: datetime | None = None) -> dict | None:
+    now = now or datetime.utcnow()
+    if now.weekday() not in {4, 5, 6}:
+        return None
+    return WEEKEND_EVENTS[now.isocalendar().week % len(WEEKEND_EVENTS)]
+
+def get_active_seasonal_event(now: datetime | None = None) -> dict | None:
+    now = now or datetime.utcnow()
+    for event in SEASONAL_EVENTS:
+        if now.month in event["months"]:
+            return event
+    return None
+
+def get_live_events(now: datetime | None = None) -> list[dict]:
+    now = now or datetime.utcnow()
+    live: list[dict] = []
+    weekend = get_active_weekend_event(now)
+    seasonal = get_active_seasonal_event(now)
+    if weekend:
+        live.append(weekend)
+    if seasonal:
+        live.append(seasonal)
+    return live

@@ -87,6 +87,16 @@ SCHEMA_STATEMENTS = [
         PRIMARY KEY (user_id, item_id)
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS exclusive_inventory (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL REFERENCES players(user_id) ON DELETE CASCADE,
+        exclusive_id TEXT NOT NULL,
+        acquired_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        equipped BOOLEAN DEFAULT FALSE,
+        UNIQUE (user_id, exclusive_id)
+    )
+    """,
 ]
 
 
