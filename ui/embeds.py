@@ -213,21 +213,6 @@ def inventory_embed(username: str, lines: list[str], page: int, total_pages: int
     return embed
 
 
-def zone_embed(player, zone_id, unlocked_zone_ids, zone_loot_lines, index, total):
-    zone = ZONES[zone_id]
-    unlocked = zone_id in unlocked_zone_ids
-    current = zone_id == player["current_zone_id"]
-    status = "🟢 CURRENT" if current else ("✅ UNLOCKED" if unlocked else f"🔒 Unlocks at Level {zone['unlock_level']}")
-
-    embed = discord.Embed(
-        title=f"🗺️ Zone Selector ({index + 1}/{total})",
-        description=f"**{zone['name']}**\n{status}\n\n*{zone['description']}*",
-        color=0x57F287 if unlocked else 0xED4245,
-    )
-    embed.add_field(name="🎁 Possible Finds", value="\n".join(zone_loot_lines) if zone_loot_lines else "???", inline=False)
-    return embed
-
-
 def mix_lab_embed(inventory_map, mix_lines):
     return discord.Embed(
         title="🧪 Goblin Mix Lab",
@@ -696,6 +681,179 @@ def tavern_redeem_multi_embed(items: list[str], count: int) -> discord.Embed:
         ),
         color=0xFFD700,
     )
+    return embed
+
+
+# ═══════════════════════════════════════════════════════════════════
+# ZONE FARMING EMBEDS
+# ═══════════════════════════════════════════════════════════════════
+
+def zone_selector_embed(player_level: int, current_zone_id: str | None) -> discord.Embed:
+    """Main zone selector showing all available zones."""
+    embed = discord.Embed(
+        title="🗺️ ZONE SELECTOR 🗺️",
+        description="Choose a zone to farm items, complete missions, and gather resources.\n\n**Tips:** Zones unlock as you level up. Harder zones have better rewards!",
+        color=0x2ECC71,
+    )
+    
+    for zone_id, zone_data in ZONES.items():
+        is_current = zone_id == current_zone_id
+        is_unlocked = player_level >= zone_data["unlock_level"]
+        
+        if is_unlocked:
+            status = "🟢 ACTIVE" if is_current else "✅ READY"
+            color_marker = "🟢" if is_current else "🟢"
+        else:
+            status = f"🔒 Level {zone_data['unlock_level']}"
+            color_marker = "🔴"
+        
+        zone_info = (
+            f"{color_marker} **{zone_data['name']}**\n"
+            f"Status: {status}\n"
+            f"⏱️ Cooldown: {zone_data.get('cooldown', '???')}s"
+        )
+        
+        embed.add_field(name=zone_data.get('unicode_style', zone_data['name']), value=zone_info, inline=False)
+    
+    embed.set_footer(text="Click zone button below to enter or get info")
+    return embed
+
+
+def zone_info_embed(zone_id: str, player_level: int) -> discord.Embed:
+    """Detailed info about a single zone."""
+    zone = ZONES[zone_id]
+    is_unlocked = player_level >= zone["unlock_level"]
+    
+    if is_unlocked:
+        description = (
+            f"{zone['description']}\n\n"
+            f"**Danger Level:** {zone['danger']}\n"
+            f"**Luck Factor:** {zone['luck']}\n"
+            f"**Action Cooldown:** {zone.get('cooldown', 'N/A')}s"
+        )
+        color = 0x2ECC71
+    else:
+        description = (
+            f"*This zone is locked.*\n"
+            f"**Unlocks at Level {zone['unlock_level']}**\n\n"
+            f"Keep diving and leveling up to access this zone!"
+        )
+        color = 0xED4245
+    
+    embed = discord.Embed(
+        title=f"🗺️ {zone['name']}",
+        description=description,
+        color=color,
+    )
+    
+    embed.add_field(name="⚡ Challenge", value=zone.get('unicode_style', zone['name']), inline=False)
+    embed.set_footer(text="Return to zone selector or enter this zone")
+    return embed
+
+
+def zone_active_embed(zone_id: str, mission_data: dict, time_remaining_sec: int | None = None) -> discord.Embed:
+    """Embed showing active zone mission."""
+    zone = ZONES[zone_id]
+    mission = mission_data or {}
+    
+    rarity = mission.get('target_rarity', 'Unknown')
+    quantity = mission.get('target_quantity', 0)
+    collected = mission.get('progress', 0)
+    remaining = quantity - collected
+    
+    progress_bar = "🟩" * collected + "⬜" * max(0, remaining)
+    
+    description = (
+        f"🎯 **MISSION:** Collect {quantity} {rarity} items\n"
+        f"**Progress:** {collected}/{quantity}\n\n"
+        f"{progress_bar}\n\n"
+        f"**Rewards on completion:**\n"
+        f"💰 +{mission.get('coin_reward', 0)} coins\n"
+        f"⭐ +{mission.get('xp_reward', 0)} XP"
+    )
+    
+    if time_remaining_sec and time_remaining_sec > 0:
+        mins = time_remaining_sec // 60
+        secs = time_remaining_sec % 60
+        description += f"\n\n⏳ **Time Remaining:** {mins:02d}:{secs:02d}"
+    
+    embed = discord.Embed(
+        title=f"⛏️ ACTIVE IN {zone['name']}",
+        description=description,
+        color=RARITY_COLORS.get(rarity, 0x5865F2),
+    )
+    
+    embed.set_footer(text="Collect items to progress mission or complete zone session")
+    return embed
+
+
+def zone_harvest_embed(item_id: str, quantity: int = 1) -> discord.Embed:
+    """Embed for a harvest result from zone activity."""
+    item = ITEMS.get(item_id, {"name": item_id, "emoji": "✨"})
+    rarity = item.get("rarity", "Common")
+    
+    description = (
+        f"✨ **{item['name']}** x{quantity}\n"
+        f"Rarity: **{rarity}**\n\n"
+        f"*{item.get('flavor', 'A curious find from the zone.')}*"
+    )
+    
+    embed = discord.Embed(
+        title="🎁 HARVEST!",
+        description=description,
+        color=RARITY_COLORS.get(rarity, 0x5865F2),
+    )
+    
+    embed.set_footer(text="Item added to inventory • Continue harvesting or complete mission")
+    return embed
+
+
+def zone_completion_embed(zone_id: str, mission_data: dict, rewards: dict) -> discord.Embed:
+    """Embed showing zone session completion and rewards."""
+    zone = ZONES[zone_id]
+    mission = mission_data or {}
+    
+    description = (
+        f"✅ **{zone['name']} SESSION COMPLETE**\n\n"
+        f"**Mission:** Collect {mission.get('target_quantity', 0)} {mission.get('target_rarity', 'Unknown')} items\n"
+        f"**Status:** COMPLETED ✓\n\n"
+        f"**Rewards Earned:**\n"
+        f"💰 Coins: +{rewards.get('coins', 0)}\n"
+        f"⭐ XP: +{rewards.get('xp', 0)}\n"
+    )
+    
+    if rewards.get('bonus_encountered'):
+        description += f"\n🎉 **Bonus:** {rewards['bonus_encountered']}"
+    
+    description += "\n\nReady for another session?"
+    
+    embed = discord.Embed(
+        title="🏆 MISSION SUCCESS! 🏆",
+        description=description,
+        color=0xFFD700,
+    )
+    
+    embed.set_footer(text="Return to zone selector to try another zone or continue")
+    return embed
+
+
+def zone_cooldown_embed(zone_id: str, cooldown_remaining_sec: int) -> discord.Embed:
+    """Embed showing zone cooldown remaining."""
+    zone = ZONES[zone_id]
+    mins = cooldown_remaining_sec // 60
+    secs = cooldown_remaining_sec % 60
+    
+    embed = discord.Embed(
+        title="⏳ ZONE ON COOLDOWN",
+        description=(
+            f"**{zone['name']}** needs a break.\n\n"
+            f"⏳ **Time Until Ready:** {mins:02d}:{secs:02d}\n\n"
+            f"Try another zone in the meantime!"
+        ),
+        color=0xED4245,
+    )
+    
+    embed.set_footer(text="Return to zone selector")
     return embed
 
 

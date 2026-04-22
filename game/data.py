@@ -2,41 +2,41 @@ from datetime import datetime
 import random
 
 ZONES = {
-    "back_alley": {
-        "name": "Back Alley",
+    "fishing": {
+        "name": "🎣 Fishing Zone",
         "unlock_level": 1,
-        "description": "Soggy boxes, lost sneakers, and low-tier treasure.",
-        "banner": "🗑️ ╔═ BACK ALLEY ═╗",
-        "unicode_style": "⌁ damp / shady / beginner luck ⌁",
-        "danger": "Low",
-        "luck": "Slightly cursed",
+        "description": "Fish the murky waters for aquatic treasures. Roll, catch, and discover what lurks beneath.",
+        "banner": "🎣 ╔═ FISHING ZONE ═╗",
+        "unicode_style": "⌊ wet / liquid / rewarding ⌋",
+        "danger": "Low-Medium",
+        "luck": "Splash zone good",
     },
-    "apartment_bins": {
-        "name": "Apartment Bins",
+    "botany": {
+        "name": "🌿 Botany Zone",
+        "unlock_level": 2,
+        "description": "Gather rare plants and herbs from the overgrown district. Each flower tells a story.",
+        "banner": "🌿 ╔═ BOTANY ZONE ═╗",
+        "unicode_style": "✿ green / discovery / quality ✿",
+        "danger": "Medium",
+        "luck": "Nature's blessing",
+    },
+    "archaeology": {
+        "name": "🏺 Archaeology Zone",
         "unlock_level": 3,
-        "description": "Household leftovers, mystery decor, and weird little jackpots.",
-        "banner": "🏢 ╔═ APARTMENT BINS ═╗",
-        "unicode_style": "✦ domestic chaos / hidden jackpots ✦",
-        "danger": "Medium",
-        "luck": "Nosy gremlin good",
+        "description": "Dig up ancient relics from forgotten burial grounds. History awaits the patient digger.",
+        "banner": "🏺 ╔═ ARCHAEOLOGY ZONE ═╗",
+        "unicode_style": "⚱ old / cursed / precious ⚱",
+        "danger": "Medium-High",
+        "luck": "Tomb whispers",
     },
-    "restaurant_dumpster": {
-        "name": "Restaurant Dumpster",
-        "unlock_level": 5,
-        "description": "Greasy chaos, cursed leftovers, and surprisingly good loot.",
-        "banner": "🍔 ╔═ RESTAURANT DUMPSTER ═╗",
-        "unicode_style": "⚠ greasy / loud / reward-heavy ⚠",
-        "danger": "Medium",
-        "luck": "Suspiciously tasty",
-    },
-    "mall_rear_lot": {
-        "name": "Mall Rear Lot",
-        "unlock_level": 8,
-        "description": "Discarded fashion, promo junk, and elite trash energy.",
-        "banner": "🛍️ ╔═ MALL REAR LOT ═╗",
-        "unicode_style": "⟡ glossy / expensive / high-tier rot ⟡",
-        "danger": "High",
-        "luck": "Luxury filth",
+    "scavenge": {
+        "name": "♻️ Scavenge Zone",
+        "unlock_level": 4,
+        "description": "Sift through the junkyard for valuable trash. One person's garbage is your treasure.",
+        "banner": "♻️ ╔═ SCAVENGE ZONE ═╗",
+        "unicode_style": "⟲ abundant / chaotic / lucky ⟲",
+        "danger": "Low",
+        "luck": "Junk luck supreme",
     },
 }
 
@@ -116,7 +116,7 @@ for item_id, name, coins_text, flavor in _common_items:
         "coins": int(coins_text.split()[0]),
         "xp": 1,
         "flavor": flavor,
-        "zone_ids": ["back_alley", "apartment_bins", "restaurant_dumpster", "mall_rear_lot"],
+        "zone_ids": ["fishing", "botany", "archaeology", "scavenge"],
     }
 
 # UNCOMMON ITEMS (80) - Mid-tier finds
@@ -364,7 +364,7 @@ for item_id, name, coins_text, flavor in _epic_items:
         "coins": int(coins_text.split()[0]),
         "xp": 10,
         "flavor": flavor,
-        "zone_ids": ["mall_rear_lot"],
+        "zone_ids": ["scavenge"],
     }
 
 # LEGENDARY ITEMS (36)
@@ -415,7 +415,7 @@ for item_id, name, coins_text, flavor in _legendary_items:
         "coins": int(coins_text.split()[0]),
         "xp": 20,
         "flavor": flavor,
-        "zone_ids": ["mall_rear_lot"],
+        "zone_ids": ["scavenge"],
     }
 
 MIX_RECIPES = [

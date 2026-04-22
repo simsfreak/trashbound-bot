@@ -29,7 +29,6 @@ from ui.embeds import (
     pawn_shop_specials_embed,
     pawn_shop_exchange_embed,
     profile_embed,
-    zone_embed,
     exclusive_inventory_main_embed,
     exclusive_category_embed,
     exclusive_detail_embed,
@@ -41,6 +40,12 @@ from ui.embeds import (
     tavern_redeem_multi_embed,
     tavern_redeem_all_embed,
     exclusive_unlock_embed,
+    zone_selector_embed,
+    zone_info_embed,
+    zone_active_embed,
+    zone_harvest_embed,
+    zone_completion_embed,
+    zone_cooldown_embed,
 )
 from ui.modals import ContactAdminModal
 
@@ -171,69 +176,6 @@ class InventoryView(discord.ui.View):
         await interaction.response.edit_message(embed=embed, view=self)
 
     @discord.ui.button(label="🏠 Back to Profile", style=discord.ButtonStyle.primary, row=1)
-    async def back_to_profile(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await show_profile(interaction, self.owner_id, self.is_admin)
-
-
-class ZoneSelectorView(discord.ui.View):
-    def __init__(self, owner_id: int, is_admin: bool, zone_ids: list[str], index: int = 0):
-        super().__init__(timeout=300)
-        self.owner_id = owner_id
-        self.is_admin = is_admin
-        self.zone_ids = zone_ids
-        self.index = index
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("That map isn't yours.", ephemeral=True)
-            return False
-        return True
-
-    def current_zone_id(self) -> str:
-        return self.zone_ids[self.index]
-
-    def build_embed(self, interaction: discord.Interaction) -> discord.Embed:
-        player = queries.get_player(interaction.user.id)
-        unlocked_zone_ids = set(queries.get_unlocked_zone_ids(interaction.user.id))
-        zone_id = self.current_zone_id()
-
-        loot_lines = []
-        for item_id, item in ITEMS.items():
-            if zone_id in item.get("zone_ids", []):
-                loot_lines.append(f"{item.get('emoji', '✨')} {item['name']} • {item['rarity']}")
-
-        return zone_embed(
-            player=player,
-            zone_id=zone_id,
-            unlocked_zone_ids=unlocked_zone_ids,
-            zone_loot_lines=loot_lines[:6],
-            index=self.index,
-            total=len(self.zone_ids),
-        )
-
-    @discord.ui.button(label="⬅️", style=discord.ButtonStyle.secondary, row=0)
-    async def previous_zone(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.index = (self.index - 1) % len(self.zone_ids)
-        await interaction.response.edit_message(embed=self.build_embed(interaction), view=self)
-
-    @discord.ui.button(label="✅ Set Active", style=discord.ButtonStyle.success, row=0)
-    async def set_active_zone(self, interaction: discord.Interaction, button: discord.ui.Button):
-        zone_id = self.current_zone_id()
-        unlocked = set(queries.get_unlocked_zone_ids(interaction.user.id))
-
-        if zone_id not in unlocked:
-            await interaction.response.send_message("That zone is still locked. Keep grinding.", ephemeral=True)
-            return
-
-        queries.set_current_zone(interaction.user.id, zone_id)
-        await interaction.response.edit_message(embed=self.build_embed(interaction), view=self)
-
-    @discord.ui.button(label="➡️", style=discord.ButtonStyle.secondary, row=0)
-    async def next_zone(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.index = (self.index + 1) % len(self.zone_ids)
-        await interaction.response.edit_message(embed=self.build_embed(interaction), view=self)
-
-    @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.primary, row=1)
     async def back_to_profile(self, interaction: discord.Interaction, button: discord.ui.Button):
         await show_profile(interaction, self.owner_id, self.is_admin)
 
@@ -477,9 +419,13 @@ class ProfileView(discord.ui.View):
 
     @discord.ui.button(label="🗺️ Zones", style=discord.ButtonStyle.success, row=1)
     async def zones_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        unlocked = queries.get_unlocked_zone_ids(interaction.user.id)
-        view = ZoneSelectorView(self.owner_id, self.is_admin, unlocked or ["back_alley"], index=0)
-        await interaction.response.edit_message(embed=view.build_embed(interaction), view=view, attachments=[])
+        player = queries.get_player(interaction.user.id)
+        embed = zone_selector_embed(player["level"], player.get("current_zone_id"))
+        await interaction.response.edit_message(
+            embed=embed,
+            view=ZoneSelectorNewView(self.owner_id, self.is_admin),
+            attachments=[],
+        )
 
     @discord.ui.button(label="🎒 Pawn Shop", style=discord.ButtonStyle.primary, row=1)
     async def pawn_shop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -819,6 +765,252 @@ class PawnShopSpecialsView(discord.ui.View):
     async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         embed = pawn_shop_main_embed(interaction.user.display_name)
         await interaction.response.edit_message(embed=embed, view=PawnShopMainView(self.owner_id, self.is_admin), attachments=[])
+
+
+# ═══════════════════════════════════════════════════════════════════
+# ZONE FARMING VIEWS  
+# ═══════════════════════════════════════════════════════════════════
+
+class ZoneSelectorNewView(discord.ui.View):
+    """New zone selector view for the zone farming system."""
+    def __init__(self, owner_id: int, is_admin: bool):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This map isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="🎣 Fishing", style=discord.ButtonStyle.primary, row=0)
+    async def fishing_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        player = queries.get_player(interaction.user.id)
+        embed = zone_info_embed("fishing", player["level"])
+        await interaction.response.edit_message(embed=embed, view=ZoneActionView(self.owner_id, self.is_admin, "fishing"), attachments=[])
+
+    @discord.ui.button(label="🌿 Botany", style=discord.ButtonStyle.primary, row=0)
+    async def botany_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        player = queries.get_player(interaction.user.id)
+        embed = zone_info_embed("botany", player["level"])
+        await interaction.response.edit_message(embed=embed, view=ZoneActionView(self.owner_id, self.is_admin, "botany"), attachments=[])
+
+    @discord.ui.button(label="🏺 Archaeology", style=discord.ButtonStyle.primary, row=1)
+    async def archaeology_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        player = queries.get_player(interaction.user.id)
+        embed = zone_info_embed("archaeology", player["level"])
+        await interaction.response.edit_message(embed=embed, view=ZoneActionView(self.owner_id, self.is_admin, "archaeology"), attachments=[])
+
+    @discord.ui.button(label="⛏️ Scavenge", style=discord.ButtonStyle.primary, row=1)
+    async def scavenge_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        player = queries.get_player(interaction.user.id)
+        embed = zone_info_embed("scavenge", player["level"])
+        await interaction.response.edit_message(embed=embed, view=ZoneActionView(self.owner_id, self.is_admin, "scavenge"), attachments=[])
+
+    @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=2)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await show_profile(interaction, self.owner_id, self.is_admin)
+
+
+class ZoneActionView(discord.ui.View):
+    """View for zone info and action selection."""
+    def __init__(self, owner_id: int, is_admin: bool, zone_id: str):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+        self.zone_id = zone_id
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This zone isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="⛏️ Start Mission", style=discord.ButtonStyle.success, row=0)
+    async def start_mission_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        player = queries.get_player(interaction.user.id)
+        zone = ZONES[self.zone_id]
+        
+        # Check if unlocked
+        if player["level"] < zone["unlock_level"]:
+            await interaction.response.send_message(
+                f"🔒 This zone unlocks at Level {zone['unlock_level']}. Keep grinding!",
+                ephemeral=True,
+            )
+            return
+        
+        # Start zone event
+        event_data = queries.start_zone_event(interaction.user.id, self.zone_id)
+        mission = event_data["mission"]
+        
+        embed = zone_active_embed(self.zone_id, mission)
+        await interaction.response.edit_message(
+            embed=embed,
+            view=ZoneActiveView(self.owner_id, self.is_admin, self.zone_id, event_data["event_id"]),
+            attachments=[],
+        )
+
+    @discord.ui.button(label="🔙 Back", style=discord.ButtonStyle.secondary, row=0)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = zone_selector_embed(queries.get_player(interaction.user.id)["level"], None)
+        await interaction.response.edit_message(
+            embed=embed,
+            view=ZoneSelectorNewView(self.owner_id, self.is_admin),
+            attachments=[],
+        )
+
+
+class ZoneActiveView(discord.ui.View):
+    """View for active zone mission with harvest and completion buttons."""
+    def __init__(self, owner_id: int, is_admin: bool, zone_id: str, event_id: str):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+        self.zone_id = zone_id
+        self.event_id = event_id
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This zone isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="⛏️ Harvest", style=discord.ButtonStyle.success, row=0)
+    async def harvest_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Get current zone event
+        zone_event = queries.get_zone_event(interaction.user.id, self.zone_id)
+        if not zone_event:
+            await interaction.response.send_message("⚠️ No active zone session!", ephemeral=True)
+            return
+        
+        # Get the mission details to build the mission data dict
+        mission_data = {
+            "target_item_id": zone_event["mission_target_item_id"],
+            "target_quantity": zone_event["mission_target_qty"],
+            "target_rarity": "Unknown",  # We'll need to get this from the zone data
+            "progress": zone_event["mission_progress"],
+            "coin_reward": 100,  # Placeholder
+            "xp_reward": 50,    # Placeholder
+        }
+        
+        # Roll a harvest from the zone
+        from game.zones import roll_item_from_rarity
+        # Use a default rarity for now - should be stored in zone_event
+        item_data = roll_item_from_rarity(self.zone_id, "Rare")
+        item_id = item_data.get("id", "unknown")
+        
+        # Add to inventory and record harvest
+        queries.add_item_to_inventory(interaction.user.id, item_id, 1)
+        queries.add_zone_harvest(interaction.user.id, self.zone_id, item_id, "Rare")
+        
+        # Update mission progress
+        new_progress = queries.update_mission_progress(interaction.user.id, self.zone_id, 1)
+        
+        # Show harvest result
+        embed = zone_harvest_embed(item_id, 1)
+        
+        # Check if mission is complete
+        if new_progress >= zone_event["mission_target_qty"]:
+            # Mission complete!
+            embed_completion = zone_completion_embed(
+                self.zone_id,
+                mission_data,
+                {
+                    "coins": mission_data["coin_reward"],
+                    "xp": mission_data["xp_reward"],
+                }
+            )
+            await interaction.response.edit_message(embed=embed, view=self, attachments=[])
+            await asyncio.sleep(2)
+            
+            # Show completion
+            player = queries.get_player(interaction.user.id)
+            player_coins = player["coins"] + mission_data["coin_reward"]
+            player_xp = player["xp"] + mission_data["xp_reward"]
+            
+            queries.complete_zone_event(interaction.user.id, self.zone_id)
+            queries.update_player_progress(
+                interaction.user.id,
+                coins=player_coins,
+                xp=player_xp,
+                level=player["level"],
+                current_title=player["current_title"],
+                total_dives=player["total_dives"],
+            )
+            
+            await interaction.edit_original_response(
+                embed=embed_completion,
+                view=ZoneSelectorNewView(self.owner_id, self.is_admin),
+            )
+        else:
+            # Continue mission
+            zone_event = queries.get_zone_event(interaction.user.id, self.zone_id)
+            mission_data["progress"] = zone_event["mission_progress"]
+            embed_active = zone_active_embed(self.zone_id, mission_data)
+            await interaction.response.edit_message(embed=embed, view=self, attachments=[])
+            await asyncio.sleep(1.5)
+            await interaction.edit_original_response(embed=embed_active, view=self)
+
+    @discord.ui.button(label="✅ Complete", style=discord.ButtonStyle.danger, row=0)
+    async def complete_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Complete zone event and give partial rewards
+        zone_event = queries.get_zone_event(interaction.user.id, self.zone_id)
+        if not zone_event:
+            await interaction.response.send_message("⚠️ No active zone session!", ephemeral=True)
+            return
+        
+        progress = zone_event["mission_progress"]
+        target = zone_event["mission_target_qty"]
+        
+        # Give partial rewards based on progress
+        reward_multiplier = progress / target if target > 0 else 0
+        coins_earned = int(100 * reward_multiplier)  # Base 100 coins
+        xp_earned = int(50 * reward_multiplier)      # Base 50 XP
+        
+        mission_data = {
+            "target_quantity": target,
+            "progress": progress,
+            "coin_reward": 100,
+            "xp_reward": 50,
+        }
+        
+        player = queries.get_player(interaction.user.id)
+        player_coins = player["coins"] + coins_earned
+        player_xp = player["xp"] + xp_earned
+        
+        queries.complete_zone_event(interaction.user.id, self.zone_id)
+        queries.update_player_progress(
+            interaction.user.id,
+            coins=player_coins,
+            xp=player_xp,
+            level=player["level"],
+            current_title=player["current_title"],
+            total_dives=player["total_dives"],
+        )
+        
+        embed = zone_completion_embed(
+            self.zone_id,
+            mission_data,
+            {
+                "coins": coins_earned,
+                "xp": xp_earned,
+            }
+        )
+        await interaction.response.edit_message(
+            embed=embed,
+            view=ZoneSelectorNewView(self.owner_id, self.is_admin),
+            attachments=[],
+        )
+
+    @discord.ui.button(label="🔙 Back", style=discord.ButtonStyle.secondary, row=1)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = zone_selector_embed(queries.get_player(interaction.user.id)["level"], self.zone_id)
+        await interaction.response.edit_message(
+            embed=embed,
+            view=ZoneSelectorNewView(self.owner_id, self.is_admin),
+            attachments=[],
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════
