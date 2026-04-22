@@ -863,12 +863,19 @@ class ZoneActionView(discord.ui.View):
 
 class ZoneActiveView(discord.ui.View):
     """View for active zone mission with harvest and completion buttons."""
-    def __init__(self, owner_id: int, is_admin: bool, zone_id: str, event_id: str):
+    def __init__(self, owner_id: int, is_admin: bool, zone_id: str, event_id: str, mission_complete: bool = False):
         super().__init__(timeout=300)
         self.owner_id = owner_id
         self.is_admin = is_admin
         self.zone_id = zone_id
         self.event_id = event_id
+        self.mission_complete = mission_complete
+        
+        # Conditionally add Complete button - only if mission is complete
+        if mission_complete:
+            self.complete_button.disabled = False
+        else:
+            self.complete_button.disabled = True
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.owner_id:
@@ -912,49 +919,27 @@ class ZoneActiveView(discord.ui.View):
         
         # Check if mission is complete
         if new_progress >= zone_event["mission_target_qty"]:
-            # Mission complete!
-            embed_completion = zone_completion_embed(
-                self.zone_id,
-                mission_data,
-                {
-                    "coins": mission_data["coin_reward"],
-                    "xp": mission_data["xp_reward"],
-                }
-            )
+            # Mission complete! Show it and enable Complete button
             await interaction.response.edit_message(embed=embed, view=self, attachments=[])
-            await asyncio.sleep(2)
+            await asyncio.sleep(1.5)
             
-            # Show completion
-            player = queries.get_player(interaction.user.id)
-            player_coins = player["coins"] + mission_data["coin_reward"]
-            player_xp = player["xp"] + mission_data["xp_reward"]
-            
-            queries.complete_zone_event(interaction.user.id, self.zone_id)
-            queries.update_player_progress(
-                interaction.user.id,
-                coins=player_coins,
-                xp=player_xp,
-                level=player["level"],
-                current_title=player["current_title"],
-                total_dives=player["total_dives"],
-            )
-            
-            await interaction.edit_original_response(
-                embed=embed_completion,
-                view=ZoneSelectorNewView(self.owner_id, self.is_admin),
-            )
+            # Create new view with Complete button enabled
+            mission_data["progress"] = new_progress
+            embed_active = zone_active_embed(self.zone_id, mission_data)
+            new_view = ZoneActiveView(self.owner_id, self.is_admin, self.zone_id, self.event_id, mission_complete=True)
+            await interaction.edit_original_response(embed=embed_active, view=new_view)
         else:
-            # Continue mission
+            # Continue mission - show harvest then active mission with Complete still disabled
             zone_event = queries.get_zone_event(interaction.user.id, self.zone_id)
             mission_data["progress"] = zone_event["mission_progress"]
             embed_active = zone_active_embed(self.zone_id, mission_data)
             await interaction.response.edit_message(embed=embed, view=self, attachments=[])
             await asyncio.sleep(1.5)
-            await interaction.edit_original_response(embed=embed_active, view=self)
+            await interaction.edit_original_response(embed=embed_active, view=ZoneActiveView(self.owner_id, self.is_admin, self.zone_id, self.event_id, mission_complete=False))
 
-    @discord.ui.button(label="✅ Complete", style=discord.ButtonStyle.danger, row=0)
+    @discord.ui.button(label="✅ Complete Mission", style=discord.ButtonStyle.danger, row=0)
     async def complete_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Complete zone event and give partial rewards
+        # Complete zone event and give full rewards (since mission is done)
         zone_event = queries.get_zone_event(interaction.user.id, self.zone_id)
         if not zone_event:
             await interaction.response.send_message("⚠️ No active zone session!", ephemeral=True)
@@ -963,10 +948,9 @@ class ZoneActiveView(discord.ui.View):
         progress = zone_event["mission_progress"]
         target = zone_event["mission_target_qty"]
         
-        # Give partial rewards based on progress
-        reward_multiplier = progress / target if target > 0 else 0
-        coins_earned = int(100 * reward_multiplier)  # Base 100 coins
-        xp_earned = int(50 * reward_multiplier)      # Base 50 XP
+        # Give full rewards since mission is complete
+        coins_earned = 100  # Full coins
+        xp_earned = 50      # Full XP
         
         mission_data = {
             "target_quantity": target,

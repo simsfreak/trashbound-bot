@@ -763,10 +763,14 @@ def zone_active_embed(zone_id: str, mission_data: dict, time_remaining_sec: int 
     
     progress_bar = "🟩" * collected + "⬜" * max(0, remaining)
     
+    mission_complete = collected >= quantity
+    complete_status = "✅ READY TO COMPLETE" if mission_complete else "🔒 Complete when done"
+    
     description = (
         f"🎯 **MISSION:** Collect {quantity} {rarity} items\n"
         f"**Progress:** {collected}/{quantity}\n\n"
         f"{progress_bar}\n\n"
+        f"**Status:** {complete_status}\n\n"
         f"**Rewards on completion:**\n"
         f"💰 +{mission.get('coin_reward', 0)} coins\n"
         f"⭐ +{mission.get('xp_reward', 0)} XP"
@@ -783,7 +787,7 @@ def zone_active_embed(zone_id: str, mission_data: dict, time_remaining_sec: int 
         color=RARITY_COLORS.get(rarity, 0x5865F2),
     )
     
-    embed.set_footer(text="Collect items to progress mission or complete zone session")
+    embed.set_footer(text="Collect items to progress mission. Complete button available when done.")
     return embed
 
 
