@@ -249,14 +249,18 @@ class ProfileView(discord.ui.View):
 
         player = queries.get_player(interaction.user.id)
         
-        # Check if zone is set and valid
+        # Check if zone is set and valid, auto-migrate if needed
         zone_id = player.get("current_zone_id")
         if not zone_id or zone_id not in ZONES:
-            await interaction.response.send_message(
-                f"❌ No zone selected! Please use the 🗺️ **Zones** button to select a zone first.",
-                ephemeral=True,
-            )
-            return
+            # Auto-set to fishing zone if invalid (migration for old zone system)
+            zone_id = "fishing"
+            from db.database import get_conn
+            with get_conn() as conn:
+                conn.execute(
+                    "UPDATE players SET current_zone_id = %s WHERE user_id = %s",
+                    (zone_id, interaction.user.id)
+                )
+                conn.commit()
         
         # Check hunger status
         current_hunger = player.get("hunger", 100)
