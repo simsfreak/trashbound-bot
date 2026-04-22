@@ -49,54 +49,72 @@ class ZoneSelectorView(discord.ui.View):
     
     @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=1)
     async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        from ui.views import show_profile
-        await show_profile(interaction, self.owner_id, self.is_admin)
+        try:
+            from ui.views import show_profile
+            await show_profile(interaction, self.owner_id, self.is_admin)
+        except Exception as e:
+            print(f"Error in ZoneSelectorView.back_button: {e}")
+            import traceback
+            traceback.print_exc()
+            await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
     
     async def _enter_zone(self, interaction: discord.Interaction, zone_id: str):
         """Enter a zone - check if unlocked, then show zone page."""
         await interaction.response.defer()
         
-        player = queries.get_player(interaction.user.id)
-        zone = ZONES_META.get(zone_id)
-        
-        if not zone:
-            await interaction.followup.send("❌ Zone not found.", ephemeral=True)
-            return
-        
-        # Check if unlocked
-        if player["level"] < zone["unlock_level"]:
-            await interaction.followup.send(
-                f"🔒 **{zone['name']}** unlocks at Level {zone['unlock_level']}\n"
-                f"You're currently Level {player['level']}",
-                ephemeral=True,
-            )
-            return
-        
-        # Check for active zone session
-        active_zone = queries.get_zone_event(interaction.user.id, zone_id)
-        
-        if active_zone and active_zone["is_active"]:
-            # Resume active zone
-            await self._show_active_zone(interaction, zone_id, active_zone)
-        else:
-            # Show zone main page with mission data if it exists
-            embed = zone_info_embed(zone_id, player["level"], active_zone)
-            view = ZoneMainPageView(self.owner_id, self.is_admin, zone_id)
-            await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+        try:
+            player = queries.get_player(interaction.user.id)
+            zone = ZONES_META.get(zone_id)
+            
+            if not zone:
+                await interaction.followup.send("❌ Zone not found.", ephemeral=True)
+                return
+            
+            # Check if unlocked
+            if player["level"] < zone["unlock_level"]:
+                await interaction.followup.send(
+                    f"🔒 **{zone['name']}** unlocks at Level {zone['unlock_level']}\n"
+                    f"You're currently Level {player['level']}",
+                    ephemeral=True,
+                )
+                return
+            
+            # Check for active zone session
+            active_zone = queries.get_zone_event(interaction.user.id, zone_id)
+            
+            if active_zone and active_zone["is_active"]:
+                # Resume active zone
+                await self._show_active_zone(interaction, zone_id, active_zone)
+            else:
+                # Show zone main page with mission data if it exists
+                embed = zone_info_embed(zone_id, player["level"], active_zone)
+                view = ZoneMainPageView(self.owner_id, self.is_admin, zone_id)
+                await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+        except Exception as e:
+            print(f"Error in _enter_zone: {e}")
+            import traceback
+            traceback.print_exc()
+            await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
     
     async def _show_active_zone(self, interaction: discord.Interaction, zone_id: str, zone_event: dict):
         """Show active zone with mission progress."""
-        zone = ZONES_META.get(zone_id)
-        
-        # Calculate time remaining from timer_end_at
-        from datetime import datetime
-        timer_end = datetime.fromisoformat(zone_event["timer_end_at"].replace("Z", "+00:00"))
-        now = datetime.utcnow().replace(tzinfo=timer_end.tzinfo)
-        time_remaining = max(0, int((timer_end - now).total_seconds()))
-        
-        embed = zone_active_embed(zone_id, zone_event, time_remaining)
-        view = ZoneActiveView(self.owner_id, self.is_admin, zone_id)
-        await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+        try:
+            zone = ZONES_META.get(zone_id)
+            
+            # Calculate time remaining from timer_end_at
+            from datetime import datetime
+            timer_end = datetime.fromisoformat(zone_event["timer_end_at"].replace("Z", "+00:00"))
+            now = datetime.utcnow().replace(tzinfo=timer_end.tzinfo)
+            time_remaining = max(0, int((timer_end - now).total_seconds()))
+            
+            embed = zone_active_embed(zone_id, zone_event, time_remaining)
+            view = ZoneActiveView(self.owner_id, self.is_admin, zone_id)
+            await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+        except Exception as e:
+            print(f"Error in _show_active_zone: {e}")
+            import traceback
+            traceback.print_exc()
+            await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
 
 
 class ZoneMainPageView(discord.ui.View):
@@ -133,37 +151,49 @@ class ZoneMainPageView(discord.ui.View):
     
     @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=1)
     async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer()
-        player = queries.get_player(interaction.user.id)
-        embed = zone_selector_embed(player["level"])
-        view = ZoneSelectorView(self.owner_id, self.is_admin)
-        await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+        try:
+            await interaction.response.defer()
+            player = queries.get_player(interaction.user.id)
+            embed = zone_selector_embed(player["level"])
+            view = ZoneSelectorView(self.owner_id, self.is_admin)
+            await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+        except Exception as e:
+            print(f"Error in ZoneMainPageView.back_button: {e}")
+            import traceback
+            traceback.print_exc()
+            await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
     
     async def _start_mission(self, interaction: discord.Interaction, difficulty: str):
         """Start a new zone mission."""
         await interaction.response.defer()
         
-        player = queries.get_player(interaction.user.id)
-        
-        # Check if already has active zone in THIS zone
-        active_zone = queries.get_zone_event(interaction.user.id, self.zone_id)
-        if active_zone and active_zone.get("is_active"):
-            await interaction.followup.send(
-                "❌ You already have an active mission in this zone!\n"
-                "Complete or abandon it before starting a new one.",
-                ephemeral=True,
-            )
-            return
-        
-        # Start mission
-        mission = await start_zone_session(interaction.user.id, self.zone_id, difficulty)
-        
-        # Show active zone page
-        zone = ZONES_META.get(self.zone_id)
-        embed = zone_active_embed(self.zone_id, mission, 3600)  # 1 hour = 3600 sec
-        view = ZoneActiveView(self.owner_id, self.is_admin, self.zone_id)
-        
-        await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+        try:
+            player = queries.get_player(interaction.user.id)
+            
+            # Check if already has active zone in THIS zone
+            active_zone = queries.get_zone_event(interaction.user.id, self.zone_id)
+            if active_zone and active_zone.get("is_active"):
+                await interaction.followup.send(
+                    "❌ You already have an active mission in this zone!\n"
+                    "Complete or abandon it before starting a new one.",
+                    ephemeral=True,
+                )
+                return
+            
+            # Start mission
+            mission = await start_zone_session(interaction.user.id, self.zone_id, difficulty)
+            
+            # Show active zone page
+            zone = ZONES_META.get(self.zone_id)
+            embed = zone_active_embed(self.zone_id, mission, 3600)  # 1 hour = 3600 sec
+            view = ZoneActiveView(self.owner_id, self.is_admin, self.zone_id)
+            
+            await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+        except Exception as e:
+            print(f"Error in ZoneMainPageView._start_mission: {e}")
+            import traceback
+            traceback.print_exc()
+            await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
 
 
 class ZoneActiveView(discord.ui.View):
@@ -185,94 +215,112 @@ class ZoneActiveView(discord.ui.View):
         """Generic activity button - dynamically labeled for each zone."""
         await interaction.response.defer()
         
-        zone = ZONES_META.get(self.zone_id)
-        activity_verb = zone.get("activity_verb", "Activity")
-        
-        # Check cooldown
-        cooldown_check = await check_zone_cooldown(interaction.user.id, self.zone_id)
-        if cooldown_check["on_cooldown"]:
-            embed = zone_cooldown_embed(self.zone_id, cooldown_check["remaining_sec"])
-            await interaction.edit_original_response(embed=embed, view=self, attachments=[])
-            return
-        
-        # Check if active zone is still valid
-        active_zone = await get_active_zone_session(interaction.user.id, self.zone_id)
-        if not active_zone or active_zone.get("expired"):
-            # Session expired - show completion page
-            embed = discord.Embed(
-                title="⏰ Zone Session Expired",
-                description="Your 1-hour window has closed. Click [Complete] to finalize rewards.",
-                color=0xED4245,
-            )
-            view = ZoneExpiredView(self.owner_id, self.is_admin, self.zone_id)
-            await interaction.edit_original_response(embed=embed, view=view, attachments=[])
-            return
-        
-        # Perform activity
-        result = await simulate_zone_activity(interaction.user.id, self.zone_id)
-        
-        # Record the action for cooldown
-        await record_zone_action(interaction.user.id, self.zone_id)
-        
-        if result["success"]:
-            # Show stage messages then result
-            embed = discord.Embed(
-                title=f"🎣 {activity_verb.upper()} - Stage 1",
-                description=result["stage1_message"],
-                color=0x5865F2,
-            )
-            await interaction.edit_original_response(embed=embed, view=None, attachments=[])
-            await asyncio.sleep(1.0)
+        try:
+            zone = ZONES_META.get(self.zone_id)
+            activity_verb = zone.get("activity_verb", "Activity")
             
-            embed = discord.Embed(
-                title=f"🎣 {activity_verb.upper()} - Stage 2",
-                description=result["stage2_message"],
-                color=0x5865F2,
-            )
-            await interaction.edit_original_response(embed=embed)
-            await asyncio.sleep(1.0)
+            # Check cooldown
+            cooldown_check = await check_zone_cooldown(interaction.user.id, self.zone_id)
+            if cooldown_check["on_cooldown"]:
+                embed = zone_cooldown_embed(self.zone_id, cooldown_check["remaining_sec"])
+                await interaction.edit_original_response(embed=embed, view=self, attachments=[])
+                return
             
-            # Success result
-            item = result.get("item", {})
-            rarity = result.get("rarity", "Common")
-            embed = zone_harvest_embed(self.zone_id, item.get("id"), rarity)
-            await interaction.edit_original_response(embed=embed, view=self, attachments=[])
+            # Check if active zone is still valid
+            active_zone = await get_active_zone_session(interaction.user.id, self.zone_id)
+            if not active_zone or active_zone.get("expired"):
+                # Session expired - show completion page
+                embed = discord.Embed(
+                    title="⏰ Zone Session Expired",
+                    description="Your 1-hour window has closed. Click [Complete] to finalize rewards.",
+                    color=0xED4245,
+                )
+                view = ZoneExpiredView(self.owner_id, self.is_admin, self.zone_id)
+                await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+                return
             
-            # Update mission progress
-            queries.add_zone_harvest(interaction.user.id, self.zone_id, item.get("id"))
-        else:
-            # Failure
-            embed = discord.Embed(
-                title=f"❌ {activity_verb} FAILED",
-                description=result["final_message"],
-                color=0xED4245,
-            )
-            await interaction.edit_original_response(embed=embed, view=self, attachments=[])
+            # Perform activity
+            result = await simulate_zone_activity(interaction.user.id, self.zone_id)
+            
+            # Record the action for cooldown
+            await record_zone_action(interaction.user.id, self.zone_id)
+            
+            if result["success"]:
+                # Show stage messages then result
+                embed = discord.Embed(
+                    title=f"🎣 {activity_verb.upper()} - Stage 1",
+                    description=result["stage1_message"],
+                    color=0x5865F2,
+                )
+                await interaction.edit_original_response(embed=embed, view=None, attachments=[])
+                await asyncio.sleep(1.0)
+                
+                embed = discord.Embed(
+                    title=f"🎣 {activity_verb.upper()} - Stage 2",
+                    description=result["stage2_message"],
+                    color=0x5865F2,
+                )
+                await interaction.edit_original_response(embed=embed)
+                await asyncio.sleep(1.0)
+                
+                # Success result
+                item = result.get("item", {})
+                rarity = result.get("rarity", "Common")
+                embed = zone_harvest_embed(self.zone_id, item.get("id"), rarity)
+                await interaction.edit_original_response(embed=embed, view=self, attachments=[])
+                
+                # Update mission progress
+                queries.add_zone_harvest(interaction.user.id, self.zone_id, item.get("id"))
+            else:
+                # Failure
+                embed = discord.Embed(
+                    title=f"❌ {activity_verb} FAILED",
+                    description=result["final_message"],
+                    color=0xED4245,
+                )
+                await interaction.edit_original_response(embed=embed, view=self, attachments=[])
+        except Exception as e:
+            print(f"Error in ZoneActiveView.activity_button: {e}")
+            import traceback
+            traceback.print_exc()
+            await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
     
     @discord.ui.button(label="✅ Complete", style=discord.ButtonStyle.success, row=1)
     async def complete_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Complete zone session and claim rewards."""
         await interaction.response.defer()
         
-        active_zone = await get_active_zone_session(interaction.user.id, self.zone_id)
-        if not active_zone:
-            await interaction.followup.send("No active zone session.", ephemeral=True)
-            return
-        
-        rewards = await complete_zone_session(interaction.user.id, self.zone_id)
-        embed = zone_completion_embed(self.zone_id, active_zone, rewards)
-        
-        # Back to zone selector
-        view = BackToZoneSelector(self.owner_id, self.is_admin)
-        await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+        try:
+            active_zone = await get_active_zone_session(interaction.user.id, self.zone_id)
+            if not active_zone:
+                await interaction.followup.send("No active zone session.", ephemeral=True)
+                return
+            
+            rewards = await complete_zone_session(interaction.user.id, self.zone_id)
+            embed = zone_completion_embed(self.zone_id, active_zone, rewards)
+            
+            # Back to zone selector
+            view = BackToZoneSelector(self.owner_id, self.is_admin)
+            await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+        except Exception as e:
+            print(f"Error in ZoneActiveView.complete_button: {e}")
+            import traceback
+            traceback.print_exc()
+            await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
     
     @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=1)
     async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer()
-        player = queries.get_player(interaction.user.id)
-        embed = zone_selector_embed(player["level"])
-        view = ZoneSelectorView(self.owner_id, self.is_admin)
-        await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+        try:
+            await interaction.response.defer()
+            player = queries.get_player(interaction.user.id)
+            embed = zone_selector_embed(player["level"])
+            view = ZoneSelectorView(self.owner_id, self.is_admin)
+            await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+        except Exception as e:
+            print(f"Error in ZoneActiveView.back_button: {e}")
+            import traceback
+            traceback.print_exc()
+            await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
 
 
 class ZoneExpiredView(discord.ui.View):
@@ -293,23 +341,35 @@ class ZoneExpiredView(discord.ui.View):
     async def complete_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
         
-        active_zone = await get_active_zone_session(interaction.user.id, self.zone_id)
-        if active_zone:
-            rewards = await complete_zone_session(interaction.user.id, self.zone_id)
-            embed = zone_completion_embed(self.zone_id, active_zone, rewards)
-            view = BackToZoneSelector(self.owner_id, self.is_admin)
-            await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+        try:
+            active_zone = await get_active_zone_session(interaction.user.id, self.zone_id)
+            if active_zone:
+                rewards = await complete_zone_session(interaction.user.id, self.zone_id)
+                embed = zone_completion_embed(self.zone_id, active_zone, rewards)
+                view = BackToZoneSelector(self.owner_id, self.is_admin)
+                await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+        except Exception as e:
+            print(f"Error in ZoneExpiredView.complete_button: {e}")
+            import traceback
+            traceback.print_exc()
+            await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
     
     @discord.ui.button(label="❌ Abandon", style=discord.ButtonStyle.danger, row=0)
     async def abandon_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
         
-        queries.complete_zone_event(interaction.user.id, self.zone_id)
-        
-        player = queries.get_player(interaction.user.id)
-        embed = zone_selector_embed(player["level"])
-        view = ZoneSelectorView(self.owner_id, self.is_admin)
-        await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+        try:
+            queries.complete_zone_event(interaction.user.id, self.zone_id)
+            
+            player = queries.get_player(interaction.user.id)
+            embed = zone_selector_embed(player["level"])
+            view = ZoneSelectorView(self.owner_id, self.is_admin)
+            await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+        except Exception as e:
+            print(f"Error in ZoneExpiredView.abandon_button: {e}")
+            import traceback
+            traceback.print_exc()
+            await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
 
 
 class BackToZoneSelector(discord.ui.View):
@@ -327,16 +387,28 @@ class BackToZoneSelector(discord.ui.View):
     
     @discord.ui.button(label="🗺️ Back to Zones", style=discord.ButtonStyle.primary, row=0)
     async def back_zones(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.defer()
-        player = queries.get_player(interaction.user.id)
-        embed = zone_selector_embed(player["level"])
-        view = ZoneSelectorView(self.owner_id, self.is_admin)
-        await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+        try:
+            await interaction.response.defer()
+            player = queries.get_player(interaction.user.id)
+            embed = zone_selector_embed(player["level"])
+            view = ZoneSelectorView(self.owner_id, self.is_admin)
+            await interaction.edit_original_response(embed=embed, view=view, attachments=[])
+        except Exception as e:
+            print(f"Error in BackToZoneSelector.back_zones: {e}")
+            import traceback
+            traceback.print_exc()
+            await interaction.followup.send(f"❌ Error: {str(e)}", ephemeral=True)
     
     @discord.ui.button(label="🏠 Back to Profile", style=discord.ButtonStyle.secondary, row=0)
     async def back_profile(self, interaction: discord.Interaction, button: discord.ui.Button):
-        from ui.views import show_profile
-        await show_profile(interaction, self.owner_id, self.is_admin)
+        try:
+            from ui.views import show_profile
+            await show_profile(interaction, self.owner_id, self.is_admin)
+        except Exception as e:
+            print(f"Error in BackToZoneSelector.back_profile: {e}")
+            import traceback
+            traceback.print_exc()
+            await interaction.response.send_message(f"❌ Error: {str(e)}", ephemeral=True)
 
 
 # For compatibility with existing code that references ZoneSelectorNewView
