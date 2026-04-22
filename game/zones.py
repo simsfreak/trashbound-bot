@@ -426,3 +426,95 @@ def roll_bonus_encounter() -> str | None:
         k=1
     )[0]
     return None if encounter == "nothing_special" else encounter
+
+
+# ═══════════════════════════════════════════════════════════════════
+# ZONE MISSION REWARD SYSTEM
+# ═══════════════════════════════════════════════════════════════════
+
+REWARD_POOL = {
+    "dirty_tickets_50": {
+        "name": "🎟️ Dirty Tickets x50",
+        "type": "tickets",
+        "qty": 50,
+        "weight": 30,
+    },
+    "dirty_tickets_200": {
+        "name": "🎟️ Dirty Tickets x200",
+        "type": "tickets",
+        "qty": 200,
+        "weight": 15,
+    },
+    "ticket_bundle_50": {
+        "name": "🎟️ Ticket Bundle x50",
+        "type": "tickets",
+        "qty": 50,
+        "weight": 20,
+    },
+    "ticket_bundle_200": {
+        "name": "🎟️ Ticket Bundle x200",
+        "type": "tickets",
+        "qty": 200,
+        "weight": 10,
+    },
+    "azure_zone_box": {
+        "name": "🎁 Azure Zone Box",
+        "type": "zone_box",
+        "xp_reward": 1000,
+        "weight": 15,
+    },
+    "crimson_zone_box": {
+        "name": "🎁 Crimson Zone Box",
+        "type": "zone_box",
+        "xp_reward": 2000,
+        "weight": 12,
+    },
+    "golden_zone_box": {
+        "name": "🎁 Golden Zone Box",
+        "type": "zone_box",
+        "xp_reward": 2000,
+        "weight": 12,
+    },
+    "heavy_coin_bag": {
+        "name": "💰 Heavy Coin Bag",
+        "type": "coin_bag",
+        "coin_reward": 10000,
+        "weight": 8,
+    },
+}
+
+REWARD_RARITY_WEIGHTS = {
+    "Common": 0.40,
+    "Rare": 0.35,
+    "Exotic": 0.20,
+    "Legendary": 0.05,
+}
+
+
+def roll_mission_rewards(count: int = None) -> list[dict]:
+    """
+    Roll 1-2 random rewards for mission completion.
+    
+    Args:
+        count: Number of rewards (1 or 2). If None, randomly chosen.
+    
+    Returns:
+        List of reward dicts with id, name, type, and metadata.
+    """
+    if count is None:
+        count = random.choices([1, 2], weights=[0.6, 0.4], k=1)[0]
+    
+    count = min(2, max(1, count))  # Clamp between 1-2
+    
+    reward_ids = list(REWARD_POOL.keys())
+    reward_weights = [REWARD_POOL[rid]["weight"] for rid in reward_ids]
+    
+    selected = random.choices(reward_ids, weights=reward_weights, k=count)
+    
+    rewards = []
+    for reward_id in selected:
+        reward = REWARD_POOL[reward_id].copy()
+        reward["id"] = reward_id
+        rewards.append(reward)
+    
+    return rewards

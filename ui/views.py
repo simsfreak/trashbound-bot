@@ -21,6 +21,7 @@ from ui.embeds import (
     events_embed,
     help_embed,
     inventory_embed,
+    inventory_with_rewards_embed,
     mix_result_embed,
     museum_home_embed,
     pawn_shop_main_embed,
@@ -398,14 +399,37 @@ class ProfileView(discord.ui.View):
 
     @discord.ui.button(label="🎒 Loot", style=discord.ButtonStyle.secondary, row=0)
     async def inventory_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        from game.data import ZONE_REWARDS
+        
         inventory = queries.get_inventory(interaction.user.id)
-        view = InventoryView(self.owner_id, self.is_admin, inventory, page=0)
-        embed = inventory_embed(
-            interaction.user.display_name,
-            view.page_lines(),
-            view.page,
-            view.total_pages,
-        )
+        
+        # Separate unopened rewards from regular items
+        unopened_rewards = []
+        for item_id, qty in inventory:
+            if item_id in ZONE_REWARDS:
+                reward_data = ZONE_REWARDS[item_id]
+                unopened_rewards.append((reward_data["name"], qty))
+        
+        # Show the improved inventory with unopened rewards
+        if unopened_rewards:
+            embed = inventory_with_rewards_embed(
+                interaction.user.display_name,
+                {},  # Equipment will be added later
+                unopened_rewards,
+                page=0,
+                total_pages=max(1, (len(unopened_rewards) + 5) // 6),
+            )
+            view = UnopenerRewardsView(self.owner_id, self.is_admin, unopened_rewards, page=0)
+        else:
+            # Fall back to regular inventory
+            view = InventoryView(self.owner_id, self.is_admin, inventory, page=0)
+            embed = inventory_embed(
+                interaction.user.display_name,
+                view.page_lines(),
+                view.page,
+                view.total_pages,
+            )
+        
         await interaction.response.edit_message(embed=embed, view=view, attachments=[])
 
     @discord.ui.button(label="🍻 The Tavern", style=discord.ButtonStyle.success, row=0)
@@ -939,7 +963,7 @@ class ZoneActiveView(discord.ui.View):
 
     @discord.ui.button(label="✅ Complete Mission", style=discord.ButtonStyle.danger, row=0)
     async def complete_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Complete zone event and give full rewards (since mission is done)
+        # Complete zone event and award full rewards + random loot
         zone_event = queries.get_zone_event(interaction.user.id, self.zone_id)
         if not zone_event:
             await interaction.response.send_message("⚠️ No active zone session!", ephemeral=True)
@@ -963,6 +987,25 @@ class ZoneActiveView(discord.ui.View):
         player_coins = player["coins"] + coins_earned
         player_xp = player["xp"] + xp_earned
         
+        # Roll and award mission rewards
+        from game.zones import roll_mission_rewards
+        mission_rewards = roll_mission_rewards()
+        
+        for reward in mission_rewards:
+            reward_id = reward["id"]
+            reward_name = reward["name"]
+            
+            # Add reward to inventory
+            if reward["type"] == "tickets":
+                # Add tickets
+                queries.add_item_to_inventory(interaction.user.id, reward_id, reward.get("qty", 1))
+            elif reward["type"] == "zone_box":
+                # Add unopened zone box
+                queries.add_item_to_inventory(interaction.user.id, reward_id, 1)
+            elif reward["type"] == "coin_bag":
+                # Add coin bag (unopened)
+                queries.add_item_to_inventory(interaction.user.id, reward_id, 1)
+        
         queries.complete_zone_event(interaction.user.id, self.zone_id)
         queries.update_player_progress(
             interaction.user.id,
@@ -973,14 +1016,13 @@ class ZoneActiveView(discord.ui.View):
             total_dives=player["total_dives"],
         )
         
-        embed = zone_completion_embed(
-            self.zone_id,
-            mission_data,
-            {
-                "coins": coins_earned,
-                "xp": xp_earned,
-            }
-        )
+        # Show reward reveal embed
+        from ui.embeds import zone_mission_reward_single_embed, zone_mission_reward_double_embed
+        if len(mission_rewards) == 1:
+            embed = zone_mission_reward_single_embed(interaction.user.display_name, mission_rewards[0])
+        else:
+            embed = zone_mission_reward_double_embed(interaction.user.display_name, mission_rewards)
+        
         await interaction.response.edit_message(
             embed=embed,
             view=ZoneSelectorNewView(self.owner_id, self.is_admin),
@@ -1413,3 +1455,248 @@ class TavernTicketRedeemView(discord.ui.View):
             view=TavernMainView(self.owner_id, self.is_admin),
             attachments=[],
         )
+
+
+# ═══════════════════════════════════════════════════════════════════
+# UNOPENED REWARDS INVENTORY VIEW
+# ═══════════════════════════════════════════════════════════════════
+
+class UnopenerRewardsView(discord.ui.View):
+    """View for unopened zone boxes and coin bags."""
+    def __init__(self, owner_id: int, is_admin: bool, unopened_rewards: list[tuple[str, int]], page: int = 0, selected_index: int = 0):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+        self.unopened_rewards = unopened_rewards  # List of (reward_name, qty) tuples
+        self.page = page
+        self.selected_index = selected_index  # Track which reward on page is selected
+        self.page_size = 6
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This inventory isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    @property
+    def total_pages(self) -> int:
+        return max(1, (len(self.unopened_rewards) + self.page_size - 1) // self.page_size)
+
+    def current_page_rewards(self) -> list[tuple[str, int]]:
+        start = self.page * self.page_size
+        end = start + self.page_size
+        return self.unopened_rewards[start:end]
+
+    @discord.ui.button(label="⬅️ Prev", style=discord.ButtonStyle.secondary, row=0)
+    async def prev_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.page > 0:
+            self.page -= 1
+            self.selected_index = 0
+        embed = inventory_with_rewards_embed(
+            interaction.user.display_name,
+            {},  # No equipment to show
+            self.unopened_rewards,
+            self.page,
+            self.total_pages,
+        )
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(label="➡️ Next", style=discord.ButtonStyle.secondary, row=0)
+    async def next_page(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.page < self.total_pages - 1:
+            self.page += 1
+            self.selected_index = 0
+        embed = inventory_with_rewards_embed(
+            interaction.user.display_name,
+            {},
+            self.unopened_rewards,
+            self.page,
+            self.total_pages,
+        )
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(label="🎁 Open Reward", style=discord.ButtonStyle.success, row=1)
+    async def open_reward_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        from game.data import ZONE_REWARDS
+        
+        # Get the reward to open
+        page_rewards = self.current_page_rewards()
+        if not page_rewards:
+            await interaction.response.send_message("No rewards to open!", ephemeral=True)
+            return
+        
+        # Get the first reward on this page (or the selected one)
+        reward_name, reward_qty = page_rewards[min(self.selected_index, len(page_rewards) - 1)]
+        
+        # Find the reward ID by name
+        reward_id = None
+        for rid, rdata in ZONE_REWARDS.items():
+            if rdata["name"] == reward_name:
+                reward_id = rid
+                break
+        
+        if not reward_id:
+            await interaction.response.send_message("Reward not found!", ephemeral=True)
+            return
+        
+        reward_data = ZONE_REWARDS[reward_id]
+        
+        # Handle different reward types
+        if reward_data["type"] == "zone_box":
+            # Open XP box
+            xp_reward = reward_data.get("xp_reward", 1000)
+            result = queries.add_xp_to_player(interaction.user.id, xp_reward)
+            
+            # Remove from inventory
+            queries.remove_item_from_inventory(interaction.user.id, reward_id, 1)
+            
+            # Update unopened rewards list
+            if reward_qty > 1:
+                # Reduce quantity
+                self.unopened_rewards = [
+                    (name, qty - 1 if name == reward_name else qty)
+                    for name, qty in self.unopened_rewards
+                ]
+            else:
+                # Remove the reward
+                self.unopened_rewards = [
+                    (name, qty)
+                    for name, qty in self.unopened_rewards
+                    if name != reward_name
+                ]
+            
+            # Show opening animation
+            level_up_msg = "🆙 LEVEL UP!" if result.get("leveled_up") else ""
+            embed = discord.Embed(
+                title="🎁 Box Opened!",
+                description=f"You opened a {reward_data['name']}!\n\n✨ **+{xp_reward} XP** {level_up_msg}",
+                color=discord.Color.gold(),
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+            # Update the inventory view
+            if self.unopened_rewards:
+                # Reset page if needed
+                if self.page >= self.total_pages:
+                    self.page = max(0, self.total_pages - 1)
+                
+                embed = inventory_with_rewards_embed(
+                    interaction.user.display_name,
+                    {},
+                    self.unopened_rewards,
+                    self.page,
+                    self.total_pages,
+                )
+                # Edit original message with updated view
+                await interaction.edit_original_response(embed=embed, view=self)
+            else:
+                # No more rewards
+                embed = discord.Embed(
+                    title="🎒 Inventory Empty",
+                    description="You have no more unopened rewards!",
+                    color=discord.Color.greyple(),
+                )
+                await interaction.edit_original_response(embed=embed, view=None)
+        
+        elif reward_data["type"] == "coin_bag":
+            # Open coin bag
+            coin_reward = reward_data.get("coin_reward", 10000)
+            result = queries.add_coins_to_player(interaction.user.id, coin_reward)
+            
+            # Remove from inventory
+            queries.remove_item_from_inventory(interaction.user.id, reward_id, 1)
+            
+            # Update unopened rewards list
+            if reward_qty > 1:
+                self.unopened_rewards = [
+                    (name, qty - 1 if name == reward_name else qty)
+                    for name, qty in self.unopened_rewards
+                ]
+            else:
+                self.unopened_rewards = [
+                    (name, qty)
+                    for name, qty in self.unopened_rewards
+                    if name != reward_name
+                ]
+            
+            # Show opening animation
+            embed = discord.Embed(
+                title="💰 Bag Opened!",
+                description=f"You opened a {reward_data['name']}!\n\n💸 **+{coin_reward} Coins**",
+                color=discord.Color.gold(),
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+            # Update the inventory view
+            if self.unopened_rewards:
+                if self.page >= self.total_pages:
+                    self.page = max(0, self.total_pages - 1)
+                
+                embed = inventory_with_rewards_embed(
+                    interaction.user.display_name,
+                    {},
+                    self.unopened_rewards,
+                    self.page,
+                    self.total_pages,
+                )
+                await interaction.edit_original_response(embed=embed, view=self)
+            else:
+                embed = discord.Embed(
+                    title="🎒 Inventory Empty",
+                    description="You have no more unopened rewards!",
+                    color=discord.Color.greyple(),
+                )
+                await interaction.edit_original_response(embed=embed, view=None)
+        
+        elif reward_data["type"] == "tickets":
+            # Add tickets to inventory
+            ticket_qty = int(reward_data["name"].split("x")[-1])
+            queries.add_item_to_inventory(interaction.user.id, reward_id, 1)
+            
+            # Remove unopened reward
+            queries.remove_item_from_inventory(interaction.user.id, reward_id, 1)
+            
+            # Update unopened rewards list
+            if reward_qty > 1:
+                self.unopened_rewards = [
+                    (name, qty - 1 if name == reward_name else qty)
+                    for name, qty in self.unopened_rewards
+                ]
+            else:
+                self.unopened_rewards = [
+                    (name, qty)
+                    for name, qty in self.unopened_rewards
+                    if name != reward_name
+                ]
+            
+            embed = discord.Embed(
+                title="🎟️ Bundle Opened!",
+                description=f"You opened a {reward_data['name']}!",
+                color=discord.Color.gold(),
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+            
+            # Update view
+            if self.unopened_rewards:
+                if self.page >= self.total_pages:
+                    self.page = max(0, self.total_pages - 1)
+                
+                embed = inventory_with_rewards_embed(
+                    interaction.user.display_name,
+                    {},
+                    self.unopened_rewards,
+                    self.page,
+                    self.total_pages,
+                )
+                await interaction.edit_original_response(embed=embed, view=self)
+            else:
+                embed = discord.Embed(
+                    title="🎒 Inventory Empty",
+                    description="You have no more unopened rewards!",
+                    color=discord.Color.greyple(),
+                )
+                await interaction.edit_original_response(embed=embed, view=None)
+
+    @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.primary, row=1)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await show_profile(interaction, self.owner_id, self.is_admin)

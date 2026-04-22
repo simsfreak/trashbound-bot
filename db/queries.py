@@ -610,6 +610,115 @@ def complete_zone_event(user_id: int, zone_id: str) -> None:
             )
 
 
+# ═══════════════════════════════════════════════════════════════════
+# ZONE REWARD OPENING FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════
+
+def add_xp_to_player(user_id: int, xp_amount: int) -> dict:
+    """Add XP to player and handle level-ups. Returns updated player data."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            # Get current XP and level
+            cur.execute(
+                """
+                SELECT xp, level FROM players WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return {}
+            
+            current_xp = row[0]
+            current_level = row[1]
+            
+            # Update XP
+            new_xp = current_xp + xp_amount
+            new_level = current_level
+            
+            # Simple level system: 1000 XP per level
+            if new_xp >= 1000:
+                new_level = (new_xp // 1000) + 1
+            
+            cur.execute(
+                """
+                UPDATE players
+                SET xp = %s, level = %s
+                WHERE user_id = %s
+                """,
+                (new_xp, new_level, user_id),
+            )
+            
+            return {
+                "xp_added": xp_amount,
+                "new_xp": new_xp,
+                "old_level": current_level,
+                "new_level": new_level,
+                "leveled_up": new_level > current_level,
+            }
+
+
+def add_coins_to_player(user_id: int, coin_amount: int) -> dict:
+    """Add coins to player. Returns updated player data."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            # Get current coins
+            cur.execute(
+                """
+                SELECT coins FROM players WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return {}
+            
+            current_coins = row[0]
+            new_coins = current_coins + coin_amount
+            
+            # Update coins
+            cur.execute(
+                """
+                UPDATE players
+                SET coins = %s
+                WHERE user_id = %s
+                """,
+                (new_coins, user_id),
+            )
+            
+            return {
+                "coins_added": coin_amount,
+                "new_coins": new_coins,
+            }
+
+
+def remove_item_from_inventory(user_id: int, item_id: str, qty: int = 1) -> bool:
+    """Remove items from inventory. Returns True if successful."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE inventory
+                SET quantity = quantity - %s
+                WHERE user_id = %s AND item_id = %s AND quantity >= %s
+                RETURNING user_id
+                """,
+                (qty, user_id, item_id, qty),
+            )
+            row = cur.fetchone()
+            
+            # Delete entry if quantity is now 0
+            if row:
+                cur.execute(
+                    """
+                    DELETE FROM inventory
+                    WHERE user_id = %s AND item_id = %s AND quantity <= 0
+                    """,
+                    (user_id, item_id),
+                )
+                return True
+            return False
+
 
 def get_hunger(user_id: int) -> int:
     """Get current hunger level (0-100)."""

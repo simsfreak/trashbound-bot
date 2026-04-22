@@ -418,6 +418,78 @@ for item_id, name, coins_text, flavor in _legendary_items:
         "zone_ids": ["scavenge"],
     }
 
+# ═══════════════════════════════════════════════════════════════════
+# ZONE MISSION REWARDS (Unopened Boxes & Rewards)
+# ═══════════════════════════════════════════════════════════════════
+
+ZONE_REWARDS = {
+    "dirty_tickets_50": {
+        "name": "🎟️ Dirty Tickets x50",
+        "type": "tickets",
+        "emoji": "🎟️",
+        "rarity": "Common",
+        "kind": "reward",
+    },
+    "dirty_tickets_200": {
+        "name": "🎟️ Dirty Tickets x200",
+        "type": "tickets",
+        "emoji": "🎟️",
+        "rarity": "Rare",
+        "kind": "reward",
+    },
+    "ticket_bundle_50": {
+        "name": "🎟️ Ticket Bundle x50",
+        "type": "tickets",
+        "emoji": "🎟️",
+        "rarity": "Common",
+        "kind": "reward",
+    },
+    "ticket_bundle_200": {
+        "name": "🎟️ Ticket Bundle x200",
+        "type": "tickets",
+        "emoji": "🎟️",
+        "rarity": "Epic",
+        "kind": "reward",
+    },
+    "azure_zone_box": {
+        "name": "🎁 Azure Zone Box",
+        "type": "zone_box",
+        "emoji": "🎁",
+        "rarity": "Rare",
+        "kind": "reward",
+        "xp_reward": 1000,
+    },
+    "crimson_zone_box": {
+        "name": "🎁 Crimson Zone Box",
+        "type": "zone_box",
+        "emoji": "🎁",
+        "rarity": "Epic",
+        "kind": "reward",
+        "xp_reward": 2000,
+    },
+    "golden_zone_box": {
+        "name": "🎁 Golden Zone Box",
+        "type": "zone_box",
+        "emoji": "🎁",
+        "rarity": "Epic",
+        "kind": "reward",
+        "xp_reward": 2000,
+    },
+    "heavy_coin_bag": {
+        "name": "💰 Heavy Coin Bag",
+        "type": "coin_bag",
+        "emoji": "💰",
+        "rarity": "Legendary",
+        "kind": "reward",
+        "coin_reward": 10000,
+    },
+}
+
+# Add reward items to ITEMS dict
+for reward_id, reward_data in ZONE_REWARDS.items():
+    ITEMS[reward_id] = reward_data
+
+
 MIX_RECIPES = [
     {
         "key": "iron_gloves_recipe",

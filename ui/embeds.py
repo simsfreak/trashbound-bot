@@ -213,6 +213,62 @@ def inventory_embed(username: str, lines: list[str], page: int, total_pages: int
     return embed
 
 
+def inventory_with_rewards_embed(
+    username: str,
+    equipment: dict[str, str],
+    unopened_rewards: list[tuple[str, int]],
+    page: int = 0,
+    total_pages: int = 1,
+) -> discord.Embed:
+    """
+    Enhanced inventory showing equipment + unopened rewards.
+    
+    Args:
+        username: Player username
+        equipment: Dict mapping slot names to item names
+        unopened_rewards: List of (reward_name, quantity) tuples
+        page: Current page of rewards
+        total_pages: Total pages of rewards
+    """
+    from game.zones import REWARD_POOL
+    
+    # Equipment section
+    equipment_lines = []
+    for slot in ["Head", "Left Hand", "Right Hand", "Feet"]:
+        item = equipment.get(slot, "[Empty]")
+        equipment_lines.append(f"  {slot:12} » {item}")
+    
+    equipment_section = "🎒 **EQUIPMENT & REWARDS**\n" + "\n".join(equipment_lines)
+    
+    # Unopened rewards section with pagination
+    per_page = 6
+    start = page * per_page
+    end = start + per_page
+    current_rewards = unopened_rewards[start:end]
+    
+    reward_lines = []
+    for reward_name, qty in current_rewards:
+        reward_lines.append(f"  {qty}x {reward_name}")
+    
+    rewards_section = "\n\n🎁 **UNOPENED REWARDS**\n" + "\n".join(reward_lines) if reward_lines else ""
+    
+    description = equipment_section + rewards_section
+    
+    if not reward_lines and not equipment_lines:
+        description = "Your inventory is empty!"
+    
+    embed = discord.Embed(
+        title=f"📦 {username}'s Inventory",
+        description=description,
+        color=0x5865F2,
+    )
+    
+    if unopened_rewards:
+        embed.set_footer(text=f"Rewards Page {page + 1}/{total_pages} • Use buttons to manage")
+    
+    return embed
+
+
 def mix_lab_embed(inventory_map, mix_lines):
     return discord.Embed(
         title="🧪 Goblin Mix Lab",
@@ -904,4 +960,44 @@ def exclusive_unlock_embed(exclusive_item: dict, username: str) -> discord.Embed
         color=0xFF69B4,
     )
     embed.set_footer(text="Use buttons to view collection or continue")
+    return embed
+
+
+# ═══════════════════════════════════════════════════════════════════
+# ZONE MISSION REWARD REVEAL EMBEDS
+# ═══════════════════════════════════════════════════════════════════
+
+def zone_mission_reward_single_embed(username: str, reward: dict) -> discord.Embed:
+    """Embed for single reward reveal."""
+    embed = discord.Embed(
+        title="🎉 Mission Complete! 🎉",
+        description=(
+            f"✨ Great job, {username}!\n"
+            f"You received:\n\n"
+            f"{reward.get('name', 'Unknown Reward')}\n\n"
+            f"💖 It has been added to your inventory."
+        ),
+        color=0xFFD700,
+    )
+    embed.set_footer(text="Continue to zone selector or open rewards")
+    return embed
+
+
+def zone_mission_reward_double_embed(username: str, rewards: list[dict]) -> discord.Embed:
+    """Embed for double reward reveal."""
+    reward_lines = []
+    for i, reward in enumerate(rewards, 1):
+        reward_lines.append(f"{i}. {reward.get('name', 'Unknown Reward')}")
+    
+    embed = discord.Embed(
+        title="🌟 Mission Rewards! 🌟",
+        description=(
+            f"Amazing work, {username}!\n"
+            f"You received:\n\n"
+            + "\n".join(reward_lines) +
+            f"\n\n💖 Both rewards were added to your inventory."
+        ),
+        color=0xFFD700,
+    )
+    embed.set_footer(text="Continue to zone selector or open rewards")
     return embed
