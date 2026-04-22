@@ -348,7 +348,7 @@ class ZoneActiveView(discord.ui.View):
                 await interaction.edit_original_response(embed=embed, view=self, attachments=[])
                 
                 # Update mission progress
-                queries.add_zone_harvest(interaction.user.id, self.zone_id, item.get("id"))
+                queries.add_zone_harvest(interaction.user.id, self.zone_id, item.get("id"), rarity)
             else:
                 # Failure
                 embed = discord.Embed(
