@@ -277,23 +277,34 @@ async def start_zone_session(user_id: int, zone_id: str, difficulty: str = "Medi
 async def get_active_zone_session(user_id: int, zone_id: str) -> dict | None:
     """Get current active zone session and check if expired."""
     from db import queries as db_queries
+    from datetime import datetime, timezone
     
     zone_event = db_queries.get_zone_event(user_id, zone_id)
     if not zone_event:
         return None
     
-    # Check if expired (1 hour)
-    started_at = datetime.fromisoformat(zone_event["started_at"].replace("Z", "+00:00"))
-    now = datetime.utcnow().replace(tzinfo=started_at.tzinfo)
-    elapsed = (now - started_at).total_seconds()
+    # Check if expired (1 hour) using timer_end_at
+    timer_end_at = zone_event["timer_end_at"]
     
-    if elapsed > 3600:  # 1 hour = 3600 seconds
+    # Handle both string and datetime objects
+    if isinstance(timer_end_at, str):
+        timer_end = datetime.fromisoformat(timer_end_at.replace("Z", "+00:00"))
+    else:
+        # It's already a datetime object from psycopg
+        timer_end = timer_end_at
+        if timer_end.tzinfo is None:
+            timer_end = timer_end.replace(tzinfo=timezone.utc)
+    
+    now = datetime.now(timezone.utc)
+    time_remaining = (timer_end - now).total_seconds()
+    
+    if time_remaining <= 0:
         # Session expired
         zone_event["expired"] = True
         zone_event["time_remaining_sec"] = 0
     else:
         zone_event["expired"] = False
-        zone_event["time_remaining_sec"] = int(3600 - elapsed)
+        zone_event["time_remaining_sec"] = int(time_remaining)
     
     return zone_event
 
