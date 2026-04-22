@@ -57,8 +57,8 @@ def _safe_active_effects(user_id: int):
                 # Parse ISO format string
                 expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
             
-            remaining = max(None, expires_at - datetime.utcnow())
-            if remaining and remaining.total_seconds() > 0:
+            remaining = expires_at - datetime.utcnow()
+            if remaining.total_seconds() > 0:
                 total_seconds = int(remaining.total_seconds())
                 hours, rem = divmod(total_seconds, 3600)
                 minutes, _seconds = divmod(rem, 60)
