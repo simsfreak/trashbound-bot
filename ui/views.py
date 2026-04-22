@@ -310,7 +310,7 @@ class ProfileView(discord.ui.View):
             view=None,
             attachments=[],
         )
-        await asyncio.sleep(1.0)
+        await asyncio.sleep(1.5)
 
         # Roll result with luck bonus
         luck_bonus = queries.get_luck_bonus(interaction.user.id)
@@ -389,18 +389,40 @@ class ProfileView(discord.ui.View):
             attachment_filename=attachment_name,
         )
 
+        # Stage 3: Show the result embed first without buttons
         if attachment_file:
             await interaction.edit_original_response(
                 embed=embed,
                 attachments=[attachment_file],
-                view=ProfileView(self.owner_id, self.is_admin),
+                view=None,
             )
         else:
             await interaction.edit_original_response(
                 embed=embed,
                 attachments=[],
-                view=ProfileView(self.owner_id, self.is_admin),
+                view=None,
             )
+        
+        # Give user time to read the result
+        await asyncio.sleep(2.0)
+        
+        # Stage 4: Add buttons to allow user to continue
+        try:
+            if attachment_file:
+                await interaction.edit_original_response(
+                    embed=embed,
+                    attachments=[attachment_file],
+                    view=ProfileView(self.owner_id, self.is_admin),
+                )
+            else:
+                await interaction.edit_original_response(
+                    embed=embed,
+                    attachments=[],
+                    view=ProfileView(self.owner_id, self.is_admin),
+                )
+        except discord.errors.NotFound:
+            # Message was deleted, that's okay
+            pass
 
     @discord.ui.button(label="🎒 Loot", style=discord.ButtonStyle.secondary, row=0)
     async def inventory_button(self, interaction: discord.Interaction, button: discord.ui.Button):
