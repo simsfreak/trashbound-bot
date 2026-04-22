@@ -26,7 +26,7 @@ SCHEMA_STATEMENTS = [
         coins INTEGER NOT NULL DEFAULT 0,
         xp INTEGER NOT NULL DEFAULT 0,
         level INTEGER NOT NULL DEFAULT 1,
-        current_zone_id TEXT NOT NULL DEFAULT 'back_alley',
+        current_zone_id TEXT NOT NULL DEFAULT 'fishing',
         current_title TEXT NOT NULL DEFAULT 'Trash Rookie',
         total_dives INTEGER NOT NULL DEFAULT 0,
         hunger INTEGER NOT NULL DEFAULT 100,

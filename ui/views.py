@@ -249,6 +249,15 @@ class ProfileView(discord.ui.View):
 
         player = queries.get_player(interaction.user.id)
         
+        # Check if zone is set and valid
+        zone_id = player.get("current_zone_id")
+        if not zone_id or zone_id not in ZONES:
+            await interaction.response.send_message(
+                f"❌ No zone selected! Please use the 🗺️ **Zones** button to select a zone first.",
+                ephemeral=True,
+            )
+            return
+        
         # Check hunger status
         current_hunger = player.get("hunger", 100)
         if current_hunger <= 0:
@@ -270,7 +279,7 @@ class ProfileView(discord.ui.View):
                 ephemeral=True,
             )
         
-        zone_name = ZONES[player["current_zone_id"]]["name"]
+        zone_name = ZONES[zone_id]["name"]
 
         starter = get_random_dive_starter()
         midpoint = get_random_dive_midpoint()
@@ -293,7 +302,7 @@ class ProfileView(discord.ui.View):
 
         # Roll result with luck bonus
         luck_bonus = queries.get_luck_bonus(interaction.user.id)
-        item_id, item = roll_item_for_zone(player["current_zone_id"], rare_bonus=luck_bonus)
+        item_id, item = roll_item_for_zone(zone_id, rare_bonus=luck_bonus)
         event = maybe_roll_dive_event()
 
         bonus_coins = 0
@@ -1522,6 +1531,85 @@ class UnopenerRewardsView(discord.ui.View):
         )
         await interaction.response.edit_message(embed=embed, view=self)
 
+    @discord.ui.button(label="🎁 Claim All", style=discord.ButtonStyle.danger, row=1)
+    async def claim_all_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Open all unopened rewards at once."""
+        from game.data import ZONE_REWARDS
+        
+        if not self.unopened_rewards:
+            await interaction.response.send_message("No rewards to claim!", ephemeral=True)
+            return
+        
+        # Track total rewards
+        total_xp = 0
+        total_coins = 0
+        rewards_claimed = []
+        
+        # Process all rewards
+        for reward_name, reward_qty in list(self.unopened_rewards):
+            # Find the reward ID by name
+            reward_id = None
+            for rid, rdata in ZONE_REWARDS.items():
+                if rdata["name"] == reward_name:
+                    reward_id = rid
+                    break
+            
+            if not reward_id:
+                continue
+            
+            reward_data = ZONE_REWARDS[reward_id]
+            
+            # Process all quantities of this reward
+            for _ in range(reward_qty):
+                if reward_data["type"] == "zone_box":
+                    xp_reward = reward_data.get("xp_reward", 1000)
+                    total_xp += xp_reward
+                    queries.remove_item_from_inventory(interaction.user.id, reward_id, 1)
+                    
+                elif reward_data["type"] == "coin_bag":
+                    coin_reward = reward_data.get("coin_reward", 10000)
+                    total_coins += coin_reward
+                    queries.remove_item_from_inventory(interaction.user.id, reward_id, 1)
+                    
+                elif reward_data["type"] == "tickets":
+                    ticket_qty = reward_data.get("qty", 50)
+                    coin_equivalent = ticket_qty * 100
+                    total_coins += coin_equivalent
+                    queries.remove_item_from_inventory(interaction.user.id, reward_id, 1)
+            
+            rewards_claimed.append(f"{reward_name} x{reward_qty}")
+        
+        # Apply all rewards
+        if total_xp > 0:
+            queries.add_xp_to_player(interaction.user.id, total_xp)
+        if total_coins > 0:
+            queries.add_coins_to_player(interaction.user.id, total_coins)
+        
+        # Clear unopened rewards
+        self.unopened_rewards = []
+        
+        # Show summary
+        summary = "\n".join(rewards_claimed) if rewards_claimed else "No rewards"
+        embed = discord.Embed(
+            title="🎉 All Rewards Claimed!",
+            description=(
+                f"**Items Opened:**\n{summary}\n\n"
+                f"{'✨ **+' + str(total_xp) + ' XP**' if total_xp > 0 else ''}"
+                f"{' | ' if total_xp > 0 and total_coins > 0 else ''}"
+                f"{'💸 **+' + str(total_coins) + ' Coins**' if total_coins > 0 else ''}"
+            ),
+            color=discord.Color.gold(),
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        
+        # Show empty inventory
+        embed = discord.Embed(
+            title="🎒 Inventory Empty",
+            description="All rewards have been claimed!",
+            color=discord.Color.greyple(),
+        )
+        await interaction.edit_original_response(embed=embed, view=None)
+
     @discord.ui.button(label="🎁 Open Reward", style=discord.ButtonStyle.success, row=1)
     async def open_reward_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         from game.data import ZONE_REWARDS
@@ -1656,11 +1744,12 @@ class UnopenerRewardsView(discord.ui.View):
                 await interaction.edit_original_response(embed=embed, view=None)
         
         elif reward_data["type"] == "tickets":
-            # Add tickets to inventory
-            ticket_qty = int(reward_data["name"].split("x")[-1])
-            queries.add_item_to_inventory(interaction.user.id, reward_id, 1)
+            # Convert unopened ticket bundle to coins
+            ticket_qty = reward_data.get("qty", 50)
+            coin_equivalent = ticket_qty * 100  # 50 tickets = 5000 coins
+            queries.add_coins_to_player(interaction.user.id, coin_equivalent)
             
-            # Remove unopened reward
+            # Remove unopened reward from inventory
             queries.remove_item_from_inventory(interaction.user.id, reward_id, 1)
             
             # Update unopened rewards list
@@ -1678,7 +1767,7 @@ class UnopenerRewardsView(discord.ui.View):
             
             embed = discord.Embed(
                 title="🎟️ Bundle Opened!",
-                description=f"You opened a {reward_data['name']}!",
+                description=f"You opened a {reward_data['name']}!\n\n💸 **+{coin_equivalent} Coins**",
                 color=discord.Color.gold(),
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -1704,7 +1793,7 @@ class UnopenerRewardsView(discord.ui.View):
                 )
                 await interaction.edit_original_response(embed=embed, view=None)
 
-    @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.primary, row=1)
+    @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.primary, row=2)
     async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await show_profile(interaction, self.owner_id, self.is_admin)
 
