@@ -165,13 +165,25 @@ class ZoneSelectorView(discord.ui.View):
     async def _show_active_zone(self, interaction: discord.Interaction, zone_id: str, zone_event: dict):
         """Show active zone with mission progress."""
         try:
+            from datetime import datetime, timezone
             zone = ZONES_META.get(zone_id)
             
             # Calculate time remaining from timer_end_at
-            from datetime import datetime
-            timer_end = datetime.fromisoformat(zone_event["timer_end_at"].replace("Z", "+00:00"))
-            now = datetime.utcnow().replace(tzinfo=timer_end.tzinfo)
+            timer_end_at = zone_event["timer_end_at"]
+            print(f"DEBUG: timer_end_at type: {type(timer_end_at)}, value: {timer_end_at}")
+            
+            # Handle both string and datetime objects
+            if isinstance(timer_end_at, str):
+                timer_end = datetime.fromisoformat(timer_end_at.replace("Z", "+00:00"))
+            else:
+                # It's already a datetime object from psycopg
+                timer_end = timer_end_at
+                if timer_end.tzinfo is None:
+                    timer_end = timer_end.replace(tzinfo=timezone.utc)
+            
+            now = datetime.now(timezone.utc)
             time_remaining = max(0, int((timer_end - now).total_seconds()))
+            print(f"DEBUG: Time remaining: {time_remaining} seconds")
             
             embed = zone_active_embed(zone_id, zone_event, time_remaining)
             view = ZoneActiveView(self.owner_id, self.is_admin, zone_id)
