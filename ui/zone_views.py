@@ -38,14 +38,17 @@ class ZoneSelectorView(discord.ui.View):
     
     @discord.ui.button(label="🌿 Botany", style=discord.ButtonStyle.primary, row=0)
     async def botany_zone_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        print(f"DEBUG: Botany button clicked by {interaction.user.id}")
         await self._enter_zone(interaction, "botany")
     
     @discord.ui.button(label="🏺 Archaeology", style=discord.ButtonStyle.primary, row=0)
     async def archaeology_zone_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        print(f"DEBUG: Archaeology button clicked by {interaction.user.id}")
         await self._enter_zone(interaction, "archaeology")
     
     @discord.ui.button(label="♻️ Scavenge", style=discord.ButtonStyle.primary, row=1)
     async def scavenge_zone_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        print(f"DEBUG: Scavenge button clicked by {interaction.user.id}")
         await self._enter_zone(interaction, "scavenge")
     
     @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=1)
@@ -64,42 +67,52 @@ class ZoneSelectorView(discord.ui.View):
     
     async def _enter_zone(self, interaction: discord.Interaction, zone_id: str):
         """Enter a zone - check if unlocked, then show zone page."""
-        print(f"DEBUG: _enter_zone called for zone_id={zone_id}, user_id={interaction.user.id}")
+        print(f"\nDEBUG: _enter_zone called for zone_id='{zone_id}' (type: {type(zone_id).__name__}), user_id={interaction.user.id}")
         await interaction.response.defer()
         print(f"DEBUG: Deferred interaction")
         
         try:
-            print(f"DEBUG: In try block")
+            print(f"DEBUG: In try block for zone_id='{zone_id}'")
             print(f"DEBUG: About to call get_player with user_id={interaction.user.id}")
             player = queries.get_player(interaction.user.id)
-            print(f"DEBUG: Got player: {player}")
-            print(f"DEBUG: About to get ZONES_META for zone_id={zone_id}")
+            print(f"DEBUG: Got player: level={player.get('level')}, type={type(player)}")
+            print(f"DEBUG: About to get ZONES_META for zone_id='{zone_id}'")
             zone = ZONES_META.get(zone_id)
-            print(f"DEBUG: Got zone: {zone}")
+            print(f"DEBUG: Got zone object, zone={zone is not None}, name={zone.get('name') if zone else 'NOT FOUND'}")
             
             if not zone:
+                print(f"DEBUG: Zone '{zone_id}' NOT FOUND in ZONES_META")
                 await interaction.followup.send("❌ Zone not found.", ephemeral=True)
                 return
             
             # Check if unlocked
-            if player["level"] < zone["unlock_level"]:
+            unlock_level = zone.get("unlock_level")
+            player_level = player.get("level")
+            print(f"DEBUG: Checking unlock - player_level={player_level}, required={unlock_level}")
+            if player_level < unlock_level:
+                print(f"DEBUG: Zone locked for player")
                 await interaction.followup.send(
-                    f"🔒 **{zone['name']}** unlocks at Level {zone['unlock_level']}\n"
-                    f"You're currently Level {player['level']}",
+                    f"🔒 **{zone['name']}** unlocks at Level {unlock_level}\n"
+                    f"You're currently Level {player_level}",
                     ephemeral=True,
                 )
                 return
             
+            print(f"DEBUG: Zone unlocked, checking for active session...")
             # Check for active zone session
             active_zone = queries.get_zone_event(interaction.user.id, zone_id)
+            print(f"DEBUG: Active zone result: {active_zone is not None}")
             
             if active_zone and active_zone["is_active"]:
+                print(f"DEBUG: Resuming active zone")
                 # Resume active zone
                 await self._show_active_zone(interaction, zone_id, active_zone)
             else:
+                print(f"DEBUG: Showing zone main page")
                 # Show zone main page with mission data if it exists
-                embed = zone_info_embed(zone_id, player["level"], active_zone)
+                embed = zone_info_embed(zone_id, player_level, active_zone)
                 view = ZoneMainPageView(self.owner_id, self.is_admin, zone_id)
+                print(f"DEBUG: Editing response with embed and view")
                 await interaction.edit_original_response(embed=embed, view=view, attachments=[])
         except Exception as e:
             print(f"\n{'='*60}")
