@@ -968,38 +968,64 @@ def exclusive_unlock_embed(exclusive_item: dict, username: str) -> discord.Embed
 # ═══════════════════════════════════════════════════════════════════
 
 def zone_mission_reward_single_embed(username: str, reward: dict) -> discord.Embed:
-    """Embed for single reward reveal."""
+    """
+    Single reward reveal embed - EXACT format per spec.
+    
+    ╔══════════ 🎉 Mission Complete! 🎉 ══════════╗
+      ✨ Great job, [Username]!
+      You received:
+    
+      🎁 [Reward Name]
+    
+      💖 It has been added to your inventory.
+    ╚══════════════════════════════════════════════╝
+    """
+    reward_name = reward.get('name', 'Unknown Reward')
+    
     embed = discord.Embed(
         title="🎉 Mission Complete! 🎉",
         description=(
             f"✨ Great job, {username}!\n"
             f"You received:\n\n"
-            f"{reward.get('name', 'Unknown Reward')}\n\n"
+            f"{reward_name}\n\n"
             f"💖 It has been added to your inventory."
         ),
-        color=0xFFD700,
+        color=discord.Color.gold(),
     )
-    embed.set_footer(text="Continue to zone selector or open rewards")
+    
     return embed
 
 
 def zone_mission_reward_double_embed(username: str, rewards: list[dict]) -> discord.Embed:
-    """Embed for double reward reveal."""
+    """
+    Double reward reveal embed - EXACT format per spec.
+    
+    ╔══════════ 🌟 Mission Rewards 🌟 ══════════╗
+      Amazing work, [Username]!
+      You received:
+    
+      1. 🎁 [Reward Name]
+      2. 🎁 [Reward Name]
+    
+      💖 Both rewards were added to your inventory.
+    ╚════════════════════════════════════════════╝
+    """
     reward_lines = []
     for i, reward in enumerate(rewards, 1):
-        reward_lines.append(f"{i}. {reward.get('name', 'Unknown Reward')}")
+        reward_name = reward.get('name', 'Unknown Reward')
+        reward_lines.append(f"{i}. {reward_name}")
     
     embed = discord.Embed(
-        title="🌟 Mission Rewards! 🌟",
+        title="🌟 Mission Rewards 🌟",
         description=(
             f"Amazing work, {username}!\n"
             f"You received:\n\n"
             + "\n".join(reward_lines) +
             f"\n\n💖 Both rewards were added to your inventory."
         ),
-        color=0xFFD700,
+        color=discord.Color.gold(),
     )
-    embed.set_footer(text="Continue to zone selector or open rewards")
+    
     return embed
 
 

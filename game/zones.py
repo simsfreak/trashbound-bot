@@ -476,7 +476,7 @@ REWARD_POOL = {
         "weight": 12,
     },
     "heavy_coin_bag": {
-        "name": "💰 Heavy Coin Bag",
+        "name": "💰 Bag of Money",
         "type": "coin_bag",
         "coin_reward": 10000,
         "weight": 8,
