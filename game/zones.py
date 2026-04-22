@@ -518,3 +518,75 @@ def roll_mission_rewards(count: int = None) -> list[dict]:
         rewards.append(reward)
     
     return rewards
+
+
+# ═══════════════════════════════════════════════════════════════════
+# MUSEUM RELIC DROP SYSTEM
+# ═══════════════════════════════════════════════════════════════════
+
+def roll_relic_drop(zone_id: str = None) -> dict | None:
+    """
+    Check if a relic should drop and roll its rarity.
+    
+    Args:
+        zone_id: The zone where the relic is dropped from.
+                Can be: "fishing", "botany", "archaeology", "scavenge", or None for special events.
+    
+    Returns:
+        Relic dict with id, name, emoji, rarity if drop succeeds.
+        None if no relic drops (94% of the time).
+    """
+    from game.data import RELICS, RELIC_DROP_BIASES
+    
+    # 6% base relic drop chance
+    if random.random() > 0.06:
+        return None
+    
+    # Relic dropped! Now roll rarity with zone biases
+    biases = RELIC_DROP_BIASES.get(zone_id or "base", RELIC_DROP_BIASES["base"])
+    
+    # Clamp negative values to 0
+    biases = {k: max(0, v) for k, v in biases.items()}
+    
+    # Normalize to valid probabilities
+    total = sum(biases.values())
+    if total == 0:
+        biases = RELIC_DROP_BIASES["base"]
+        total = sum(biases.values())
+    
+    # Roll rarity
+    rarities = list(biases.keys())
+    weights = [biases[r] for r in rarities]
+    chosen_rarity = random.choices(rarities, weights=weights, k=1)[0]
+    
+    # Get all relics of this rarity that can drop from this zone
+    matching_relics = []
+    for relic_id, relic_data in RELICS.items():
+        if relic_data["rarity"] == chosen_rarity:
+            # Check if this relic can drop from this zone
+            if zone_id is None or zone_id in relic_data["source_zones"]:
+                matching_relics.append((relic_id, relic_data))
+    
+    if not matching_relics:
+        # Fallback: try without zone filter
+        matching_relics = [
+            (relic_id, relic_data)
+            for relic_id, relic_data in RELICS.items()
+            if relic_data["rarity"] == chosen_rarity
+        ]
+    
+    if not matching_relics:
+        return None
+    
+    # Pick random relic
+    relic_id, relic_data = random.choice(matching_relics)
+    
+    return {
+        "id": relic_id,
+        "name": relic_data["name"],
+        "emoji": relic_data["emoji"],
+        "rarity": chosen_rarity,
+        "set_id": relic_data["set_id"],
+        "description": relic_data["description"],
+    }
+

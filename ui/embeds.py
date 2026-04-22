@@ -1001,3 +1001,265 @@ def zone_mission_reward_double_embed(username: str, rewards: list[dict]) -> disc
     )
     embed.set_footer(text="Continue to zone selector or open rewards")
     return embed
+
+
+# ═══════════════════════════════════════════════════════════════════
+# MUSEUM RELIC COLLECTION EMBEDS
+# ═══════════════════════════════════════════════════════════════════
+
+def museum_hub_embed(username: str, progress: dict) -> discord.Embed:
+    """Main Museum Hub showing all 10 sets and progress."""
+    from game.data import MUSEUM_SETS
+    
+    embed = discord.Embed(
+        title="🏛️ MUSEUM",
+        description="🧓 Curator: Welcome back, Diver.\nForgotten things are waiting to be remembered.",
+        color=0x8B7355,
+    )
+    
+    embed.add_field(
+        name="📚 COLLECTIONS",
+        value="\n".join([
+            f"{MUSEUM_SETS[set_id]['emoji']} {MUSEUM_SETS[set_id]['name']:<30} {progress.get(set_id, {}).get('relics', 0)} / 5"
+            for set_id in sorted(MUSEUM_SETS.keys(), key=lambda x: MUSEUM_SETS[x]["set_number"])
+        ]),
+        inline=False,
+    )
+    
+    embed.set_footer(text="Use buttons below to explore the museum")
+    return embed
+
+
+def museum_sets_page_embed(page: int = 0) -> discord.Embed:
+    """Paginated view of all 10 museum sets (5 per page)."""
+    from game.data import MUSEUM_SETS
+    
+    all_sets = sorted(MUSEUM_SETS.items(), key=lambda x: x[1]["set_number"])
+    start = page * 5
+    end = start + 5
+    page_sets = all_sets[start:end]
+    
+    embed = discord.Embed(
+        title="📖 MUSEUM SETS",
+        color=0x8B7355,
+    )
+    
+    for set_id, set_data in page_sets:
+        embed.add_field(
+            name=f"{set_data['set_number']}. {set_data['name']}",
+            value=set_data['lore'][:100] + "...",
+            inline=False,
+        )
+    
+    total_pages = (len(all_sets) + 4) // 5
+    embed.set_footer(text=f"Page {page + 1} / {total_pages}")
+    return embed
+
+
+def museum_set_detail_embed(set_id: str, relics: list, player_relics: list) -> discord.Embed:
+    """Show all 5 relics in a specific museum set."""
+    from game.data import MUSEUM_SETS, RELICS, RELIC_RARITY_INFO
+    
+    if set_id not in MUSEUM_SETS:
+        return discord.Embed(title="❌ Set Not Found", color=0xFF0000)
+    
+    set_data = MUSEUM_SETS[set_id]
+    player_relic_ids = [r["relic_id"] for r in player_relics]
+    
+    embed = discord.Embed(
+        title=f"{set_data['name']}",
+        description=f"Progress: {len([r for r in player_relics if r['set_id'] == set_id])} / 5",
+        color=0x8B7355,
+    )
+    
+    # Find all relics for this set
+    set_relics = [
+        (rid, rdata) for rid, rdata in RELICS.items()
+        if rdata["set_id"] == set_id
+    ]
+    
+    for idx, (relic_id, relic_data) in enumerate(sorted(set_relics, key=lambda x: x[1].get("set_index", 0)), 1):
+        collected = "✅" if relic_id in player_relic_ids else "❌"
+        rarity_info = RELIC_RARITY_INFO.get(relic_data["rarity"], {})
+        embed.add_field(
+            name=f"{idx}. {relic_data['emoji']} {relic_data['name']} {collected}",
+            value=f"*{rarity_info.get('name', 'Unknown')}*",
+            inline=False,
+        )
+    
+    embed.add_field(
+        name="ℹ️ Set Description",
+        value=set_data["lore"],
+        inline=False,
+    )
+    
+    return embed
+
+
+def museum_relic_archive_embed(page: int, player_relics: list) -> discord.Embed:
+    """Paginated archive of all discovered relics."""
+    from game.data import RELICS, RELIC_RARITY_INFO
+    
+    # Group discovered relics by rarity
+    discovered = sorted(
+        [(r["relic_id"], RELICS[r["relic_id"]]) for r in player_relics],
+        key=lambda x: list(RELIC_RARITY_INFO.keys()).index(x[1]["rarity"]) if x[1]["rarity"] in RELIC_RARITY_INFO else 999,
+    )
+    
+    items_per_page = 5
+    start = page * items_per_page
+    end = start + items_per_page
+    page_relics = discovered[start:end]
+    
+    embed = discord.Embed(
+        title="🧿 RELIC ARCHIVE",
+        color=0x8B7355,
+    )
+    
+    if not page_relics:
+        embed.description = "No relics discovered yet. Explore zones to find relics!"
+        return embed
+    
+    for relic_id, relic_data in page_relics:
+        rarity_info = RELIC_RARITY_INFO.get(relic_data["rarity"], {})
+        emoji = rarity_info.get("emoji", "❓")
+        embed.add_field(
+            name=f"{relic_data['emoji']} {relic_data['name']}",
+            value=f"{emoji} {rarity_info.get('name', 'Unknown Rarity')}",
+            inline=False,
+        )
+    
+    total_pages = max(1, (len(discovered) + items_per_page - 1) // items_per_page)
+    embed.set_footer(text=f"Page {page + 1} / {total_pages} • {len(discovered)} relics discovered")
+    return embed
+
+
+def museum_relic_card_embed(relic_id: str) -> discord.Embed:
+    """Individual relic card with full details."""
+    from game.data import RELICS, MUSEUM_SETS, RELIC_RARITY_INFO
+    
+    if relic_id not in RELICS:
+        return discord.Embed(title="❌ Relic Not Found", color=0xFF0000)
+    
+    relic = RELICS[relic_id]
+    set_data = MUSEUM_SETS.get(relic["set_id"], {})
+    rarity_info = RELIC_RARITY_INFO.get(relic["rarity"], {})
+    
+    embed = discord.Embed(
+        title=f"🧿 RELIC ENTRY",
+        color=rarity_info.get("color", 0x8B7355),
+    )
+    
+    embed.add_field(
+        name=f"{relic['emoji']} {relic['name']}",
+        value="",
+        inline=False,
+    )
+    
+    embed.add_field(
+        name="Rarity",
+        value=f"{rarity_info.get('emoji', '❓')} {rarity_info.get('name', 'Unknown')}",
+        inline=True,
+    )
+    
+    embed.add_field(
+        name="Set",
+        value=f"{set_data.get('emoji', '❓')} {set_data.get('name', 'Unknown')}",
+        inline=True,
+    )
+    
+    zone_list = ", ".join([f"🏺 {z}" if z == "archaeology" else f"🎣 {z}" if z == "fishing" 
+                           else f"🌿 {z}" if z == "botany" else f"♻️ {z}" if z == "scavenge" else z 
+                           for z in relic.get("source_zones", [])])
+    embed.add_field(
+        name="Source",
+        value=zone_list or "Unknown",
+        inline=False,
+    )
+    
+    embed.add_field(
+        name="Description",
+        value=f'"{relic["description"]}"',
+        inline=False,
+    )
+    
+    embed.set_footer(text="Collected relics are permanent in your archive")
+    return embed
+
+
+def museum_story_embed(chapter: int) -> discord.Embed:
+    """Display a story chapter unlocked through museum progression."""
+    from game.data import MUSEUM_STORY_CHAPTERS
+    
+    if chapter < 1 or chapter > len(MUSEUM_STORY_CHAPTERS):
+        return discord.Embed(
+            title="📜 STORY LOCKED",
+            description="Complete more museum sets to unlock this chapter.",
+            color=0x404040,
+        )
+    
+    story_data = MUSEUM_STORY_CHAPTERS[chapter - 1]
+    
+    embed = discord.Embed(
+        title=f"📜 MUSEUM STORY",
+        description=f"**Chapter {chapter}: {story_data['title']}**",
+        color=0x8B7355,
+    )
+    
+    embed.add_field(
+        name="Story",
+        value=story_data["text"],
+        inline=False,
+    )
+    
+    embed.set_footer(text=f"Chapter {chapter} / 10")
+    return embed
+
+
+def museum_set_completion_embed(username: str, set_id: str) -> discord.Embed:
+    """Celebration embed for completing a museum set."""
+    from game.data import MUSEUM_SETS
+    
+    if set_id not in MUSEUM_SETS:
+        return discord.Embed(title="❌ Set Not Found", color=0xFF0000)
+    
+    set_data = MUSEUM_SETS[set_id]
+    
+    embed = discord.Embed(
+        title="🌟 SET COMPLETED! 🌟",
+        description=f"{set_data['emoji']} {set_data['name']} is now complete!",
+        color=0xFFD700,
+    )
+    
+    # Format rewards
+    rewards_text = []
+    if "tickets" in set_data["rewards"]:
+        rewards_text.append(f"🎟️ Dirty Tickets x{set_data['rewards']['tickets']}")
+    if "coins" in set_data["rewards"]:
+        rewards_text.append(f"💰 {set_data['rewards']['coins']:,} Coins")
+    if "museum_box" in set_data["rewards"]:
+        rewards_text.append(f"🎁 Museum Box")
+    if "exclusive" in set_data["rewards"]:
+        rewards_text.append(f"🧸 Exclusive Cosmetic Unlocked")
+    if "title" in set_data["rewards"]:
+        rewards_text.append(f"👑 Title: {set_data['rewards']['title']}")
+    if "bonus" in set_data["rewards"]:
+        rewards_text.append(f"✨ {set_data['rewards']['bonus']}")
+    if set_data["rewards"].get("story_fragment"):
+        rewards_text.append(f"📜 Story Fragment Unlocked")
+    
+    embed.add_field(
+        name="Rewards",
+        value="\n".join(rewards_text) or "Special recognition",
+        inline=False,
+    )
+    
+    embed.add_field(
+        name="",
+        value="💫 The Museum hums softly...\nSomething remembered you back.",
+        inline=False,
+    )
+    
+    embed.set_footer(text=f"Completion recognized on {datetime.utcnow().strftime('%Y-%m-%d')}")
+    return embed
+

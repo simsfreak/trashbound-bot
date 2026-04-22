@@ -152,6 +152,41 @@ SCHEMA_STATEMENTS = [
         harvested_at TIMESTAMP NOT NULL DEFAULT NOW()
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS player_relics (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL REFERENCES players(user_id) ON DELETE CASCADE,
+        relic_id TEXT NOT NULL,
+        set_id TEXT NOT NULL,
+        rarity TEXT NOT NULL,
+        collected_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        UNIQUE (user_id, relic_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS museum_progress (
+        user_id BIGINT NOT NULL REFERENCES players(user_id) ON DELETE CASCADE,
+        set_id TEXT NOT NULL,
+        relics_collected INTEGER DEFAULT 0,
+        completed BOOLEAN DEFAULT FALSE,
+        completed_at TIMESTAMP,
+        PRIMARY KEY (user_id, set_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS museum_story (
+        user_id BIGINT NOT NULL REFERENCES players(user_id) ON DELETE CASCADE,
+        chapter INTEGER NOT NULL,
+        unlocked_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (user_id, chapter)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS museum_dust (
+        user_id BIGINT NOT NULL REFERENCES players(user_id) ON DELETE CASCADE PRIMARY KEY,
+        dust_amount INTEGER NOT NULL DEFAULT 0
+    )
+    """,
 ]
 
 

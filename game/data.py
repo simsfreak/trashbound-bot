@@ -490,6 +490,791 @@ for reward_id, reward_data in ZONE_REWARDS.items():
     ITEMS[reward_id] = reward_data
 
 
+# ═══════════════════════════════════════════════════════════════════
+# MUSEUM RELIC SYSTEM - 50 RELICS IN 10 SETS
+# ═══════════════════════════════════════════════════════════════════
+
+RELICS = {
+    # SET 1 — 🏙️ LOST CITY ARCHIVE
+    "relic_echo_coin_fragment": {
+        "name": "Echo Coin Fragment",
+        "emoji": "🪙",
+        "rarity": "common_relic",
+        "set_id": "lost_city_archive",
+        "set_name": "🏙️ Lost City Archive",
+        "set_index": 1,
+        "source_zones": ["archaeology", "scavenge"],
+        "description": "A damaged coin that hums faintly when touched.",
+    },
+    "relic_royal_brick_shard": {
+        "name": "Royal Brick Shard",
+        "emoji": "🧱",
+        "rarity": "common_relic",
+        "set_id": "lost_city_archive",
+        "set_name": "🏙️ Lost City Archive",
+        "set_index": 2,
+        "source_zones": ["archaeology"],
+        "description": "A clay brick with faded gold leaf markings.",
+    },
+    "relic_cracked_royal_vase": {
+        "name": "Cracked Royal Vase",
+        "emoji": "🏺",
+        "rarity": "rare_relic",
+        "set_id": "lost_city_archive",
+        "set_name": "🏙️ Lost City Archive",
+        "set_index": 3,
+        "source_zones": ["archaeology"],
+        "description": "A ceremonial vase with three vertical cracks, still holding water.",
+    },
+    "relic_forgotten_idol_head": {
+        "name": "Forgotten Idol Head",
+        "emoji": "🗿",
+        "rarity": "exotic_relic",
+        "set_id": "lost_city_archive",
+        "set_name": "🏙️ Lost City Archive",
+        "set_index": 4,
+        "source_zones": ["archaeology"],
+        "description": "A stone face worn smooth by time, but the eyes remain sharply carved, as if still watching.",
+    },
+    "relic_burned_decree_scroll": {
+        "name": "Burned Decree Scroll",
+        "emoji": "📜",
+        "rarity": "ancient_relic",
+        "set_id": "lost_city_archive",
+        "set_name": "🏙️ Lost City Archive",
+        "set_index": 5,
+        "source_zones": ["archaeology"],
+        "description": "Partially burned parchment with unreadable text, edges charred to ash.",
+    },
+
+    # SET 2 — 🌊 SUNKEN DEPTHS COLLECTION
+    "relic_barnacle_anchor_charm": {
+        "name": "Barnacle Anchor Charm",
+        "emoji": "⚓",
+        "rarity": "common_relic",
+        "set_id": "sunken_depths",
+        "set_name": "🌊 Sunken Depths",
+        "set_index": 6,
+        "source_zones": ["fishing", "scavenge"],
+        "description": "A tiny anchor crusted with old barnacles, somehow still magnetizing.",
+    },
+    "relic_drowned_sailor_shell": {
+        "name": "Drowned Sailor Shell",
+        "emoji": "🐚",
+        "rarity": "rare_relic",
+        "set_id": "sunken_depths",
+        "set_name": "🌊 Sunken Depths",
+        "set_index": 7,
+        "source_zones": ["fishing"],
+        "description": "A conch that echoes with distant whale song when held to ear.",
+    },
+    "relic_tideglass_orb": {
+        "name": "Tideglass Orb",
+        "emoji": "🫧",
+        "rarity": "rare_relic",
+        "set_id": "sunken_depths",
+        "set_name": "🌊 Sunken Depths",
+        "set_index": 8,
+        "source_zones": ["fishing"],
+        "description": "A sphere of sea-glass containing a single bubble that never pops.",
+    },
+    "relic_crystal_tide_scale": {
+        "name": "Crystal Tide Scale",
+        "emoji": "🐟",
+        "rarity": "exotic_relic",
+        "set_id": "sunken_depths",
+        "set_name": "🌊 Sunken Depths",
+        "set_index": 9,
+        "source_zones": ["fishing"],
+        "description": "A fish scale that refracts light into colors that don't exist in nature.",
+    },
+    "relic_abyss_bell_core": {
+        "name": "Abyss Bell Core",
+        "emoji": "🌊",
+        "rarity": "ancient_relic",
+        "set_id": "sunken_depths",
+        "set_name": "🌊 Sunken Depths",
+        "set_index": 10,
+        "source_zones": ["fishing"],
+        "description": "The rusted bronze core of a massive bell, cold despite warm weather.",
+    },
+
+    # SET 3 — 🌿 OVERGROWTH HERBARIUM
+    "relic_alley_moss_seal": {
+        "name": "Alley Moss Seal",
+        "emoji": "🌱",
+        "rarity": "common_relic",
+        "set_id": "overgrowth_herbarium",
+        "set_name": "🌿 Overgrowth Herbarium",
+        "set_index": 11,
+        "source_zones": ["botany"],
+        "description": "Moss shaped exactly like a official seal, soft as velvet.",
+    },
+    "relic_whisper_leaf_vein": {
+        "name": "Whisper Leaf Vein",
+        "emoji": "🍃",
+        "rarity": "rare_relic",
+        "set_id": "overgrowth_herbarium",
+        "set_name": "🌿 Overgrowth Herbarium",
+        "set_index": 12,
+        "source_zones": ["botany"],
+        "description": "A pressed leaf with veins that glow faintly in darkness.",
+    },
+    "relic_glow_petal_core": {
+        "name": "Glow Petal Core",
+        "emoji": "🌸",
+        "rarity": "rare_relic",
+        "set_id": "overgrowth_herbarium",
+        "set_name": "🌿 Overgrowth Herbarium",
+        "set_index": 13,
+        "source_zones": ["botany"],
+        "description": "A flower petal that emits bioluminescence when squeezed.",
+    },
+    "relic_pulsecap_heart": {
+        "name": "Pulsecap Heart",
+        "emoji": "🍄",
+        "rarity": "exotic_relic",
+        "set_id": "overgrowth_herbarium",
+        "set_name": "🌿 Overgrowth Herbarium",
+        "set_index": 14,
+        "source_zones": ["botany"],
+        "description": "A mushroom cap that pulses like a beating heart.",
+    },
+    "relic_thornlight_seed_crown": {
+        "name": "Thornlight Seed Crown",
+        "emoji": "🌹",
+        "rarity": "ancient_relic",
+        "set_id": "overgrowth_herbarium",
+        "set_name": "🌿 Overgrowth Herbarium",
+        "set_index": 15,
+        "source_zones": ["botany"],
+        "description": "Thorned seeds arranged in a perfect spiral, radiating soft light.",
+    },
+
+    # SET 4 — ⚙️ INDUSTRIAL REMNANTS
+    "relic_factory_bolt_mark_i": {
+        "name": "Factory Bolt Mark I",
+        "emoji": "🔩",
+        "rarity": "common_relic",
+        "set_id": "industrial_remnants",
+        "set_name": "⚙️ Industrial Remnants",
+        "set_index": 16,
+        "source_zones": ["scavenge"],
+        "description": "A factory bolt stamped with manufacturing date from an era no records contain.",
+    },
+    "relic_copper_fuse_spine": {
+        "name": "Copper Fuse Spine",
+        "emoji": "🔌",
+        "rarity": "common_relic",
+        "set_id": "industrial_remnants",
+        "set_name": "⚙️ Industrial Remnants",
+        "set_index": 17,
+        "source_zones": ["scavenge"],
+        "description": "A copper spine from a circuit board, still slightly warm.",
+    },
+    "relic_machine_prayer_cog": {
+        "name": "Machine Prayer Cog",
+        "emoji": "⚙️",
+        "rarity": "rare_relic",
+        "set_id": "industrial_remnants",
+        "set_name": "⚙️ Industrial Remnants",
+        "set_index": 18,
+        "source_zones": ["scavenge"],
+        "description": "A gear with sacred symbols carved into its teeth.",
+    },
+    "relic_core_battery_relic": {
+        "name": "Core Battery Relic",
+        "emoji": "🔋",
+        "rarity": "exotic_relic",
+        "set_id": "industrial_remnants",
+        "set_name": "⚙️ Industrial Remnants",
+        "set_index": 19,
+        "source_zones": ["scavenge"],
+        "description": "A battery that maintains constant charge despite being corroded.",
+    },
+    "relic_foremans_command_tool": {
+        "name": "Foreman's Command Tool",
+        "emoji": "🛠️",
+        "rarity": "ancient_relic",
+        "set_id": "industrial_remnants",
+        "set_name": "⚙️ Industrial Remnants",
+        "set_index": 20,
+        "source_zones": ["scavenge"],
+        "description": "A wrench engraved with names of workers long forgotten.",
+    },
+
+    # SET 5 — 🧸 CHILDHOOD REMAINS
+    "relic_button_eye_plush_core": {
+        "name": "Button Eye Plush Core",
+        "emoji": "🧸",
+        "rarity": "common_relic",
+        "set_id": "childhood_remains",
+        "set_name": "🧸 Childhood Remains",
+        "set_index": 21,
+        "source_zones": ["scavenge"],
+        "description": "Stuffing from a toy, still holding the scent of old fabric.",
+    },
+    "relic_pocket_carousel_horse": {
+        "name": "Pocket Carousel Horse",
+        "emoji": "🎠",
+        "rarity": "rare_relic",
+        "set_id": "childhood_remains",
+        "set_name": "🧸 Childhood Remains",
+        "set_index": 22,
+        "source_zones": ["scavenge"],
+        "description": "A tiny wooden horse that still spins when wound.",
+    },
+    "relic_ribbon_bear_heart": {
+        "name": "Ribbon Bear Heart",
+        "emoji": "🎀",
+        "rarity": "rare_relic",
+        "set_id": "childhood_remains",
+        "set_name": "🧸 Childhood Remains",
+        "set_index": 23,
+        "source_zones": ["scavenge"],
+        "description": "A silk ribbon folded into the shape of a heart, wrapped in threads.",
+    },
+    "relic_hollow_doll_vessel": {
+        "name": "Hollow Doll Vessel",
+        "emoji": "🪆",
+        "rarity": "exotic_relic",
+        "set_id": "childhood_remains",
+        "set_name": "🧸 Childhood Remains",
+        "set_index": 24,
+        "source_zones": ["scavenge"],
+        "description": "A porcelain doll torso that echoes when you whisper into it.",
+    },
+    "relic_lullaby_music_cylinder": {
+        "name": "Lullaby Music Cylinder",
+        "emoji": "🍼",
+        "rarity": "ancient_relic",
+        "set_id": "childhood_remains",
+        "set_name": "🧸 Childhood Remains",
+        "set_index": 25,
+        "source_zones": ["scavenge"],
+        "description": "A music box cylinder that plays a melody no record contains.",
+    },
+
+    # SET 6 — 🛐 SHRINE OF SMALL THINGS
+    "relic_wax_prayer_stub": {
+        "name": "Wax Prayer Stub",
+        "emoji": "🕯️",
+        "rarity": "common_relic",
+        "set_id": "shrine_of_small_things",
+        "set_name": "🛐 Shrine of Small Things",
+        "set_index": 26,
+        "source_zones": ["scavenge"],
+        "description": "A candle stub melted into a prayer shape.",
+    },
+    "relic_rust_bead_rosary": {
+        "name": "Rust Bead Rosary",
+        "emoji": "📿",
+        "rarity": "rare_relic",
+        "set_id": "shrine_of_small_things",
+        "set_name": "🛐 Shrine of Small Things",
+        "set_index": 27,
+        "source_zones": ["scavenge"],
+        "description": "Beads strung on rusted wire, each with a name scratched in.",
+    },
+    "relic_alley_eye_charm": {
+        "name": "Alley Eye Charm",
+        "emoji": "🧿",
+        "rarity": "rare_relic",
+        "set_id": "shrine_of_small_things",
+        "set_name": "🛐 Shrine of Small Things",
+        "set_index": 28,
+        "source_zones": ["scavenge"],
+        "description": "A protective amulet shaped like an eye that blinks in your pocket.",
+    },
+    "relic_halo_nail_fragment": {
+        "name": "Halo Nail Fragment",
+        "emoji": "⛪",
+        "rarity": "exotic_relic",
+        "set_id": "shrine_of_small_things",
+        "set_name": "🛐 Shrine of Small Things",
+        "set_index": 29,
+        "source_zones": ["scavenge"],
+        "description": "A nail from a shrine's halo decoration, surrounded by a faint glow.",
+    },
+    "relic_cracked_saint_halo": {
+        "name": "Cracked Saint Halo",
+        "emoji": "😇",
+        "rarity": "ancient_relic",
+        "set_id": "shrine_of_small_things",
+        "set_name": "🛐 Shrine of Small Things",
+        "set_index": 30,
+        "source_zones": ["scavenge"],
+        "description": "A broken halo from a saint statue, radiating old faith.",
+    },
+
+    # SET 7 — 🚇 BELOW THE STREETS
+    "relic_tunnel_token": {
+        "name": "Tunnel Token",
+        "emoji": "🚇",
+        "rarity": "common_relic",
+        "set_id": "below_the_streets",
+        "set_name": "🚇 Below the Streets",
+        "set_index": 31,
+        "source_zones": ["scavenge"],
+        "description": "A transit token from a system that no longer exists on any map.",
+    },
+    "relic_emergency_lamp_cap": {
+        "name": "Emergency Lamp Cap",
+        "emoji": "🧯",
+        "rarity": "common_relic",
+        "set_id": "below_the_streets",
+        "set_name": "🚇 Below the Streets",
+        "set_index": 32,
+        "source_zones": ["scavenge"],
+        "description": "The glass cap of an emergency lamp, still glowing faintly.",
+    },
+    "relic_gutter_gate_key": {
+        "name": "Gutter Gate Key",
+        "emoji": "🗝️",
+        "rarity": "rare_relic",
+        "set_id": "below_the_streets",
+        "set_name": "🚇 Below the Streets",
+        "set_index": 33,
+        "source_zones": ["scavenge"],
+        "description": "A key to a gate below the city streets, warm to the touch.",
+    },
+    "relic_transit_warning_plate": {
+        "name": "Transit Warning Plate",
+        "emoji": "🪤",
+        "rarity": "exotic_relic",
+        "set_id": "below_the_streets",
+        "set_name": "🚇 Below the Streets",
+        "set_index": 34,
+        "source_zones": ["scavenge"],
+        "description": "A warning sign from a transit system, written in no known language.",
+    },
+    "relic_last_station_seal": {
+        "name": "Last Station Seal",
+        "emoji": "🚪",
+        "rarity": "ancient_relic",
+        "set_id": "below_the_streets",
+        "set_name": "🚇 Below the Streets",
+        "set_index": 35,
+        "source_zones": ["scavenge"],
+        "description": "A seal from the final platform of a subway that descended too far.",
+    },
+
+    # SET 8 — 🌙 NIGHT MARKET ECHOES
+    "relic_lantern_trade_token": {
+        "name": "Lantern Trade Token",
+        "emoji": "🪙",
+        "rarity": "common_relic",
+        "set_id": "night_market_echoes",
+        "set_name": "🌙 Night Market Echoes",
+        "set_index": 36,
+        "source_zones": ["scavenge"],
+        "description": "A trading token from a market that only opened after dark.",
+    },
+    "relic_perfume_glass_shard": {
+        "name": "Perfume Glass Shard",
+        "emoji": "🧴",
+        "rarity": "rare_relic",
+        "set_id": "night_market_echoes",
+        "set_name": "🌙 Night Market Echoes",
+        "set_index": 37,
+        "source_zones": ["scavenge"],
+        "description": "Broken glass from a perfume bottle, still carrying exotic scent.",
+    },
+    "relic_velvet_stall_tag": {
+        "name": "Velvet Stall Tag",
+        "emoji": "🪭",
+        "rarity": "rare_relic",
+        "set_id": "night_market_echoes",
+        "set_name": "🌙 Night Market Echoes",
+        "set_index": 38,
+        "source_zones": ["scavenge"],
+        "description": "A stall marker embroidered with forgotten sigils.",
+    },
+    "relic_moon_vendor_mask_piece": {
+        "name": "Moon Vendor Mask Piece",
+        "emoji": "🎭",
+        "rarity": "exotic_relic",
+        "set_id": "night_market_echoes",
+        "set_name": "🌙 Night Market Echoes",
+        "set_index": 39,
+        "source_zones": ["scavenge"],
+        "description": "A fragment of a vendor's mask, worn for transactions made in shadow.",
+    },
+    "relic_market_moon_sigil": {
+        "name": "Market Moon Sigil",
+        "emoji": "🌙",
+        "rarity": "ancient_relic",
+        "set_id": "night_market_echoes",
+        "set_name": "🌙 Night Market Echoes",
+        "set_index": 40,
+        "source_zones": ["scavenge"],
+        "description": "A seal proving transaction in the night market, still binding.",
+    },
+
+    # SET 9 — 🐟 BEASTS OF THE BROKEN WATERS
+    "relic_rustfang_tooth": {
+        "name": "Rustfang Tooth",
+        "emoji": "🦷",
+        "rarity": "rare_relic",
+        "set_id": "beasts_of_broken_waters",
+        "set_name": "🐟 Beasts of Broken Waters",
+        "set_index": 41,
+        "source_zones": ["fishing"],
+        "description": "A tooth from a creature that adapted to broken waters, still sharp.",
+    },
+    "relic_puffer_spine_core": {
+        "name": "Puffer Spine Core",
+        "emoji": "🐡",
+        "rarity": "rare_relic",
+        "set_id": "beasts_of_broken_waters",
+        "set_name": "🐟 Beasts of Broken Waters",
+        "set_index": 42,
+        "source_zones": ["fishing"],
+        "description": "A spine from a mutated puffer fish, hardened to crystal.",
+    },
+    "relic_prismfin_scale": {
+        "name": "Prismfin Scale",
+        "emoji": "🐠",
+        "rarity": "exotic_relic",
+        "set_id": "beasts_of_broken_waters",
+        "set_name": "🐟 Beasts of Broken Waters",
+        "set_index": 43,
+        "source_zones": ["fishing"],
+        "description": "A scale that refracts reality itself.",
+    },
+    "relic_scrapjaw_crest_plate": {
+        "name": "Scrapjaw Crest Plate",
+        "emoji": "🦈",
+        "rarity": "ancient_relic",
+        "set_id": "beasts_of_broken_waters",
+        "set_name": "🐟 Beasts of Broken Waters",
+        "set_index": 44,
+        "source_zones": ["fishing"],
+        "description": "A crest plate from a creature made of metal and flesh.",
+    },
+    "relic_leviathan_eye_pearl": {
+        "name": "Leviathan Eye Pearl",
+        "emoji": "👁️",
+        "rarity": "forbidden_relic",
+        "set_id": "beasts_of_broken_waters",
+        "set_name": "🐟 Beasts of Broken Waters",
+        "set_index": 45,
+        "source_zones": ["fishing"],
+        "description": "An eye from something vast and unknowable, now pearlified.",
+    },
+
+    # SET 10 — 🩸 THE ERASED TRUTH
+    "relic_watchers_iris": {
+        "name": "Watcher's Iris",
+        "emoji": "🧿",
+        "rarity": "exotic_relic",
+        "set_id": "erased_truth",
+        "set_name": "🩸 The Erased Truth",
+        "set_index": 46,
+        "source_zones": ["archaeology", "scavenge"],
+        "description": "An iris that sees things that should not be seen.",
+    },
+    "relic_glitch_memory_strip": {
+        "name": "Glitch Memory Strip",
+        "emoji": "📼",
+        "rarity": "exotic_relic",
+        "set_id": "erased_truth",
+        "set_name": "🩸 The Erased Truth",
+        "set_index": 47,
+        "source_zones": ["scavenge"],
+        "description": "A data strip that glitches with half-remembered moments.",
+    },
+    "relic_reflection_that_isnt_yours": {
+        "name": "Reflection That Isn't Yours",
+        "emoji": "🪞",
+        "rarity": "ancient_relic",
+        "set_id": "erased_truth",
+        "set_name": "🩸 The Erased Truth",
+        "set_index": 48,
+        "source_zones": ["scavenge"],
+        "description": "A mirror shard showing a person who isn't you.",
+    },
+    "relic_null_origin_shard": {
+        "name": "Null Origin Shard",
+        "emoji": "🕳️",
+        "rarity": "ancient_relic",
+        "set_id": "erased_truth",
+        "set_name": "🩸 The Erased Truth",
+        "set_index": 49,
+        "source_zones": ["archaeology"],
+        "description": "A fragment of nothing, absence given form.",
+    },
+    "relic_the_first_object": {
+        "name": "The First Object",
+        "emoji": "👁️‍🗨️",
+        "rarity": "forbidden_relic",
+        "set_id": "erased_truth",
+        "set_name": "🩸 The Erased Truth",
+        "set_index": 50,
+        "source_zones": ["archaeology"],
+        "description": "The wound around which the world shattered.",
+    },
+}
+
+# Museum Sets with lore and rewards
+MUSEUM_SETS = {
+    "lost_city_archive": {
+        "name": "🏙️ Lost City Archive",
+        "emoji": "🏙️",
+        "set_number": 1,
+        "lore": "A city once ruled by order, wealth, and ceremony vanished without collapse, as if memory itself had been cut away.",
+        "rewards": {
+            "tickets": 100,
+            "museum_box": "museum_box_i",
+            "story_fragment": True,
+        },
+    },
+    "sunken_depths": {
+        "name": "🌊 Sunken Depths",
+        "emoji": "🌊",
+        "set_number": 2,
+        "lore": "These relics come from beneath black water where something old still moves beneath the tide.",
+        "rewards": {
+            "tickets": 120,
+            "title": "Sunken Curio",
+            "story_fragment": True,
+        },
+    },
+    "overgrowth_herbarium": {
+        "name": "🌿 Overgrowth Herbarium",
+        "emoji": "🌿",
+        "set_number": 3,
+        "lore": "Plants in Broken Reality do not merely grow. Some remember. Some watch. Some bloom around forgotten grief.",
+        "rewards": {
+            "museum_box": "botanical_cache",
+            "bonus": "+3% Loot Luck",
+            "story_fragment": True,
+        },
+    },
+    "industrial_remnants": {
+        "name": "⚙️ Industrial Remnants",
+        "emoji": "⚙️",
+        "set_number": 4,
+        "lore": "A machine district once ran day and night until the workers vanished and the engines began speaking only in sparks.",
+        "rewards": {
+            "coins": 10000,
+            "title": "Rustwright",
+            "story_fragment": True,
+        },
+    },
+    "childhood_remains": {
+        "name": "🧸 Childhood Remains",
+        "emoji": "🧸",
+        "set_number": 5,
+        "lore": "These relics are soaked in innocence and loss. Something terrible happened quietly here.",
+        "rewards": {
+            "exclusive": "museum_plush",
+            "tickets": 150,
+            "story_fragment": True,
+        },
+    },
+    "shrine_of_small_things": {
+        "name": "🛐 Shrine of Small Things",
+        "emoji": "🛐",
+        "set_number": 6,
+        "lore": "People prayed over broken things here. Maybe because broken things were all they had left.",
+        "rewards": {
+            "bonus": "+5% Relic Drop Chance",
+            "title": "Curator's Blessing",
+            "story_fragment": True,
+        },
+    },
+    "below_the_streets": {
+        "name": "🚇 Below the Streets",
+        "emoji": "🚇",
+        "set_number": 7,
+        "lore": "Below the city is another city, and beneath that another. Some doors were never meant to be reopened.",
+        "rewards": {
+            "museum_box": "museum_box_ii",
+            "title": "Deep Diver",
+            "story_fragment": True,
+        },
+    },
+    "night_market_echoes": {
+        "name": "🌙 Night Market Echoes",
+        "emoji": "🌙",
+        "set_number": 8,
+        "lore": "A market opened only at night, and only for those who had already lost something they could never replace.",
+        "rewards": {
+            "coins": 15000,
+            "title": "Night Merchant",
+            "story_fragment": True,
+        },
+    },
+    "beasts_of_broken_waters": {
+        "name": "🐟 Beasts of Broken Waters",
+        "emoji": "🐟",
+        "set_number": 9,
+        "lore": "Some creatures adapted. Some transformed. Some were never natural to begin with.",
+        "rewards": {
+            "exclusive": "tidefin_wings",
+            "tickets": 250,
+            "story_fragment": True,
+        },
+    },
+    "erased_truth": {
+        "name": "🩸 The Erased Truth",
+        "emoji": "🩸",
+        "set_number": 10,
+        "lore": "These relics do not belong to the world as it is. They belong to the event that broke it.",
+        "rewards": {
+            "title": "Witness of the Break",
+            "museum_box": "museum_box_iii",
+            "story_fragment": True,
+        },
+    },
+}
+
+# Relic drop rate biases by zone
+RELIC_DROP_BIASES = {
+    "base": {
+        "common_relic": 0.52,
+        "rare_relic": 0.26,
+        "exotic_relic": 0.13,
+        "ancient_relic": 0.07,
+        "forbidden_relic": 0.02,
+    },
+    "scavenge": {
+        "common_relic": 0.60,  # +8%
+        "rare_relic": 0.29,    # +3%
+        "exotic_relic": 0.09,  # -4%
+        "ancient_relic": 0.03, # -4%
+        "forbidden_relic": -0.01,  # -3% (clamped to 0)
+    },
+    "archaeology": {
+        "common_relic": 0.44,  # -8%
+        "rare_relic": 0.30,    # +4%
+        "exotic_relic": 0.17,  # +4%
+        "ancient_relic": 0.10, # +3%
+        "forbidden_relic": -0.01,  # -3% (clamped to 0)
+    },
+    "botany": {
+        "common_relic": 0.49,  # -3%
+        "rare_relic": 0.29,    # +3%
+        "exotic_relic": 0.18,  # +5%
+        "ancient_relic": 0.05, # -2%
+        "forbidden_relic": -0.01,  # -3% (clamped to 0)
+    },
+    "fishing": {
+        "common_relic": 0.48,  # -4%
+        "rare_relic": 0.28,    # +2%
+        "exotic_relic": 0.17,  # +4%
+        "ancient_relic": 0.08, # +1%
+        "forbidden_relic": -0.01,  # -3% (clamped to 0)
+    },
+    "deep_mission": {
+        "common_relic": 0.40,  # -12%
+        "rare_relic": 0.22,    # -4%
+        "exotic_relic": 0.19,  # +6%
+        "ancient_relic": 0.13, # +6%
+        "forbidden_relic": 0.06,  # +4%
+    },
+}
+
+# Museum story chapters
+MUSEUM_STORY_CHAPTERS = [
+    {
+        "chapter": 1,
+        "title": "The Vanishing City",
+        "set_id": "lost_city_archive",
+        "text": "The city did not collapse.\nThere were no ruins at first.\nNo fire. No flood. No war.\n\nPeople simply began forgetting.\n\nStreets emptied.\nDoors stayed open.\nShops remained stocked.\nThe city remained... but the memory of it did not.",
+    },
+    {
+        "chapter": 2,
+        "title": "The Bell Beneath",
+        "set_id": "sunken_depths",
+        "text": "When the first district disappeared from memory, the waters changed.\n\nFishermen reported hearing bells from below the surface.\nSome followed the sound.\nNone returned unchanged.\n\nThe sea kept what the city had lost.",
+    },
+    {
+        "chapter": 3,
+        "title": "The Garden That Listened",
+        "set_id": "overgrowth_herbarium",
+        "text": "After the forgetting began, plants spread into walls, alleys, train lines, and homes.\n\nSome flowers bloomed only where people had cried.\nSome roots wrapped around objects no one remembered owning.\n\nThe world was growing over its own missing pieces.",
+    },
+    {
+        "chapter": 4,
+        "title": "The Last Shift",
+        "set_id": "industrial_remnants",
+        "text": "Factories kept running long after the workers vanished.\n\nMachines stamped, sparked, and assembled products for owners who no longer existed.\n\nSome say the engines learned the rhythms of human hands,\nand continued out of grief.",
+    },
+    {
+        "chapter": 5,
+        "title": "The Silent Nursery",
+        "set_id": "childhood_remains",
+        "text": "The children were gone before anyone realized they had been there.\n\nTheir rooms remained.\nTheir toys remained.\nSongs remained inside cracked music cylinders.\n\nThe Museum found the first real proof in a doll that whispered a name no record contained.",
+    },
+    {
+        "chapter": 6,
+        "title": "What They Worshipped",
+        "set_id": "shrine_of_small_things",
+        "text": "Shrines appeared in alleyways and broken rooms.\n\nNo god names were written.\nOnly circles.\nEyes.\nHands.\nAnd little offerings left beside shattered everyday things.\n\nPeople had begun praying to survival itself.",
+    },
+    {
+        "chapter": 7,
+        "title": "The Last Platform",
+        "set_id": "below_the_streets",
+        "text": "The transit tunnels below the city should have ended.\nInstead, they deepened.\n\nTracks continued into darkness beyond any map.\nDoors opened onto stations with no district above them.\n\nSomeone had built for a future that never arrived.",
+    },
+    {
+        "chapter": 8,
+        "title": "The Price of Wanting",
+        "set_id": "night_market_echoes",
+        "text": "At the night market, objects were traded for memories.\n\nA ring for a childhood.\nA lantern for a first love.\nA coat for the sound of your mother's voice.\n\nThose who bargained left smiling...\nuntil they realized what was missing.",
+    },
+    {
+        "chapter": 9,
+        "title": "What Swims Below",
+        "set_id": "beasts_of_broken_waters",
+        "text": "The broken waters are alive with adaptation.\n\nFish with glass bones.\nSharks with iron jaws.\nEyes that reflect things not present.\n\nThe sea did not merely mutate.\nIt was fed.",
+    },
+    {
+        "chapter": 10,
+        "title": "The Fracture",
+        "set_id": "erased_truth",
+        "text": "The Museum's oldest records agree on only one thing:\n\nThe world broke around a single object.\n\nNo one remembers who found it first.\nNo one remembers what it truly was.\nOnly that after it appeared, memory began to peel away from reality.\n\nThe relic known only as The First Object is not a remnant.\n\nIt is the wound.",
+    },
+]
+
+# Rarity display settings for relics
+RELIC_RARITY_INFO = {
+    "common_relic": {
+        "name": "Common Relic",
+        "emoji": "⚪",
+        "color": 0x808080,
+        "description": "Low-tier historical junk with weak echoes",
+    },
+    "rare_relic": {
+        "name": "Rare Relic",
+        "emoji": "🔵",
+        "color": 0x0000FF,
+        "description": "Meaningful objects with stronger identity",
+    },
+    "exotic_relic": {
+        "name": "Exotic Relic",
+        "emoji": "🟣",
+        "color": 0x800080,
+        "description": "Strange items tied to mystery zones",
+    },
+    "ancient_relic": {
+        "name": "Ancient Relic",
+        "emoji": "🟠",
+        "color": 0xFF8C00,
+        "description": "Old world artifacts with strong lore",
+    },
+    "forbidden_relic": {
+        "name": "Forbidden Relic",
+        "emoji": "🔴",
+        "color": 0xFF0000,
+        "description": "Corrupted, dangerous, hidden truth items",
+    },
+}
+
+
 MIX_RECIPES = [
     {
         "key": "iron_gloves_recipe",

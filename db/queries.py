@@ -732,3 +732,225 @@ def get_hunger(user_id: int) -> int:
             )
             row = cur.fetchone()
             return row[0] if row else 100
+
+
+# ═══════════════════════════════════════════════════════════════════
+# MUSEUM RELIC COLLECTION FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════
+
+def collect_relic(user_id: int, relic_id: str, set_id: str, rarity: str) -> bool:
+    """
+    Add a relic to player's collection.
+    Returns True if new relic, False if duplicate (which becomes museum dust).
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            # Check if player already has this relic
+            cur.execute(
+                """
+                SELECT id FROM player_relics
+                WHERE user_id = %s AND relic_id = %s
+                """,
+                (user_id, relic_id),
+            )
+            
+            if cur.fetchone():
+                # Duplicate - convert to museum dust
+                add_museum_dust(user_id, 50)  # Dust from duplicate
+                return False
+            
+            # New relic - add to collection
+            cur.execute(
+                """
+                INSERT INTO player_relics (user_id, relic_id, set_id, rarity)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (user_id, relic_id, set_id, rarity),
+            )
+            
+            # Update set progress
+            update_set_progress(user_id, set_id)
+            
+            return True
+
+
+def update_set_progress(user_id: int, set_id: str) -> None:
+    """Update relic count for a museum set."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            # Count relics for this set
+            cur.execute(
+                """
+                SELECT COUNT(*) FROM player_relics
+                WHERE user_id = %s AND set_id = %s
+                """,
+                (user_id, set_id),
+            )
+            count = cur.fetchone()[0]
+            
+            # Update or create progress entry
+            completed = count >= 5  # Sets have 5 relics
+            
+            cur.execute(
+                """
+                INSERT INTO museum_progress (user_id, set_id, relics_collected, completed)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (user_id, set_id) DO UPDATE
+                SET relics_collected = %s,
+                    completed = %s,
+                    completed_at = CASE WHEN %s AND NOT museum_progress.completed
+                                        THEN NOW() ELSE museum_progress.completed_at END
+                """,
+                (user_id, set_id, count, completed, count, completed, completed),
+            )
+
+
+def complete_museum_set(user_id: int, set_id: str) -> bool:
+    """
+    Mark a museum set as completed and unlock the next story chapter.
+    Returns True if successful.
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            # Check if set is actually complete
+            cur.execute(
+                """
+                SELECT relics_collected FROM museum_progress
+                WHERE user_id = %s AND set_id = %s
+                """,
+                (user_id, set_id),
+            )
+            row = cur.fetchone()
+            if not row or row[0] < 5:
+                return False
+            
+            # Get the set number to unlock the corresponding story chapter
+            from game.data import MUSEUM_SETS
+            if set_id not in MUSEUM_SETS:
+                return False
+            
+            chapter = MUSEUM_SETS[set_id]["set_number"]
+            
+            # Unlock story chapter
+            cur.execute(
+                """
+                INSERT INTO museum_story (user_id, chapter)
+                VALUES (%s, %s)
+                ON CONFLICT (user_id, chapter) DO NOTHING
+                """,
+                (user_id, chapter),
+            )
+            
+            return True
+
+
+def get_player_relics(user_id: int, set_id: str = None) -> list[dict]:
+    """
+    Get all relics collected by a player, optionally filtered by set.
+    """
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            if set_id:
+                cur.execute(
+                    """
+                    SELECT relic_id, set_id, rarity, collected_at
+                    FROM player_relics
+                    WHERE user_id = %s AND set_id = %s
+                    ORDER BY collected_at DESC
+                    """,
+                    (user_id, set_id),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT relic_id, set_id, rarity, collected_at
+                    FROM player_relics
+                    WHERE user_id = %s
+                    ORDER BY collected_at DESC
+                    """,
+                    (user_id,),
+                )
+            
+            return [
+                {
+                    "relic_id": row[0],
+                    "set_id": row[1],
+                    "rarity": row[2],
+                    "collected_at": row[3].isoformat() if row[3] else None,
+                }
+                for row in cur.fetchall()
+            ]
+
+
+def get_museum_progress(user_id: int) -> dict:
+    """Get player's progress on all 10 museum sets."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT set_id, relics_collected, completed, completed_at
+                FROM museum_progress
+                WHERE user_id = %s
+                ORDER BY set_id
+                """,
+                (user_id,),
+            )
+            
+            progress = {}
+            for row in cur.fetchall():
+                progress[row[0]] = {
+                    "relics": row[1],
+                    "completed": row[2],
+                    "completed_at": row[3].isoformat() if row[3] else None,
+                }
+            
+            return progress
+
+
+def get_unlocked_story_chapters(user_id: int) -> list[int]:
+    """Get list of story chapters unlocked by player."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT chapter FROM museum_story
+                WHERE user_id = %s
+                ORDER BY chapter
+                """,
+                (user_id,),
+            )
+            
+            return [row[0] for row in cur.fetchall()]
+
+
+def add_museum_dust(user_id: int, amount: int) -> int:
+    """Add museum dust to player. Returns new total."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO museum_dust (user_id, dust_amount)
+                VALUES (%s, %s)
+                ON CONFLICT (user_id) DO UPDATE
+                SET dust_amount = dust_amount + %s
+                RETURNING dust_amount
+                """,
+                (user_id, amount, amount),
+            )
+            row = cur.fetchone()
+            return row[0] if row else 0
+
+
+def get_museum_dust(user_id: int) -> int:
+    """Get player's museum dust balance."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT dust_amount FROM museum_dust WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone()
+            return row[0] if row else 0
+

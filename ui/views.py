@@ -47,6 +47,13 @@ from ui.embeds import (
     zone_harvest_embed,
     zone_completion_embed,
     zone_cooldown_embed,
+    museum_hub_embed,
+    museum_sets_page_embed,
+    museum_set_detail_embed,
+    museum_relic_archive_embed,
+    museum_relic_card_embed,
+    museum_story_embed,
+    museum_set_completion_embed,
 )
 from ui.modals import ContactAdminModal
 
@@ -470,11 +477,11 @@ class ProfileView(discord.ui.View):
 
     @discord.ui.button(label="🏛️ Museum", style=discord.ButtonStyle.secondary, row=1)
     async def museum_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        discovered = queries.get_discovered_item_ids(interaction.user.id)
-        embed = museum_home_embed(interaction.user.display_name, discovered)
+        progress = queries.get_museum_progress(interaction.user.id)
+        embed = museum_hub_embed(interaction.user.display_name, progress)
         await interaction.response.edit_message(
             embed=embed,
-            view=MuseumHomeView(self.owner_id, self.is_admin),
+            view=MuseumHubView(self.owner_id, self.is_admin),
             attachments=[],
         )
 
@@ -1700,3 +1707,167 @@ class UnopenerRewardsView(discord.ui.View):
     @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.primary, row=1)
     async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await show_profile(interaction, self.owner_id, self.is_admin)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# MUSEUM RELIC COLLECTION VIEWS
+# ═══════════════════════════════════════════════════════════════════
+
+class MuseumHubView(discord.ui.View):
+    """Main museum hub with navigation buttons."""
+    def __init__(self, owner_id: int, is_admin: bool):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This museum isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="📖 View Sets", style=discord.ButtonStyle.secondary, row=0)
+    async def view_sets_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = museum_sets_page_embed(0)
+        await interaction.response.edit_message(embed=embed, view=MuseumSetsView(self.owner_id, self.is_admin, 0))
+
+    @discord.ui.button(label="🧿 Relic Archive", style=discord.ButtonStyle.secondary, row=0)
+    async def relic_archive_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        player_relics = queries.get_player_relics(interaction.user.id)
+        embed = museum_relic_archive_embed(0, player_relics)
+        await interaction.response.edit_message(embed=embed, view=MuseumRelicArchiveView(self.owner_id, self.is_admin, player_relics, 0))
+
+    @discord.ui.button(label="📜 Story", style=discord.ButtonStyle.secondary, row=0)
+    async def story_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        unlocked = queries.get_unlocked_story_chapters(interaction.user.id)
+        chapter = unlocked[0] if unlocked else 1
+        embed = museum_story_embed(chapter)
+        await interaction.response.edit_message(embed=embed, view=MuseumStoryView(self.owner_id, self.is_admin, unlocked))
+
+    @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.danger, row=1)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await show_profile(interaction, self.owner_id, self.is_admin)
+
+
+class MuseumSetsView(discord.ui.View):
+    """Paginated view of all 10 museum sets."""
+    def __init__(self, owner_id: int, is_admin: bool, page: int = 0):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+        self.page = page
+        self.total_pages = 2
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This museum isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="⬅️ Prev", style=discord.ButtonStyle.secondary, row=0)
+    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.page > 0:
+            self.page -= 1
+        embed = museum_sets_page_embed(self.page)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(label="➡️ Next", style=discord.ButtonStyle.secondary, row=0)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.page < self.total_pages - 1:
+            self.page += 1
+        embed = museum_sets_page_embed(self.page)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.primary, row=1)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        progress = queries.get_museum_progress(interaction.user.id)
+        embed = museum_hub_embed(interaction.user.display_name, progress)
+        await interaction.response.edit_message(embed=embed, view=MuseumHubView(self.owner_id, self.is_admin))
+
+
+class MuseumSetDetailView(discord.ui.View):
+    """View for a specific museum set with all its relics."""
+    def __init__(self, owner_id: int, is_admin: bool, set_id: str):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+        self.set_id = set_id
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This museum isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.primary, row=0)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        embed = museum_sets_page_embed(0)
+        await interaction.response.edit_message(embed=embed, view=MuseumSetsView(self.owner_id, self.is_admin, 0))
+
+
+class MuseumRelicArchiveView(discord.ui.View):
+    """Paginated view of all discovered relics."""
+    def __init__(self, owner_id: int, is_admin: bool, player_relics: list, page: int = 0):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+        self.player_relics = player_relics
+        self.page = page
+        self.items_per_page = 5
+        self.total_pages = max(1, (len(player_relics) + self.items_per_page - 1) // self.items_per_page)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This museum isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="⬅️ Prev", style=discord.ButtonStyle.secondary, row=0)
+    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.page > 0:
+            self.page -= 1
+        embed = museum_relic_archive_embed(self.page, self.player_relics)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(label="➡️ Next", style=discord.ButtonStyle.secondary, row=0)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.page < self.total_pages - 1:
+            self.page += 1
+        embed = museum_relic_archive_embed(self.page, self.player_relics)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.primary, row=1)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        progress = queries.get_museum_progress(interaction.user.id)
+        embed = museum_hub_embed(interaction.user.display_name, progress)
+        await interaction.response.edit_message(embed=embed, view=MuseumHubView(self.owner_id, self.is_admin))
+
+
+class MuseumStoryView(discord.ui.View):
+    """View for displaying story chapters."""
+    def __init__(self, owner_id: int, is_admin: bool, unlocked_chapters: list):
+        super().__init__(timeout=300)
+        self.owner_id = owner_id
+        self.is_admin = is_admin
+        self.unlocked_chapters = unlocked_chapters
+        self.current_chapter = unlocked_chapters[0] if unlocked_chapters else 1
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This museum isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="➡️ Next Chapter", style=discord.ButtonStyle.secondary, row=0)
+    async def next_chapter_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.current_chapter < len(self.unlocked_chapters):
+            self.current_chapter = self.unlocked_chapters[self.unlocked_chapters.index(self.current_chapter) + 1]
+        embed = museum_story_embed(self.current_chapter)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.primary, row=0)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        progress = queries.get_museum_progress(interaction.user.id)
+        embed = museum_hub_embed(interaction.user.display_name, progress)
+        await interaction.response.edit_message(embed=embed, view=MuseumHubView(self.owner_id, self.is_admin))
+
