@@ -88,12 +88,11 @@ class ZoneSelectorView(discord.ui.View):
         """Show active zone with mission progress."""
         zone = ZONES_META.get(zone_id)
         
-        # Calculate time remaining
+        # Calculate time remaining from timer_end_at
         from datetime import datetime
-        started_at = datetime.fromisoformat(zone_event["started_at"].replace("Z", "+00:00"))
-        now = datetime.utcnow().replace(tzinfo=started_at.tzinfo)
-        elapsed = (now - started_at).total_seconds()
-        time_remaining = max(0, int(3600 - elapsed))
+        timer_end = datetime.fromisoformat(zone_event["timer_end_at"].replace("Z", "+00:00"))
+        now = datetime.utcnow().replace(tzinfo=timer_end.tzinfo)
+        time_remaining = max(0, int((timer_end - now).total_seconds()))
         
         embed = zone_active_embed(zone_id, zone_event, time_remaining)
         view = ZoneActiveView(self.owner_id, self.is_admin, zone_id)
@@ -146,11 +145,11 @@ class ZoneMainPageView(discord.ui.View):
         
         player = queries.get_player(interaction.user.id)
         
-        # Check if already has active zone
-        active_zone = queries.get_zone_event(interaction.user.id)
-        if active_zone:
+        # Check if already has active zone in THIS zone
+        active_zone = queries.get_zone_event(interaction.user.id, self.zone_id)
+        if active_zone and active_zone.get("is_active"):
             await interaction.followup.send(
-                "❌ You already have an active zone session!\n"
+                "❌ You already have an active mission in this zone!\n"
                 "Complete or abandon it before starting a new one.",
                 ephemeral=True,
             )
