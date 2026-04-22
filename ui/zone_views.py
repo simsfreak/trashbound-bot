@@ -33,6 +33,7 @@ class ZoneSelectorView(discord.ui.View):
     
     @discord.ui.button(label="🎣 Fishing", style=discord.ButtonStyle.primary, row=0)
     async def fishing_zone_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        print(f"DEBUG: Fishing button clicked by {interaction.user.id}")
         await self._enter_zone(interaction, "fishing")
     
     @discord.ui.button(label="🌿 Botany", style=discord.ButtonStyle.primary, row=0)
@@ -49,9 +50,12 @@ class ZoneSelectorView(discord.ui.View):
     
     @discord.ui.button(label="🏠 Back", style=discord.ButtonStyle.secondary, row=1)
     async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        print(f"DEBUG: Zone selector back button clicked")
         try:
             from ui.views import show_profile
+            print(f"DEBUG: Imported show_profile")
             await show_profile(interaction, self.owner_id, self.is_admin)
+            print(f"DEBUG: Called show_profile")
         except Exception as e:
             print(f"Error in ZoneSelectorView.back_button: {e}")
             import traceback
@@ -60,11 +64,16 @@ class ZoneSelectorView(discord.ui.View):
     
     async def _enter_zone(self, interaction: discord.Interaction, zone_id: str):
         """Enter a zone - check if unlocked, then show zone page."""
+        print(f"DEBUG: _enter_zone called for zone_id={zone_id}, user_id={interaction.user.id}")
         await interaction.response.defer()
+        print(f"DEBUG: Deferred interaction")
         
         try:
+            print(f"DEBUG: In try block")
             player = queries.get_player(interaction.user.id)
+            print(f"DEBUG: Got player: {player}")
             zone = ZONES_META.get(zone_id)
+            print(f"DEBUG: Got zone: {zone}")
             
             if not zone:
                 await interaction.followup.send("❌ Zone not found.", ephemeral=True)
