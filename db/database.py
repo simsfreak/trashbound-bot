@@ -6,6 +6,19 @@ from config import DATABASE_URL
 
 
 SCHEMA_STATEMENTS = [
+    # Migration: Add hunger and last_fed_at columns if they don't exist
+    """
+    ALTER TABLE IF EXISTS players
+    ADD COLUMN IF NOT EXISTS hunger INTEGER NOT NULL DEFAULT 100
+    """,
+    """
+    ALTER TABLE IF EXISTS players
+    ADD COLUMN IF NOT EXISTS last_fed_at TIMESTAMP
+    """,
+    """
+    ALTER TABLE IF EXISTS players
+    ADD COLUMN IF NOT EXISTS dirty_tickets INTEGER NOT NULL DEFAULT 0
+    """,
     """
     CREATE TABLE IF NOT EXISTS players (
         user_id BIGINT PRIMARY KEY,
@@ -18,6 +31,7 @@ SCHEMA_STATEMENTS = [
         total_dives INTEGER NOT NULL DEFAULT 0,
         hunger INTEGER NOT NULL DEFAULT 100,
         last_fed_at TIMESTAMP,
+        dirty_tickets INTEGER NOT NULL DEFAULT 0,
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
         last_dive_at TIMESTAMP
     )
