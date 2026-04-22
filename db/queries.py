@@ -32,7 +32,7 @@ def get_player(user_id: int) -> dict | None:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT user_id, username, coins, xp, level, current_zone_id, current_title, total_dives, last_dive_at
+                SELECT user_id, username, coins, xp, level, current_zone_id, current_title, total_dives, hunger, last_dive_at
                 FROM players
                 WHERE user_id = %s
                 """,
@@ -50,7 +50,8 @@ def get_player(user_id: int) -> dict | None:
                 "current_zone_id": row[5],
                 "current_title": row[6],
                 "total_dives": row[7],
-                "last_dive_at": row[8],
+                "hunger": row[8] if row[8] is not None else 100,
+                "last_dive_at": row[9],
             }
 
 
@@ -442,3 +443,71 @@ def get_exclusives_by_category(user_id: int, category: str) -> list[dict]:
                 })
     
     return result
+
+
+# ═══════════════════════════════════════════════════════════════════
+# HUNGER MANAGEMENT
+# ═══════════════════════════════════════════════════════════════════
+
+def reduce_hunger(user_id: int, amount: int = 1) -> int:
+    """Reduce hunger by specified amount. Returns new hunger value."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT hunger FROM players WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone()
+            current_hunger = row[0] if row else 100
+            
+            new_hunger = max(0, current_hunger - amount)
+            
+            cur.execute(
+                """
+                UPDATE players SET hunger = %s WHERE user_id = %s
+                """,
+                (new_hunger, user_id),
+            )
+    
+    return new_hunger
+
+
+def feed_player(user_id: int, hunger_restored: int) -> int:
+    """Feed player and restore hunger. Returns new hunger value."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT hunger FROM players WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone()
+            current_hunger = row[0] if row else 100
+            
+            new_hunger = min(100, current_hunger + hunger_restored)
+            
+            cur.execute(
+                """
+                UPDATE players SET hunger = %s, last_fed_at = NOW() WHERE user_id = %s
+                """,
+                (new_hunger, user_id),
+            )
+    
+    return new_hunger
+
+
+def get_hunger(user_id: int) -> int:
+    """Get current hunger level (0-100)."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT hunger FROM players WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            row = cur.fetchone()
+            return row[0] if row else 100

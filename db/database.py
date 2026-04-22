@@ -16,6 +16,8 @@ SCHEMA_STATEMENTS = [
         current_zone_id TEXT NOT NULL DEFAULT 'back_alley',
         current_title TEXT NOT NULL DEFAULT 'Trash Rookie',
         total_dives INTEGER NOT NULL DEFAULT 0,
+        hunger INTEGER NOT NULL DEFAULT 100,
+        last_fed_at TIMESTAMP,
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
         last_dive_at TIMESTAMP
     )
@@ -95,6 +97,15 @@ SCHEMA_STATEMENTS = [
         acquired_at TIMESTAMP NOT NULL DEFAULT NOW(),
         equipped BOOLEAN DEFAULT FALSE,
         UNIQUE (user_id, exclusive_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS food_purchases (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL REFERENCES players(user_id) ON DELETE CASCADE,
+        food_id TEXT NOT NULL,
+        hunger_restored INTEGER NOT NULL,
+        purchased_at TIMESTAMP NOT NULL DEFAULT NOW()
     )
     """,
 ]

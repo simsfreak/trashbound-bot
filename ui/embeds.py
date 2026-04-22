@@ -34,55 +34,115 @@ def profile_embed(
     equipment,
     avatar_url,
 ):
-    zone = ZONES[player["current_zone_id"]]["name"]
-    live_names = [f"{event.get('emoji', '✨')} {event['name']}" for event in get_live_events()]
-
+    """Reorganized profile embed with sections for Equipment, Stats, Activity, and Recent Finds."""
+    
+    # ═══════ HEADER SECTION ═══════
     embed = discord.Embed(
-        title=f"{player['username']} — {player['current_title']}",
+        title=f"🧍 PROFILE 🧍",
         description=(
-            f"📍 **{zone}**\n"
-            f"🌐 {' • '.join(live_names) if live_names else 'No live world event'}"
+            f"👤 {player['username']}\n"
+            f"⚙️ ✧ {player['current_title']} ✧ ⚙️"
         ),
         color=0x2C2F33,
         timestamp=datetime.utcnow(),
     )
-
+    
     if avatar_url:
         embed.set_thumbnail(url=avatar_url)
-        embed.set_author(name=player["username"], icon_url=avatar_url)
 
-    embed.add_field(name="💰 Coins", value=str(player["coins"]), inline=True)
-    embed.add_field(name="⭐ Level", value=str(player["level"]), inline=True)
-    embed.add_field(name="🎒 Items", value=str(inventory_count), inline=True)
-    embed.add_field(name="✨ XP", value=build_xp_bar(player["xp"], player["level"]), inline=False)
-    embed.add_field(name="🗑️ Total Dives", value=str(player["total_dives"]), inline=True)
-    embed.add_field(name="👑 Title", value=player["current_title"], inline=True)
-    embed.add_field(name="🗺️ Zone", value=zone, inline=True)
+    # ═══════ EQUIPMENT SECTION ═══════
+    equipment_lines = []
+    if equipment:
+        # Organize by slot
+        equipped_by_slot = {item.get("slot"): item for item in equipment if isinstance(item, dict) and "item_id" in item}
+        
+        for slot in ["Head", "Left Hand", "Right Hand", "Feet"]:
+            if slot in equipped_by_slot:
+                item_id = equipped_by_slot[slot]["item_id"]
+                item = ITEMS.get(item_id, {"name": item_id})
+                equipment_lines.append(f"  {slot:12} » {item.get('emoji', '✨')} {item['name']}")
+            else:
+                equipment_lines.append(f"  {slot:12} » [Empty]")
+    else:
+        for slot in ["Head", "Left Hand", "Right Hand", "Feet"]:
+            equipment_lines.append(f"  {slot:12} » [Empty]")
+    
+    embed.add_field(
+        name="🎒 EQUIPMENT",
+        value="\n".join(equipment_lines),
+        inline=False
+    )
 
-    recent_text = "\n".join(recent_finds[-3:]) if recent_finds else "None yet"
-    embed.add_field(name="🪄 Recent Finds", value=recent_text, inline=False)
+    # ═══════ STATS SECTION ═══════
+    hunger_bar = "🟩" * (player.get("hunger", 100) // 20) + "⬜" * (5 - (player.get("hunger", 100) // 20))
+    
+    stats_lines = [
+        f"  💰 Coins   » {player['coins']:,}",
+        f"  ⭐ Level   » {player['level']}",
+        f"  🎒 Loots   » {inventory_count}",
+        f"  ❤️ Hunger » {hunger_bar} {player.get('hunger', 100)}/100",
+    ]
+    
+    embed.add_field(
+        name="💰 STATS",
+        value="\n".join(stats_lines),
+        inline=False
+    )
 
+    # ═══════ PROGRESSION SECTION ═══════
+    xp_bar = build_xp_bar(player["xp"], player["level"], size=10)
+    embed.add_field(
+        name="✨ PROGRESSION",
+        value=f"  {xp_bar}",
+        inline=False
+    )
+
+    # ═══════ ACTIVITY SECTION ═══════
+    zone_name = ZONES.get(player["current_zone_id"], {}).get("name", "Unknown")
+    activity_lines = [
+        f"  🗑️ Dives  » {player['total_dives']}",
+        f"  📍 Zone   » {zone_name}",
+    ]
+    
+    if player.get("last_dive_at"):
+        from datetime import datetime as dt
+        try:
+            last_dive = dt.fromisoformat(player["last_dive_at"].replace("Z", "+00:00"))
+            activity_lines.append(f"  🕒 Last Active » {last_dive.strftime('%I:%M %p')}")
+        except:
+            pass
+    
+    embed.add_field(
+        name="📊 ACTIVITY",
+        value="\n".join(activity_lines),
+        inline=False
+    )
+
+    # ═══════ RECENT FINDS SECTION ═══════
+    recent_text = "\n".join(recent_finds[-5:]) if recent_finds else "  None yet"
+    embed.add_field(
+        name="🎁 RECENT FINDS",
+        value=recent_text,
+        inline=False
+    )
+
+    # ═══════ ACTIVE EFFECTS (if any) ═══════
     if active_effects:
-        lines = []
+        effect_lines = []
         for effect in active_effects[:4]:
             if isinstance(effect, dict):
                 label = effect.get("label", "Effect")
                 expires = effect.get("expires_at", "soon")
-                lines.append(f"⏳ {label} — {expires}")
-            else:
-                lines.append(str(effect))
-        embed.add_field(name="⏳ Active Effects", value="\n".join(lines), inline=False)
+                effect_lines.append(f"  ⏳ {label} — {expires}")
+        
+        if effect_lines:
+            embed.add_field(
+                name="⏳ ACTIVE BUFFS",
+                value="\n".join(effect_lines),
+                inline=False
+            )
 
-    if equipment:
-        lines = []
-        for entry in equipment[:4]:
-            if isinstance(entry, dict) and "item_id" in entry:
-                item = ITEMS.get(entry["item_id"], {"name": entry["item_id"], "emoji": "✨"})
-                lines.append(f"{item.get('emoji', '✨')} {item['name']}")
-            else:
-                lines.append(str(entry))
-        embed.add_field(name="🧥 Equipped", value="\n".join(lines), inline=False)
-
+    embed.set_footer(text="Use buttons below to interact")
     return embed
 
 
@@ -549,4 +609,137 @@ def exclusive_reward_embed(exclusive_item: dict) -> discord.Embed:
     )
     
     embed.set_footer(text="Check your Exclusive Rares collection to view it!")
+    return embed
+
+
+# ═══════════════════════════════════════════════════════════════════
+# THE TAVERN EMBEDS
+# ═══════════════════════════════════════════════════════════════════
+
+def tavern_main_embed(username: str) -> discord.Embed:
+    """Main tavern welcome embed."""
+    embed = discord.Embed(
+        title="🍻 The Tavern 🍻",
+        description=(
+            f"🧔‍♂️ Fabian: Hey hey~ {username}! ✨\n"
+            f"Welcome to my cozy tavern 💛\n"
+            f"What can I do for ya today?"
+        ),
+        color=0x8B4513,
+    )
+    embed.set_footer(text="Choose an option below")
+    return embed
+
+
+def tavern_food_shop_embed() -> discord.Embed:
+    """Food and drinks shop embed."""
+    from game.data import TAVERN_FOOD
+    
+    embed = discord.Embed(
+        title="🍓 FOOD & DRINKS SHOP 🍓",
+        description="Restore your hunger with delicious treats!",
+        color=0xFF69B4,
+    )
+    
+    for food in TAVERN_FOOD:
+        embed.add_field(
+            name=f"{food['emoji']} {food['name']}",
+            value=f"+{food['hunger_restored']} HP • 🪙 {food['price']}",
+            inline=False,
+        )
+    
+    embed.set_footer(text="Click buttons to purchase food")
+    return embed
+
+
+def tavern_ticket_redeem_embed(username: str, ticket_count: int) -> discord.Embed:
+    """Ticket redemption embed."""
+    embed = discord.Embed(
+        title="🎟️ Ticket Counter 🎟️",
+        description=(
+            f"👩‍🍳 Martha: Hiya {username}! 💕\n"
+            f"Cashing in your tickets today? 🎟️\n\n"
+            f"🎟️ Dirty Tickets: **{ticket_count}**"
+        ),
+        color=0xDAA520,
+    )
+    embed.set_footer(text="Choose how many tickets to redeem")
+    return embed
+
+
+def tavern_redeem_single_embed(item_name: str) -> discord.Embed:
+    """Single ticket redemption result."""
+    embed = discord.Embed(
+        title="🌟 Congratulations! 🌟",
+        description=(
+            f"🎟️ -1 Ticket deducted.\n"
+            f"🎁 You received: **{item_name}**\n"
+            f"💖 Added safely to your inventory!"
+        ),
+        color=0xFFD700,
+    )
+    return embed
+
+
+def tavern_redeem_multi_embed(items: list[str], count: int) -> discord.Embed:
+    """Multiple ticket redemption result."""
+    items_text = "\n".join([f"🎁 {item}" for item in items])
+    
+    embed = discord.Embed(
+        title="🌟 Congratulations! 🌟",
+        description=(
+            f"🎟️ -{count} Tickets redeemed.\n"
+            f"✨ Loot incoming!!\n\n"
+            f"{items_text}\n\n"
+            f"so many goodies omg ✨\n"
+            f"💖 All items safely to your inventory!"
+        ),
+        color=0xFFD700,
+    )
+    return embed
+
+
+def tavern_redeem_all_embed(items: list[str], count: int) -> discord.Embed:
+    """All tickets redemption result."""
+    items_text = "\n".join([f"🎁 {item}" for item in items[:10]])  # Show first 10
+    more_text = f"\n... and {len(items) - 10} more!" if len(items) > 10 else ""
+    
+    embed = discord.Embed(
+        title="🎉 JACKPOT?! 🎉",
+        description=(
+            f"🎟️ All Tickets Redeemed ({count})\n"
+            f"🎁 Look at all this loot!!\n"
+            f"🌸 your bag is thriving fr 🌸\n\n"
+            f"{items_text}{more_text}\n\n"
+            f"💖 All items safely to your inventory!"
+        ),
+        color=0xFFD700,
+    )
+    return embed
+
+
+def exclusive_unlock_embed(exclusive_item: dict, username: str) -> discord.Embed:
+    """Exclusive item unlock notification."""
+    name = exclusive_item.get("name", "Unknown Exclusive")
+    category = exclusive_item.get("category", "Unknown")
+    flavor = exclusive_item.get("flavor", "A mysterious exclusive collectible.")
+    
+    category_emoji = {
+        "Toys": "🧸",
+        "Dogs": "🐶",
+        "Cats": "🐱",
+        "Wings": "🪽",
+    }.get(category, "✨")
+    
+    embed = discord.Embed(
+        title="🌟 Exclusive Unlocked! 🌟",
+        description=(
+            f"{name}\n\n"
+            f"🏷️ Category: {category_emoji} {category}\n"
+            f"💖 Added to Exclusive Inventory\n"
+            f"Congratulations {username}!"
+        ),
+        color=0xFFD700,
+    )
+    embed.set_footer(text="Use buttons to view collection or continue")
     return embed

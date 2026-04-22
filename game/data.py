@@ -799,3 +799,14 @@ PAWN_SPECIALS = [
     {"name": "Coming Soon", "emoji": "🪄", "description": "Mysterious rewards await..."},
     {"name": "Coming Soon", "emoji": "🪄", "description": "Mysterious rewards await..."},
 ]
+
+# ═══════════════════════════════════════════════════════════════════
+# THE TAVERN - FOOD & DRINKS MENU
+# ═══════════════════════════════════════════════════════════════════
+TAVERN_FOOD = [
+    {"id": "strawberry_milk", "name": "🍓 Strawberry Milk", "hunger_restored": 25, "price": 120, "emoji": "🍓"},
+    {"id": "brown_sugar_boba", "name": "🧋 Brown Sugar Boba", "hunger_restored": 50, "price": 260, "emoji": "🧋"},
+    {"id": "berry_smoothie", "name": "🫐 Berry Smoothie", "hunger_restored": 75, "price": 390, "emoji": "🫐"},
+    {"id": "bbq_rib_plate", "name": "🍖 BBQ Rib Plate", "hunger_restored": 100, "price": 700, "emoji": "🍖"},
+    {"id": "berry_ice_cream", "name": "🍨 Berry Ice Cream", "hunger_restored": 100, "price": 680, "emoji": "🍨"},
+]
