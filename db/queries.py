@@ -499,6 +499,118 @@ def feed_player(user_id: int, hunger_restored: int) -> int:
     return new_hunger
 
 
+# ═══════════════════════════════════════════════════════════════════
+# ZONE SYSTEM QUERIES
+# ═══════════════════════════════════════════════════════════════════
+
+def get_zone_event(user_id: int, zone_id: str) -> dict | None:
+    """Get active zone event for a user."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, zone_id, difficulty, is_active, mission_target_item_id,
+                       mission_target_qty, mission_progress, timer_end_at
+                FROM zone_events
+                WHERE user_id = %s AND zone_id = %s
+                """,
+                (user_id, zone_id),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            
+            return {
+                "id": row[0],
+                "zone_id": row[1],
+                "difficulty": row[2],
+                "is_active": row[3],
+                "mission_target_item_id": row[4],
+                "mission_target_qty": row[5],
+                "mission_progress": row[6],
+                "timer_end_at": row[7],
+            }
+
+
+def start_zone_event(user_id: int, zone_id: str, difficulty: str = "Medium") -> dict:
+    """Start a new zone event with mission."""
+    from game.zones import generate_mission
+    
+    mission = generate_mission(zone_id)
+    
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO zone_events
+                (user_id, zone_id, difficulty, is_active, activated_at, timer_end_at,
+                 mission_id, mission_target_item_id, mission_target_qty, mission_progress)
+                VALUES (%s, %s, %s, true, NOW(), NOW() + INTERVAL '1 hour', %s, %s, %s, 0)
+                ON CONFLICT (user_id, zone_id)
+                DO UPDATE SET
+                    is_active = true,
+                    activated_at = NOW(),
+                    timer_end_at = NOW() + INTERVAL '1 hour',
+                    mission_target_item_id = EXCLUDED.mission_target_item_id,
+                    mission_target_qty = EXCLUDED.mission_target_qty,
+                    mission_progress = 0
+                RETURNING id
+                """,
+                (user_id, zone_id, difficulty, f"mission_{zone_id}_{user_id}",
+                 mission.get("target_item_id"), mission.get("target_qty")),
+            )
+            row = cur.fetchone()
+    
+    return {"event_id": row[0], "mission": mission}
+
+
+def add_zone_harvest(user_id: int, zone_id: str, item_id: str, rarity: str,
+                     metadata_type: str = None, metadata_value: str = None) -> None:
+    """Record a harvested item from a zone."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO zone_harvests
+                (user_id, zone_id, item_id, rarity, metadata_type, metadata_value)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (user_id, zone_id, item_id, rarity, metadata_type, metadata_value),
+            )
+
+
+def update_mission_progress(user_id: int, zone_id: str, progress_increment: int) -> int:
+    """Update mission progress. Returns new progress."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE zone_events
+                SET mission_progress = mission_progress + %s
+                WHERE user_id = %s AND zone_id = %s
+                RETURNING mission_progress
+                """,
+                (progress_increment, user_id, zone_id),
+            )
+            row = cur.fetchone()
+            return row[0] if row else 0
+
+
+def complete_zone_event(user_id: int, zone_id: str) -> None:
+    """Mark zone event as complete."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE zone_events
+                SET is_active = false
+                WHERE user_id = %s AND zone_id = %s
+                """,
+                (user_id, zone_id),
+            )
+
+
+
 def get_hunger(user_id: int) -> int:
     """Get current hunger level (0-100)."""
     with get_conn() as conn:

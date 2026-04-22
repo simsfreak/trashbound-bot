@@ -861,7 +861,7 @@ class ExclusiveMainView(discord.ui.View):
             attachments=[],
         )
 
-    @discord.ui.button(label="🐶 Dogs", style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(label="🐶 Dogs", style=discord.ButtonStyle.secondary, row=0)
     async def dogs_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         items = queries.get_exclusives_by_category(interaction.user.id, "Dogs")
         from ui.embeds import exclusive_category_embed
@@ -883,7 +883,7 @@ class ExclusiveMainView(discord.ui.View):
             attachments=[],
         )
 
-    @discord.ui.button(label="🐱 Cats", style=discord.ButtonStyle.primary, row=1)
+    @discord.ui.button(label="🐱 Cats", style=discord.ButtonStyle.success, row=1)
     async def cats_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         items = queries.get_exclusives_by_category(interaction.user.id, "Cats")
         from ui.embeds import exclusive_category_embed
@@ -905,7 +905,7 @@ class ExclusiveMainView(discord.ui.View):
             attachments=[],
         )
 
-    @discord.ui.button(label="🪽 Wings", style=discord.ButtonStyle.primary, row=1)
+    @discord.ui.button(label="🪽 Wings", style=discord.ButtonStyle.danger, row=1)
     async def wings_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         items = queries.get_exclusives_by_category(interaction.user.id, "Wings")
         from ui.embeds import exclusive_category_embed

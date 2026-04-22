@@ -122,6 +122,36 @@ SCHEMA_STATEMENTS = [
         purchased_at TIMESTAMP NOT NULL DEFAULT NOW()
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS zone_events (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL REFERENCES players(user_id) ON DELETE CASCADE,
+        zone_id TEXT NOT NULL,
+        difficulty TEXT NOT NULL DEFAULT 'Medium',
+        is_active BOOLEAN DEFAULT FALSE,
+        activated_at TIMESTAMP,
+        timer_end_at TIMESTAMP,
+        mission_id TEXT,
+        mission_target_item_id TEXT,
+        mission_target_qty INTEGER DEFAULT 0,
+        mission_progress INTEGER DEFAULT 0,
+        last_action_at TIMESTAMP,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        UNIQUE (user_id, zone_id)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS zone_harvests (
+        id SERIAL PRIMARY KEY,
+        user_id BIGINT NOT NULL REFERENCES players(user_id) ON DELETE CASCADE,
+        zone_id TEXT NOT NULL,
+        item_id TEXT NOT NULL,
+        rarity TEXT NOT NULL,
+        metadata_type TEXT,
+        metadata_value TEXT,
+        harvested_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+    """,
 ]
 
 
