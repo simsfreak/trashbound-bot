@@ -605,7 +605,7 @@ def exclusive_reward_embed(exclusive_item: dict) -> discord.Embed:
             f"*{flavor}*\n\n"
             f"Added to your collection!"
         ),
-        color=0xFFD700,
+        color=0xFF69B4,
     )
     
     embed.set_footer(text="Check your Exclusive Rares collection to view it!")
@@ -739,7 +739,7 @@ def exclusive_unlock_embed(exclusive_item: dict, username: str) -> discord.Embed
             f"💖 Added to Exclusive Inventory\n"
             f"Congratulations {username}!"
         ),
-        color=0xFFD700,
+        color=0xFF69B4,
     )
     embed.set_footer(text="Use buttons to view collection or continue")
     return embed
