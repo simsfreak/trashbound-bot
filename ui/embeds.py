@@ -808,7 +808,9 @@ def zone_info_embed(zone_id: str, player_level: int) -> discord.Embed:
 
 
 def zone_active_embed(zone_id: str, mission_data: dict, time_remaining_sec: int | None = None) -> discord.Embed:
-    """Embed showing active zone mission."""
+    """Embed showing active zone mission with reward pool."""
+    from game.zones import REWARD_POOL
+    
     zone = ZONES[zone_id]
     mission = mission_data or {}
     
@@ -822,20 +824,32 @@ def zone_active_embed(zone_id: str, mission_data: dict, time_remaining_sec: int 
     mission_complete = collected >= quantity
     complete_status = "✅ READY TO COMPLETE" if mission_complete else "🔒 Complete when done"
     
+    # Build reward pool list
+    reward_pool_text = "**🎁 Random Reward Pool:**\n"
+    for reward_id in REWARD_POOL.keys():
+        reward = REWARD_POOL[reward_id]
+        reward_name = reward.get('name', 'Unknown Reward')
+        
+        # Add reward details if applicable
+        if reward.get('type') == 'zone_box':
+            reward_pool_text += f"{reward_name} — {reward.get('xp_reward', 0)} XP\n"
+        elif reward.get('type') == 'coin_bag':
+            reward_pool_text += f"{reward_name} — ${reward.get('coin_reward', 0):,}\n"
+        else:
+            reward_pool_text += f"{reward_name}\n"
+    
     description = (
         f"🎯 **MISSION:** Collect {quantity} {rarity} items\n"
         f"**Progress:** {collected}/{quantity}\n\n"
         f"{progress_bar}\n\n"
         f"**Status:** {complete_status}\n\n"
-        f"**Rewards on completion:**\n"
-        f"💰 +{mission.get('coin_reward', 0)} coins\n"
-        f"⭐ +{mission.get('xp_reward', 0)} XP"
+        f"{reward_pool_text}"
     )
     
     if time_remaining_sec and time_remaining_sec > 0:
         mins = time_remaining_sec // 60
         secs = time_remaining_sec % 60
-        description += f"\n\n⏳ **Time Remaining:** {mins:02d}:{secs:02d}"
+        description += f"\n⏳ **Time Remaining:** {mins:02d}:{secs:02d}"
     
     embed = discord.Embed(
         title=f"⛏️ ACTIVE IN {zone['name']}",
