@@ -116,6 +116,7 @@ for item_id, name, coins_text, flavor in _common_items:
         "coins": int(coins_text.split()[0]),
         "xp": 1,
         "flavor": flavor,
+        "zone_ids": ["back_alley", "apartment_bins", "restaurant_dumpster", "mall_rear_lot"],
     }
 
 # UNCOMMON ITEMS (80) - Mid-tier finds
@@ -210,6 +211,7 @@ for item_id, name, coins_text, flavor in _uncommon_items:
         "coins": int(coins_text.split()[0]),
         "xp": 2,
         "flavor": flavor,
+        "zone_ids": ["back_alley", "apartment_bins", "restaurant_dumpster"],
     }
 
 # RARE ITEMS (80)
@@ -298,6 +300,7 @@ for item_id, name, coins_text, flavor in _rare_items:
         "coins": int(coins_text.split()[0]),
         "xp": 5,
         "flavor": flavor,
+        "zone_ids": ["restaurant_dumpster", "mall_rear_lot"],
     }
 
 # EPIC ITEMS (50)
@@ -361,6 +364,7 @@ for item_id, name, coins_text, flavor in _epic_items:
         "coins": int(coins_text.split()[0]),
         "xp": 10,
         "flavor": flavor,
+        "zone_ids": ["mall_rear_lot"],
     }
 
 # LEGENDARY ITEMS (36)
@@ -411,6 +415,7 @@ for item_id, name, coins_text, flavor in _legendary_items:
         "coins": int(coins_text.split()[0]),
         "xp": 20,
         "flavor": flavor,
+        "zone_ids": ["mall_rear_lot"],
     }
 
 MIX_RECIPES = [

@@ -398,6 +398,7 @@ class ProfileView(discord.ui.View):
         else:
             await interaction.edit_original_response(
                 embed=embed,
+                attachments=[],
                 view=ProfileView(self.owner_id, self.is_admin),
             )
 
