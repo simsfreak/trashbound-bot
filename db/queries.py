@@ -610,6 +610,39 @@ def complete_zone_event(user_id: int, zone_id: str) -> None:
             )
 
 
+def get_last_zone_action(user_id: int, zone_id: str) -> str | None:
+    """Get the timestamp of the last zone action for cooldown tracking."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT last_action_at
+                FROM zone_actions
+                WHERE user_id = %s AND zone_id = %s
+                ORDER BY last_action_at DESC
+                LIMIT 1
+                """,
+                (user_id, zone_id),
+            )
+            row = cur.fetchone()
+            return row[0].isoformat() if row and row[0] else None
+
+
+def record_zone_action(user_id: int, zone_id: str, timestamp: str) -> None:
+    """Record a zone action for cooldown tracking."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO zone_actions (user_id, zone_id, last_action_at)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (user_id, zone_id) 
+                DO UPDATE SET last_action_at = EXCLUDED.last_action_at
+                """,
+                (user_id, zone_id, timestamp),
+            )
+
+
 # ═══════════════════════════════════════════════════════════════════
 # ZONE REWARD OPENING FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════

@@ -55,6 +55,10 @@ from ui.embeds import (
     museum_story_embed,
     museum_set_completion_embed,
 )
+from ui.zone_views import (
+    ZoneSelectorView,
+    ZoneSelectorNewView,
+)
 from ui.modals import ContactAdminModal
 
 
