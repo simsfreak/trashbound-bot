@@ -41,12 +41,13 @@ from ui.embeds import (
     tavern_redeem_multi_embed,
     tavern_redeem_all_embed,
     exclusive_unlock_embed,
-    zone_selector_embed,
-    zone_info_embed,
-    zone_active_embed,
-    zone_harvest_embed,
-    zone_completion_embed,
-    zone_cooldown_embed,
+    # ZONE IMPORTS DISABLED
+    # zone_selector_embed,
+    # zone_info_embed,
+    # zone_active_embed,
+    # zone_harvest_embed,
+    # zone_completion_embed,
+    # zone_cooldown_embed,
     museum_hub_embed,
     museum_sets_page_embed,
     museum_set_detail_embed,
@@ -55,10 +56,11 @@ from ui.embeds import (
     museum_story_embed,
     museum_set_completion_embed,
 )
-from ui.zone_views import (
-    ZoneSelectorView,
-    ZoneSelectorNewView,
-)
+# ZONE SYSTEM DISABLED
+# from ui.zone_views import (
+#     ZoneSelectorView,
+#     ZoneSelectorNewView,
+# )
 from ui.modals import ContactAdminModal
 
 
@@ -461,15 +463,16 @@ class ProfileView(discord.ui.View):
             attachments=[],
         )
 
-    @discord.ui.button(label="🗺️ Zones", style=discord.ButtonStyle.success, row=1)
-    async def zones_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        player = queries.get_player(interaction.user.id)
-        embed = zone_selector_embed(player["level"])
-        await interaction.response.edit_message(
-            embed=embed,
-            view=ZoneSelectorNewView(self.owner_id, self.is_admin),
-            attachments=[],
-        )
+    # ZONE SYSTEM DISABLED - zones_button removed
+    # @discord.ui.button(label="🗺️ Zones", style=discord.ButtonStyle.success, row=1)
+    # async def zones_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+    #     player = queries.get_player(interaction.user.id)
+    #     embed = zone_selector_embed(player["level"])
+    #     await interaction.response.edit_message(
+    #         embed=embed,
+    #         view=ZoneSelectorNewView(self.owner_id, self.is_admin),
+    #         attachments=[],
+    #     )
 
     @discord.ui.button(label="🎒 Pawn Shop", style=discord.ButtonStyle.primary, row=1)
     async def pawn_shop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
